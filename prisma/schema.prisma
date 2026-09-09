@@ -1,0 +1,203 @@
+// prisma/schema.prisma
+// CDU Monitoring — Nusa Putra University
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String   // hashed dengan bcrypt
+  role      Role     @default(CDU_STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  monitoringUpdates MonitoringSesi[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CDU_STAFF
+}
+
+// ─────────────────────────────────────────
+// DATA MASTER
+// ─────────────────────────────────────────
+
+model Semester {
+  id            String    @id @default(cuid())
+  tahunAkademik String    // contoh: "2024/2025"
+  periode       Periode   // GANJIL atau GENAP
+  aktif         Boolean   @default(false)
+  tanggalMulai  DateTime? // Tanggal mulai sesi 1 resmi (misal: 2026-09-21)
+  createdAt     DateTime  @default(now())
+
+  kelas     Kelas[]
+  hariLibur LiburSemester[]
+
+  @@unique([tahunAkademik, periode])
+}
+
+model LiburSemester {
+  id             String   @id @default(cuid())
+  semesterId     String
+  nama           String   // contoh: "Minggu Tenang UTS", "Tahun Baru", "Libur Remedial"
+  tanggalMulai   DateTime
+  tanggalSelesai DateTime // Jika 1 hari, tanggalSelesai sama dengan tanggalMulai
+  keterangan     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  semester       Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+}
+
+enum Periode {
+  GANJIL
+  GENAP
+}
+
+model Fakultas {
+  id        String   @id @default(cuid())
+  nama      String   @unique
+  createdAt DateTime @default(now())
+
+  prodi Prodi[]
+}
+
+model Prodi {
+  id         String   @id @default(cuid())
+  nama       String
+  kode       String   @unique
+  fakultasId String
+  createdAt  DateTime @default(now())
+
+  fakultas   Fakultas     @relation(fields: [fakultasId], references: [id])
+  dosen      Dosen[]
+  mataKuliah MataKuliah[]
+}
+
+model Dosen {
+  id        String   @id @default(cuid())
+  nama      String
+  nidn      String?  @unique
+  email     String?
+  prodiId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prodi Prodi   @relation(fields: [prodiId], references: [id])
+  kelas Kelas[]
+}
+
+model MataKuliah {
+  id        String   @id @default(cuid())
+  kode      String
+  nama      String
+  sks       Int
+  prodiId   String
+  createdAt DateTime @default(now())
+
+  prodi Prodi   @relation(fields: [prodiId], references: [id])
+  kelas Kelas[]
+
+  @@unique([kode, prodiId])
+}
+
+model Kelas {
+  id               String           @id @default(cuid())
+  kodeKelas        String           // contoh: TI23I, MN24H
+  semesterId       String
+  mataKuliahId     String
+  dosenId          String
+  jadwalHari       String?          // contoh: "Senin"
+  jadwalJam        String?          // contoh: "10:00 - 11:40"
+  ruangan          String?          // contoh: "R.204", "Lab Komputer 1" (opsional untuk kelas offline)
+  modePembelajaran ModePembelajaran @default(DARING)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  semester       Semester         @relation(fields: [semesterId], references: [id])
+  mataKuliah     MataKuliah       @relation(fields: [mataKuliahId], references: [id])
+  dosen          Dosen            @relation(fields: [dosenId], references: [id])
+  monitoringSesi MonitoringSesi[]
+
+  @@unique([kodeKelas, semesterId, mataKuliahId])
+}
+
+enum ModePembelajaran {
+  DARING
+  LURING
+  HYBRID
+}
+
+// ─────────────────────────────────────────
+// MONITORING (Inti Sistem)
+// ─────────────────────────────────────────
+
+model MonitoringSesi {
+  id        String    @id @default(cuid())
+  kelasId   String
+  nomorSesi Int       // 1–16
+  jenisSesi JenisSesi // REGULER, UTS (sesi 8), UAS (sesi 16)
+  tanggal   DateTime?
+
+  // ── Kehadiran Dosen ──────────────────────────────────────────────────────
+  // Berlaku untuk SEMUA sesi (Reguler, UTS, UAS)
+  // Diisi MANUAL oleh CDU Staff — default: BELUM_DIISI
+  kehadiran Kehadiran @default(BELUM_DIISI)
+
+  // ── Komponen Konten ───────────────────────────────────────────────────────
+  // HANYA untuk sesi REGULER (sesi 1–7 dan 9–15)
+  // Sesi 8 (UTS) dan Sesi 16 (UAS) → semua field konten = NULL (tidak berlaku)
+  // Nilai: true = ada | false = tidak ada | null = tidak berlaku (UTS/UAS)
+  // Diisi OTOMATIS dari import Excel Edlink
+  lectureNote Boolean? // Lecture Note / Modul
+  slide       Boolean? // Presentasi / PPT / Slide
+  video       Boolean? // Video Pembelajaran
+  conference  Boolean? // Live Conference / Zoom / Video Conference
+  tugas       Boolean? // Tugas / Assignment / Case Study / Project
+  kuis        Boolean? // Quiz
+
+  // ── Metadata ──────────────────────────────────────────────────────────────
+  catatanCdu   String?    // Catatan tambahan dari CDU
+  sumberData   SumberData @default(MANUAL)
+  inputOlehId  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  kelas     Kelas @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  inputOleh User? @relation(fields: [inputOlehId], references: [id])
+
+  @@unique([kelasId, nomorSesi])
+}
+
+enum JenisSesi {
+  REGULER // Sesi 1–7, 9–15 → ada kehadiran + konten
+  UTS     // Sesi 8          → hanya kehadiran, konten NULL
+  UAS     // Sesi 16         → hanya kehadiran, konten NULL
+}
+
+enum Kehadiran {
+  HADIR               // Hadir
+  TIDAK_HADIR         // Tidak hadir / Alpha
+  HADIR_TIDAK_LENGKAP // Hadir tapi tidak lengkap
+  BELUM_DIISI         // Default — belum dicek CDU
+}
+
+enum SumberData {
+  MANUAL        // Diisi manual oleh CDU
+  IMPORT_EXCEL  // Dari import file Edlink
+}
