@@ -290,13 +290,18 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
 
       // 7. Mode Pembelajaran
       const rawMode = String(row["Mode Pembelajaran"] || row["Mode (Online / Offline)"] || row["Mode"] || row["mode"] || "ONLINE").trim().toUpperCase();
-      const mode: "DARING" | "LURING" = (rawMode.includes("OFFLINE") || rawMode.includes("LURING")) ? "LURING" : "DARING";
+      let mode: "DARING" | "LURING" | "BIMBINGAN" = "DARING";
+      if (rawMode.includes("BIMBINGAN")) {
+        mode = "BIMBINGAN";
+      } else if (rawMode.includes("OFFLINE") || rawMode.includes("LURING")) {
+        mode = "LURING";
+      }
 
-      // 8. Ruang Kelas (Opsional, hanya untuk Offline / Luring)
+      // 8. Ruang Kelas (Opsional, untuk Offline / Bimbingan jika tatap muka)
       const rawRuang = String(
         row["Ruang Kelas"] || row["Ruang"] || row["Ruangan"] || row["ruangKelas"] || row["ruangan"] || ""
       ).trim();
-      const ruangan = mode === "LURING" ? (rawRuang || null) : null;
+      const ruangan = mode !== "DARING" ? (rawRuang || null) : null;
 
       const errors: string[] = [];
 
@@ -509,7 +514,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
             dosenId: dosenId,
             jadwalHari: r.jadwalHari,
             jadwalJam: r.jadwalJam,
-            ruangan: r.modePembelajaran === "LURING" ? (r.ruangan?.trim() || null) : null,
+            ruangan: r.modePembelajaran !== "DARING" ? (r.ruangan?.trim() || null) : null,
             modePembelajaran: r.modePembelajaran,
           },
         });
@@ -524,7 +529,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
               dosenId: dosenId,
               jadwalHari: r.jadwalHari,
               jadwalJam: r.jadwalJam,
-              ruangan: r.modePembelajaran === "LURING" ? (r.ruangan?.trim() || null) : null,
+              ruangan: r.modePembelajaran !== "DARING" ? (r.ruangan?.trim() || null) : null,
               modePembelajaran: r.modePembelajaran,
             },
           });

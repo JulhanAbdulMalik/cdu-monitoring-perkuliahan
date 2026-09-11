@@ -96,6 +96,11 @@ const navGroups: NavGroup[] = [
         icon: Layers,
       },
       {
+        label: "Data Dosen",
+        href: "/master/dosen",
+        icon: GraduationCap,
+      },
+      {
         label: "Data Perkuliahan",
         href: "/master/kelas",
         icon: School,

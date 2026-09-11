@@ -21,6 +21,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  GraduationCap,
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
 import { formatTerakhirUpdateParts } from "@/lib/utils";
@@ -43,7 +44,7 @@ export interface MonitoringKelasItem {
   kodeKelas: string;
   jadwalHari: string | null;
   jadwalJam: string | null;
-  modePembelajaran: "DARING" | "LURING";
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   updatedAt: Date | string;
   semester: {
     id: string;
@@ -78,6 +79,14 @@ export interface MonitoringKelasItem {
     conference: boolean | null;
     tugas: boolean | null;
     kuis: boolean | null;
+    dosenPengajarId?: string | null;
+    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    catatanGantiDosen?: string | null;
+    dosenPengajar?: {
+      id: string;
+      nama: string;
+      nidn?: string | null;
+    } | null;
     updatedAt: Date | string;
   }>;
 }
@@ -153,11 +162,35 @@ export default function MonitoringListClient({
 
     const updateParts = formatTerakhirUpdateParts(new Date(latestTime));
 
+    // Kumpulkan dosen pengajar per sesi
+    const peranMap = new Map<string, { id: string; nama: string; status: string; sesiList: number[] }>();
+    cls.monitoringSesi.forEach((s) => {
+      const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+      if (isSub) {
+        const sub = s.dosenPengajar!;
+        if (!peranMap.has(sub.id)) {
+          peranMap.set(sub.id, {
+            id: sub.id,
+            nama: sub.nama,
+            status: s.statusPengajar!,
+            sesiList: [s.nomorSesi],
+          });
+        } else {
+          peranMap.get(sub.id)!.sesiList.push(s.nomorSesi);
+        }
+      }
+    });
+
+    const dosenPengajarList = Array.from(peranMap.values());
+    const isSplitPengajar = dosenPengajarList.length > 0;
+
     return {
       ...cls,
       summary,
       latestTime,
       updateParts,
+      dosenPengajarList,
+      isSplitPengajar,
     };
   });
 
@@ -166,11 +199,16 @@ export default function MonitoringListClient({
     const matchProdi = filterProdi === "ALL" || item.mataKuliah.prodi.id === filterProdi;
     const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
     const matchStatus = filterStatus === "ALL" || item.summary.statusEvaluasi === filterStatus;
+    const q = searchQuery.toLowerCase();
+    const matchPengajar = item.dosenPengajarList?.some((p) =>
+      p.nama.toLowerCase().includes(q)
+    );
     const matchSearch =
-      item.kodeKelas.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.mataKuliah.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.mataKuliah.kode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.dosen.nama.toLowerCase().includes(searchQuery.toLowerCase());
+      item.kodeKelas.toLowerCase().includes(q) ||
+      item.mataKuliah.nama.toLowerCase().includes(q) ||
+      item.mataKuliah.kode.toLowerCase().includes(q) ||
+      item.dosen.nama.toLowerCase().includes(q) ||
+      matchPengajar;
 
     return matchProdi && matchMode && matchStatus && matchSearch;
   });
@@ -297,10 +335,11 @@ export default function MonitoringListClient({
     );
   }
 
-  // Global KPI Calculations (Separate Online vs Offline)
+  // Global KPI Calculations (Separate Online vs Offline vs Bimbingan)
   const totalClasses = filteredList.length;
   const onlineList = filteredList.filter((c) => c.modePembelajaran === "DARING");
   const offlineList = filteredList.filter((c) => c.modePembelajaran === "LURING");
+  const bimbinganList = filteredList.filter((c) => c.modePembelajaran === "BIMBINGAN");
 
   const avgKehadiran =
     totalClasses > 0
@@ -321,6 +360,9 @@ export default function MonitoringListClient({
 
   const offlineMemenuhi = offlineList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
   const offlinePerhatian = offlineList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
+
+  const bimbinganMemenuhi = bimbinganList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
+  const bimbinganPerhatian = bimbinganList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
 
   return (
     <div className="space-y-4">
@@ -359,8 +401,8 @@ export default function MonitoringListClient({
           <h3 className="text-2xl font-bold text-slate-900 mt-1 leading-none">
             {totalClasses}
           </h3>
-          <p className="text-[11px] text-slate-400 mt-1">
-            {onlineList.length} Online • {offlineList.length} Offline
+          <p className="text-[11px] text-slate-400 mt-1 truncate">
+            {onlineList.length} Online • {offlineList.length} Offline{bimbinganList.length > 0 ? ` • ${bimbinganList.length} Bimbingan` : ""}
           </p>
         </div>
 
@@ -385,7 +427,11 @@ export default function MonitoringListClient({
             Rata-rata Konten 3 Pilar
           </p>
           <div className="flex items-baseline gap-2 mt-1">
-            {filterMode === "LURING" ? (
+            {filterMode === "BIMBINGAN" ? (
+              <h3 className="text-xl font-bold text-purple-600 leading-none">
+                Bebas Konten
+              </h3>
+            ) : filterMode === "LURING" ? (
               <h3 className="text-xl font-bold text-slate-500 leading-none">
                 Bebas Kewajiban
               </h3>
@@ -396,17 +442,35 @@ export default function MonitoringListClient({
             )}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {filterMode === "LURING" ? "Opsional (Hanya untuk Online)" : "Rata-rata Kelas Online (Maks 42)"}
+            {filterMode === "BIMBINGAN"
+              ? "Bimbingan SCP / Skripsi"
+              : filterMode === "LURING"
+              ? "Opsional (Hanya untuk Online)"
+              : "Rata-rata Kelas Online (Maks 42)"}
           </p>
         </div>
 
-        {/* Card 4: Status (Dipisahkan Online & Offline dengan Keterangan Faktor) */}
+        {/* Card 4: Status (Dipisahkan Online, Offline & Bimbingan) */}
         <div className="duralux-card p-4 bg-white">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Status
           </p>
           
-          {filterMode === "LURING" ? (
+          {filterMode === "BIMBINGAN" ? (
+            <div>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {bimbinganMemenuhi} Sesuai
+                </span>
+                <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  {bimbinganPerhatian} Perhatian
+                </span>
+              </div>
+              <p className="text-[10px] text-purple-600 mt-1.5 truncate" title="Faktor evaluasi bimbingan: Kehadiran Sesi Pembimbingan (≥85%, Bebas 3 Pilar)">
+                Faktor: Kehadiran Bimbingan (≥85%)
+              </p>
+            </div>
+          ) : filterMode === "LURING" ? (
             <div>
               <div className="flex items-center gap-2 mt-1.5">
                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -469,6 +533,25 @@ export default function MonitoringListClient({
                   <span className="text-rose-600">{offlinePerhatian} Perhatian</span>
                 </div>
               </div>
+
+              {/* Baris Bimbingan jika ada */}
+              {bimbinganList.length > 0 && (
+                <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 text-[9.5px] shrink-0">
+                      Bimbingan
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-normal truncate">
+                      Presensi Bimbingan
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 font-bold text-slate-700 text-[11px] shrink-0 ml-1">
+                    <span className="text-emerald-600">{bimbinganMemenuhi} Sesuai</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-rose-600">{bimbinganPerhatian} Perhatian</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -537,6 +620,7 @@ export default function MonitoringListClient({
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online</option>
               <option value="LURING">Offline</option>
+              <option value="BIMBINGAN">Bimbingan</option>
             </select>
           </div>
 
@@ -597,12 +681,19 @@ export default function MonitoringListClient({
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border w-fit ${
-                            cls.modePembelajaran === "LURING"
+                            cls.modePembelajaran === "BIMBINGAN"
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : cls.modePembelajaran === "LURING"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-blue-50 text-blue-700 border-blue-200"
                           }`}
                         >
-                          {cls.modePembelajaran === "LURING" ? (
+                          {cls.modePembelajaran === "BIMBINGAN" ? (
+                            <>
+                              <GraduationCap size={9} />
+                              <span>Bimbingan</span>
+                            </>
+                          ) : cls.modePembelajaran === "LURING" ? (
                             <>
                               <Building size={9} />
                               <span>Offline</span>
@@ -633,17 +724,39 @@ export default function MonitoringListClient({
 
                     {/* Dosen */}
                     <td className="py-3 px-3">
-                      <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                        <User size={13} className="text-[#a80063] shrink-0" />
-                        <span className="font-semibold truncate max-w-[150px]" title={cls.dosen.nama}>
-                          {cls.dosen.nama}
-                        </span>
+                      <div>
+                        <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                          <User size={13} className="text-[#a80063] shrink-0" />
+                          <span className="font-semibold truncate max-w-[150px]" title={cls.dosen.nama}>
+                            {cls.dosen.nama}
+                          </span>
+                        </div>
+                        {cls.dosen.nidn && (
+                          <p className="text-[10px] text-slate-400 mt-0.5 ml-4">
+                            NIDN: {cls.dosen.nidn}
+                          </p>
+                        )}
+                        {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 0 && (
+                          <div className="mt-1 ml-4 space-y-0.5">
+                            {cls.dosenPengajarList.map((p, pIdx) => (
+                              <div key={pIdx} className="flex items-center gap-1 text-[9.5px]">
+                                <span
+                                  className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
+                                    p.status === "PERGANTIAN_TETAP"
+                                      ? "bg-purple-50 text-purple-700 border-purple-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                </span>
+                                <span className="truncate max-w-[110px] text-slate-600 font-medium" title={p.nama}>
+                                  {p.nama}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {cls.dosen.nidn && (
-                        <p className="text-[10px] text-slate-400 mt-0.5 ml-4">
-                          NIDN: {cls.dosen.nidn}
-                        </p>
-                      )}
                     </td>
 
                     {/* Jadwal Kuliah */}
@@ -676,14 +789,12 @@ export default function MonitoringListClient({
 
                     {/* Skor 3 Pilar */}
                     <td className="py-3 px-3 text-center">
-                      {cls.modePembelajaran === "LURING" ? (
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className="font-bold text-xs text-slate-500">
-                            {cls.summary.totalSkor3Pilar > 0 ? `${cls.summary.totalSkor3Pilar} Poin` : "—"}
+                      {cls.modePembelajaran === "BIMBINGAN" ? (
+                        <div className="inline-flex flex-col items-center justify-center">
+                          <span className="text-[9.5px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-purple-200" title="Kelas Bimbingan bebas dari kewajiban 3 pilar konten LMS">
+                            Bebas Konten
                           </span>
-                          <span className="text-[9px] text-slate-400 font-semibold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200">
-                            Bebas Kewajiban
-                          </span>
+                          <span className="text-[8.5px] text-slate-400 mt-0.5">SCP / Skripsi</span>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
@@ -692,7 +803,7 @@ export default function MonitoringListClient({
                           </span>
                           <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                             <div
-                              className="h-full bg-[#a80063] rounded-full"
+                              className="h-full bg-[#a80063] rounded-full transition-all"
                               style={{ width: `${cls.summary.persenKonten}%` }}
                             />
                           </div>
@@ -711,6 +822,15 @@ export default function MonitoringListClient({
                             Bebas Conf
                           </span>
                           <span className="text-[8.5px] text-slate-400 mt-0.5">Tatap Muka</span>
+                        </div>
+                      ) : cls.modePembelajaran === "BIMBINGAN" ? (
+                        <div className="inline-flex flex-col items-center text-[9.5px] font-bold">
+                          <span className={cls.summary.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                            UTS: {cls.summary.confPraUTS}/8 {cls.summary.confPraUTS >= 8 ? "✓" : "⚠️"}
+                          </span>
+                          <span className={cls.summary.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                            UAS: {cls.summary.confPraUAS}/8 {cls.summary.confPraUAS >= 8 ? "✓" : "⚠️"}
+                          </span>
                         </div>
                       ) : (
                         <div className="inline-flex flex-col items-center text-[9.5px] font-bold">

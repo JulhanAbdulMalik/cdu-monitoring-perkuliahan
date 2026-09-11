@@ -103,7 +103,7 @@ export function calculateClassSummary(
     tugas?: boolean | null;
     kuis?: boolean | null;
   }>,
-  modePembelajaran: "DARING" | "LURING" = "DARING"
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN" = "DARING"
 ): ClassSummaryResult {
   let totalHadirLengkap = 0;
   let totalHadirTdkLengkap = 0;
@@ -120,41 +120,64 @@ export function calculateClassSummary(
     else if (s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA") totalAlpha++;
     else totalBelumDiisi++;
 
-    const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
-    if (!isExam) {
-      const pilar = calculateSessionPillars(s);
-      if (pilar.score !== null) {
-        totalSkor3Pilar += pilar.score;
-      }
-
+    if (modePembelajaran === "BIMBINGAN") {
       if (s.conference) {
-        if (s.nomorSesi >= 1 && s.nomorSesi <= 7) confPraUTS++;
-        if (s.nomorSesi >= 9 && s.nomorSesi <= 15) confPraUAS++;
+        if (s.nomorSesi >= 1 && s.nomorSesi <= 8) confPraUTS++;
+        else if (s.nomorSesi >= 9 && s.nomorSesi <= 16) confPraUAS++;
+      }
+    } else {
+      const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
+      if (!isExam) {
+        const pilar = calculateSessionPillars(s);
+        if (pilar.score !== null) {
+          totalSkor3Pilar += pilar.score;
+        }
+
+        if (s.conference) {
+          if (s.nomorSesi >= 1 && s.nomorSesi <= 7) confPraUTS++;
+          if (s.nomorSesi >= 9 && s.nomorSesi <= 15) confPraUAS++;
+        }
       }
     }
   });
 
   const totalHadir = totalHadirLengkap + totalHadirTdkLengkap;
   const persenKehadiran = Math.round((totalHadir / 16) * 100);
-  const persenKonten = Math.round((totalSkor3Pilar / 42) * 100); // 14 regular sesi * 3 max = 42
+  const persenKonten = modePembelajaran === "BIMBINGAN" ? 100 : Math.round((totalSkor3Pilar / 42) * 100); // 14 regular sesi * 3 max = 42
 
   const confTotal = confPraUTS + confPraUAS;
-  const isConfCompliant = modePembelajaran === "LURING" ? true : confPraUTS >= 3 && confPraUAS >= 3;
+  const isConfCompliant = modePembelajaran !== "DARING" ? true : confPraUTS >= 3 && confPraUAS >= 3;
 
   let statusEvaluasi: "MEMENUHI" | "CUKUP" | "PERLU_PERHATIAN" = "MEMENUHI";
   let evaluasiNote = "Memenuhi standar perkuliahan CDU.";
 
-  if (modePembelajaran === "LURING") {
-    // Mode Offline: Kehadiran fisik adalah acuan utama (Bebas kewajiban 3 Pilar & Live Conf)
+  if (modePembelajaran === "BIMBINGAN") {
+    // Mode Bimbingan: Bebas 3 Pilar materi LMS, murni dievaluasi dari Kehadiran Sesi Pembimbingan (16 sesi)
     if (totalAlpha >= 3 || persenKehadiran < 75) {
       statusEvaluasi = "PERLU_PERHATIAN";
-      evaluasiNote = "Kehadiran tatap muka di kelas kurang dari 75% atau Alpha ≥ 3 sesi.";
+      evaluasiNote = "Kehadiran bimbingan kurang dari 75% atau Alpha ≥ 3 sesi.";
     } else if (persenKehadiran < 85) {
       statusEvaluasi = "CUKUP";
-      evaluasiNote = "Kehadiran tatap muka di kelas cukup baik (75% – 84%).";
+      evaluasiNote = "Kehadiran bimbingan memenuhi standar minimal (75%–84%).";
     } else {
       statusEvaluasi = "MEMENUHI";
-      evaluasiNote = "Kehadiran tatap muka di kelas sangat baik (≥ 85%). Bebas kewajiban 3 Pilar & Live Conf.";
+      evaluasiNote = "Sangat memuaskan: Kehadiran bimbingan ≥ 85%.";
+    }
+  } else if (modePembelajaran === "LURING") {
+    // Mode Offline: 3 Pilar dievaluasi, bebas kewajiban kuota Live Conference
+    if (totalAlpha >= 3 || persenKehadiran < 75 || persenKonten < 60) {
+      statusEvaluasi = "PERLU_PERHATIAN";
+      if (persenKonten < 60 && persenKehadiran >= 75 && totalAlpha < 3) {
+        evaluasiNote = "Kelengkapan 3 pilar materi di bawah standar (< 60%).";
+      } else {
+        evaluasiNote = "Kehadiran tatap muka di kelas kurang dari 75% atau Alpha ≥ 3 sesi.";
+      }
+    } else if (persenKehadiran < 85 || persenKonten < 75) {
+      statusEvaluasi = "CUKUP";
+      evaluasiNote = "Perkuliahan tatap muka & kelengkapan 3 pilar memenuhi standar minimal.";
+    } else {
+      statusEvaluasi = "MEMENUHI";
+      evaluasiNote = "Sangat memuaskan: Kehadiran tatap muka ≥ 85% & 3 Pilar materi lengkap.";
     }
   } else {
     // Mode Online: Wajib 3 pilar & kuota Live Conference (3x pra-UTS & 3x pra-UAS)

@@ -13,7 +13,7 @@ const kelasSchema = z.object({
   dosenId: z.string().min(1, "Dosen pengampu wajib dipilih"),
   jadwalHari: z.string().min(1, "Jadwal hari wajib diisi"),
   jadwalJam: z.string().min(1, "Jadwal jam wajib diisi"),
-  modePembelajaran: z.enum(["DARING", "LURING"]).default("DARING"),
+  modePembelajaran: z.enum(["DARING", "LURING", "BIMBINGAN"]).default("DARING"),
 });
 
 export async function getKelasList(semesterId?: string) {
@@ -79,7 +79,7 @@ export interface UnifiedKelasPayload {
   jadwalHari: string;
   jadwalJam: string;
   ruangan?: string | null;
-  modePembelajaran: "DARING" | "LURING";
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   mataKuliahId?: string;
   kodeMk?: string;
   namaMk?: string;
@@ -186,7 +186,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
           dosenId: dosenId!,
           jadwalHari: (formData.jadwalHari || "Senin").trim(),
           jadwalJam: (formData.jadwalJam || "08:00 - 09:40").trim(),
-          ruangan: formData.modePembelajaran === "LURING" ? (formData.ruangan?.trim() || null) : null,
+          ruangan: formData.modePembelajaran !== "DARING" ? (formData.ruangan?.trim() || null) : null,
           modePembelajaran: formData.modePembelajaran || "DARING",
         },
       });
@@ -205,7 +205,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
           lectureNote: isExam ? null : false,
           slide: isExam ? null : false,
           video: isExam ? null : false,
-          conference: isExam ? null : false,
+          conference: isExam && formData.modePembelajaran !== "BIMBINGAN" ? null : false,
           tugas: isExam ? null : false,
           kuis: isExam ? null : false,
         });
@@ -332,7 +332,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
         dosenId: finalDosenId,
         jadwalHari: formData.jadwalHari?.trim(),
         jadwalJam: formData.jadwalJam?.trim(),
-        ruangan: formData.modePembelajaran === "LURING" ? (formData.ruangan?.trim() || null) : null,
+        ruangan: formData.modePembelajaran !== "DARING" ? (formData.ruangan?.trim() || null) : null,
         modePembelajaran: formData.modePembelajaran,
       },
       include: {

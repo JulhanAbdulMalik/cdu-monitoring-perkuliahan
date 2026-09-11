@@ -30,6 +30,9 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
         mataKuliah: { include: { prodi: true } },
         dosen: true,
         monitoringSesi: {
+          include: {
+            dosenPengajar: true,
+          },
           orderBy: { nomorSesi: "asc" },
         },
       },
@@ -78,6 +81,9 @@ export async function getMonitoringKelasDetail(kelasId: string) {
         mataKuliah: { include: { prodi: true } },
         dosen: true,
         monitoringSesi: {
+          include: {
+            dosenPengajar: true,
+          },
           orderBy: { nomorSesi: "asc" },
         },
       },
@@ -87,7 +93,30 @@ export async function getMonitoringKelasDetail(kelasId: string) {
       return { success: false, error: "Kelas tidak ditemukan" };
     }
 
-    return { success: true, data: kelas };
+    // Ambil daftar seluruh dosen untuk dropdown pengganti
+    const allDosen = await prisma.dosen.findMany({
+      select: {
+        id: true,
+        nama: true,
+        nidn: true,
+        prodi: {
+          select: {
+            id: true,
+            nama: true,
+            kode: true,
+          },
+        },
+      },
+      orderBy: { nama: "asc" },
+    });
+
+    return {
+      success: true,
+      data: {
+        ...kelas,
+        dosenList: allDosen,
+      },
+    };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memuat detail monitoring kelas" };
   }
@@ -114,6 +143,9 @@ export async function updateSingleMonitoringSesi(
     catatanCdu?: string | null;
     catatan?: string | null;
     tanggal?: string | Date | null;
+    dosenPengajarId?: string | null;
+    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    catatanGantiDosen?: string | null;
   }
 ) {
   try {
@@ -133,6 +165,15 @@ export async function updateSingleMonitoringSesi(
     if (data.tanggal !== undefined) {
       updatePayload.tanggal = data.tanggal ? new Date(data.tanggal) : null;
     }
+    if (data.dosenPengajarId !== undefined) {
+      updatePayload.dosenPengajarId = data.dosenPengajarId || null;
+    }
+    if (data.statusPengajar !== undefined) {
+      updatePayload.statusPengajar = data.statusPengajar;
+    }
+    if (data.catatanGantiDosen !== undefined) {
+      updatePayload.catatanGantiDosen = data.catatanGantiDosen || null;
+    }
 
     const updated = await prisma.monitoringSesi.update({
       where: { id: sesiId },
@@ -143,6 +184,7 @@ export async function updateSingleMonitoringSesi(
     revalidatePath(`/monitoring/${updated.kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true, data: updated };
   } catch (error: any) {
@@ -164,6 +206,9 @@ export async function updateBatchMonitoringSesi(
     catatanCdu?: string | null;
     catatan?: string | null;
     tanggal?: string | Date | null;
+    dosenPengajarId?: string | null;
+    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    catatanGantiDosen?: string | null;
   }>
 ) {
   try {
@@ -182,6 +227,15 @@ export async function updateBatchMonitoringSesi(
         if (sesi.tanggal !== undefined) {
           updateData.tanggal = sesi.tanggal ? new Date(sesi.tanggal) : null;
         }
+        if (sesi.dosenPengajarId !== undefined) {
+          updateData.dosenPengajarId = sesi.dosenPengajarId || null;
+        }
+        if (sesi.statusPengajar !== undefined) {
+          updateData.statusPengajar = sesi.statusPengajar;
+        }
+        if (sesi.catatanGantiDosen !== undefined) {
+          updateData.catatanGantiDosen = sesi.catatanGantiDosen || null;
+        }
         return prisma.monitoringSesi.update({
           where: { id: sesi.id },
           data: updateData,
@@ -192,10 +246,54 @@ export async function updateBatchMonitoringSesi(
     revalidatePath(`/monitoring/${kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal menyimpan perubahan batch sesi" };
+  }
+}
+
+export interface GantiDosenParams {
+  kelasId: string;
+  nomorSesiMulai: number;
+  nomorSesiSampai: number;
+  dosenPengajarId: string | null; // null jika reset ke dosen utama
+  statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  catatanGantiDosen?: string | null;
+}
+
+export async function gantiDosenSesiAction(params: GantiDosenParams) {
+  try {
+    const { kelasId, nomorSesiMulai, nomorSesiSampai, dosenPengajarId, statusPengajar, catatanGantiDosen } = params;
+
+    await prisma.monitoringSesi.updateMany({
+      where: {
+        kelasId,
+        nomorSesi: {
+          gte: nomorSesiMulai,
+          lte: nomorSesiSampai,
+        },
+      },
+      data: {
+        dosenPengajarId: dosenPengajarId || null,
+        statusPengajar: statusPengajar,
+        catatanGantiDosen: catatanGantiDosen || null,
+      },
+    });
+
+    revalidatePath(`/monitoring/${kelasId}`);
+    revalidatePath("/monitoring");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      message: `Berhasil memperbarui pengajar untuk Sesi ${nomorSesiMulai}–${nomorSesiSampai}`,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal memperbarui dosen pengajar sesi" };
   }
 }
 

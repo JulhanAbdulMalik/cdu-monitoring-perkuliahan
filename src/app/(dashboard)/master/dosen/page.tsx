@@ -1,7 +1,22 @@
 // src/app/(dashboard)/master/dosen/page.tsx
-// Halaman master dosen telah disatukan ke Data Perkuliahan (/master/kelas)
-import { redirect } from "next/navigation";
+// Master Dosen Page
 
-export default function MasterDosenPage() {
-  redirect("/master/kelas");
+import { Metadata } from "next";
+import { getDosenList } from "@/actions/dosen";
+import DosenClient from "./DosenClient";
+
+export const metadata: Metadata = {
+  title: "Data Master Dosen",
+};
+
+export default async function MasterDosenPage() {
+  const res = await getDosenList();
+  const data = res.success ? res.data! : { dosen: [], prodiList: [] };
+
+  return (
+    <DosenClient
+      initialDosen={data.dosen as any}
+      prodiList={data.prodiList as any}
+    />
+  );
 }

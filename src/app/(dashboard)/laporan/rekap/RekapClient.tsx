@@ -73,11 +73,16 @@ export default function RekapClient({
     const matchProdi = filterProdi === "ALL" || item.mataKuliah.prodi.id === filterProdi;
     const matchStatus = filterStatus === "ALL" || item.statusEvaluasi === filterStatus;
     const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
+    const q = searchQuery.toLowerCase();
+    const matchPengajar = item.dosenPengajarList?.some((p) =>
+      p.nama.toLowerCase().includes(q)
+    );
     const matchSearch =
-      item.kodeKelas.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.mataKuliah.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.mataKuliah.kode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.dosen.nama.toLowerCase().includes(searchQuery.toLowerCase());
+      item.kodeKelas.toLowerCase().includes(q) ||
+      item.mataKuliah.nama.toLowerCase().includes(q) ||
+      item.mataKuliah.kode.toLowerCase().includes(q) ||
+      item.dosen.nama.toLowerCase().includes(q) ||
+      Boolean(matchPengajar);
 
     return matchProdi && matchStatus && matchMode && matchSearch;
   });
@@ -406,6 +411,7 @@ export default function RekapClient({
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online</option>
               <option value="LURING">Offline</option>
+              <option value="BIMBINGAN">Bimbingan</option>
             </select>
           </div>
 
@@ -428,6 +434,41 @@ export default function RekapClient({
 
       {/* ── Master Recap Table Card ─────────────────────────────────────────── */}
       <div className="duralux-card bg-white p-5 print:shadow-none print:border-none print:p-0">
+        {/* Legend Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 text-[10px] text-slate-500 font-medium print:hidden">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-bold text-slate-700">Skor 3 Pilar:</span>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-emerald-100 text-emerald-700">3</span>
+              <span>Lengkap (3/3)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-blue-100 text-blue-700">2</span>
+              <span>Baik (2/3)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-amber-100 text-amber-800">1</span>
+              <span>Sebagian (1/3)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-rose-100 text-rose-700">0</span>
+              <span>Kosong</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-bold text-slate-700">Pengajar:</span>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-purple-600 ring-1 ring-purple-200" />
+              <span>Dosen Baru (S9–16)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 ring-1 ring-amber-200" />
+              <span>Dosen Pengganti</span>
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
@@ -435,7 +476,7 @@ export default function RekapClient({
                 {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[130px]")}
                 {renderSortHeader("Kode / Kelas", "KODE", "left", "min-w-[90px]")}
                 {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[150px]")}
-                {renderSortHeader("Dosen", "DOSEN", "left", "min-w-[130px]")}
+                {renderSortHeader("Dosen", "DOSEN", "left", "min-w-[135px]")}
                 {/* 16 Session Headers */}
                 {Array.from({ length: 16 }, (_, i) => i + 1).map((sesiNum) => (
                   <th
@@ -468,19 +509,19 @@ export default function RekapClient({
                       <p className="font-semibold text-xs text-slate-800 leading-tight">
                         {cls.mataKuliah.prodi.nama}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <span className="text-[10px] text-slate-400">
                         {cls.mataKuliah.prodi.kode}
-                      </p>
+                      </span>
                     </td>
 
-                    {/* Kode Kelas & Mode */}
+                    {/* Kode / Kelas & Mode */}
                     <td className="py-2.5 px-2.5 font-bold">
                       <div className="flex flex-col gap-0.5">
-                        <span className="inline-flex px-1.5 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10px] font-bold w-fit">
+                        <span className="text-xs text-[#a80063]">
                           {cls.kodeKelas}
                         </span>
                         <span className="text-[9px] text-slate-500 font-semibold">
-                          {cls.modePembelajaran === "LURING" ? "Offline" : "Online"}
+                          {cls.modePembelajaran === "BIMBINGAN" ? "Bimbingan" : cls.modePembelajaran === "LURING" ? "Offline" : "Online"}
                         </span>
                       </div>
                     </td>
@@ -495,11 +536,35 @@ export default function RekapClient({
                       </p>
                     </td>
 
-                    {/* Dosen */}
+                    {/* Dosen & Split Lecturer Info */}
                     <td className="py-2.5 px-2.5 font-medium text-slate-700">
-                      <p className="truncate max-w-[125px]" title={cls.dosen.nama}>
-                        {cls.dosen.nama}
-                      </p>
+                      <div>
+                        <p className="truncate max-w-[135px] font-bold text-slate-900 leading-tight" title={cls.dosen.nama}>
+                          {cls.dosen.nama}
+                        </p>
+                        {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1 ? (
+                          <div className="mt-1 space-y-0.5">
+                            {cls.dosenPengajarList
+                              .filter((p) => p.id !== cls.dosen.id)
+                              .map((p, pIdx) => (
+                                <div key={pIdx} className="flex items-center gap-1 text-[9px] leading-tight">
+                                  <span
+                                    className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
+                                      p.statusPengajar === "PERGANTIAN_TETAP"
+                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}
+                                  >
+                                    {p.statusPengajar === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                  </span>
+                                  <span className="truncate max-w-[85px] text-slate-600 font-medium" title={p.nama}>
+                                    {p.nama}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
 
                     {/* Sesi 1 s/d 16 Matrix Pills (3-Pillar Scores) */}
@@ -508,6 +573,17 @@ export default function RekapClient({
                       const isHadir = s.kehadiran === "HADIR";
                       const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
                       const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
+                      const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+                      const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
+                      const statusLabel = s.statusPengajar === "PERGANTIAN_TETAP"
+                        ? "Dosen Baru"
+                        : s.statusPengajar === "PENGGANTI_INSIDENTAL"
+                        ? "Dosen Pengganti"
+                        : "Dosen Utama";
+
+                      const tooltipText = `Sesi ${s.nomorSesi}: ${
+                        isHadir ? `Hadir (Skor 3 Pilar: ${s.contentScore ?? "Ujian"})` : isHTL ? `HTL (Skor: ${s.contentScore ?? "—"})` : isAlpha ? "Alpha / Tidak Hadir" : "Belum Diisi"
+                      } • Pengajar: ${pengajarNama}${isSub ? ` [${statusLabel}${s.catatanGantiDosen ? `: ${s.catatanGantiDosen}` : ""}]` : ""}`;
 
                       return (
                         <td
@@ -516,40 +592,70 @@ export default function RekapClient({
                             isExam ? "bg-purple-50/30" : ""
                           }`}
                         >
-                          {isHadir ? (
-                            <span
-                              className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold ${
-                                isExam
-                                  ? "bg-purple-100 text-purple-800"
-                                  : s.contentScore === 3
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : s.contentScore === 2
-                                  ? "bg-blue-100 text-blue-700"
-                                  : s.contentScore === 1
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-rose-100 text-rose-700"
-                              }`}
-                              title={`Sesi ${s.nomorSesi}: Hadir (Skor 3 Pilar: ${s.contentScore ?? "Ujian"})`}
-                            >
-                              {s.contentScore !== null ? s.contentScore : "H"}
-                            </span>
-                          ) : isHTL ? (
-                            <span
-                              className="inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-amber-100 text-amber-800"
-                              title={`Sesi ${s.nomorSesi}: Hadir Tidak Lengkap (Skor: ${s.contentScore ?? "—"})`}
-                            >
-                              {s.contentScore !== null ? s.contentScore : "T"}
-                            </span>
-                          ) : isAlpha ? (
-                            <span
-                              className="inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-rose-100 text-rose-700"
-                              title={`Sesi ${s.nomorSesi}: Alpha / Tidak Hadir`}
-                            >
-                              A
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 font-bold">—</span>
-                          )}
+                          <div className="relative inline-block">
+                            {isHadir ? (
+                              <span
+                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold transition-all ${
+                                  isExam
+                                    ? "bg-purple-100 text-purple-800"
+                                    : s.contentScore === 3
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : s.contentScore === 2
+                                    ? "bg-blue-100 text-blue-700"
+                                    : s.contentScore === 1
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-rose-100 text-rose-700"
+                                } ${
+                                  isSub
+                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
+                                      ? "ring-1.5 ring-purple-400"
+                                      : "ring-1.5 ring-amber-400"
+                                    : ""
+                                }`}
+                                title={tooltipText}
+                              >
+                                {s.contentScore !== null ? s.contentScore : "H"}
+                              </span>
+                            ) : isHTL ? (
+                              <span
+                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-amber-100 text-amber-800 ${
+                                  isSub
+                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
+                                      ? "ring-1.5 ring-purple-400"
+                                      : "ring-1.5 ring-amber-400"
+                                    : ""
+                                }`}
+                                title={tooltipText}
+                              >
+                                {s.contentScore !== null ? s.contentScore : "T"}
+                              </span>
+                            ) : isAlpha ? (
+                              <span
+                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-rose-100 text-rose-700 ${
+                                  isSub
+                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
+                                      ? "ring-1.5 ring-purple-400"
+                                      : "ring-1.5 ring-amber-400"
+                                    : ""
+                                }`}
+                                title={tooltipText}
+                              >
+                                A
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 font-bold" title={tooltipText}>—</span>
+                            )}
+
+                            {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru */}
+                            {isSub && (
+                              <span
+                                className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-white ${
+                                  s.statusPengajar === "PERGANTIAN_TETAP" ? "bg-purple-600" : "bg-amber-500"
+                                }`}
+                                title={tooltipText}
+                              />
+                            )}
+                          </div>
                         </td>
                       );
                     })}
@@ -566,24 +672,47 @@ export default function RekapClient({
 
                     {/* Skor 3 Pilar (Max 42) */}
                     <td className="py-2.5 px-2 text-center">
-                      <span className="font-bold text-[#a80063]">
-                        {cls.totalSkor3Pilar}/42
-                      </span>
-                      <span className="block text-[9px] text-slate-400 font-medium">
-                        {cls.persenKonten}%
-                      </span>
+                      {cls.modePembelajaran === "BIMBINGAN" ? (
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Bebas kewajiban 3 pilar materi">
+                          Bebas
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-bold text-[#a80063]">
+                            {cls.totalSkor3Pilar}/42
+                          </span>
+                          <span className="block text-[9px] text-slate-400 font-medium">
+                            {cls.persenKonten}%
+                          </span>
+                        </>
+                      )}
                     </td>
 
                     {/* Live Conference Quota Compliance */}
                     <td className="py-2.5 px-2 text-center">
-                      <div className="inline-flex flex-col items-center text-[9px] font-bold">
-                        <span className={cls.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                          UTS: {cls.confPraUTS}/3
+                      {cls.modePembelajaran === "LURING" ? (
+                        <span className="text-[9.5px] font-bold text-slate-400">
+                          Bebas Conf
                         </span>
-                        <span className={cls.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                          UAS: {cls.confPraUAS}/3
-                        </span>
-                      </div>
+                      ) : cls.modePembelajaran === "BIMBINGAN" ? (
+                        <div className="inline-flex flex-col items-center text-[9px] font-bold">
+                          <span className={cls.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                            UTS: {cls.confPraUTS}/8
+                          </span>
+                          <span className={cls.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                            UAS: {cls.confPraUAS}/8
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex flex-col items-center text-[9px] font-bold">
+                          <span className={cls.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                            UTS: {cls.confPraUTS}/3
+                          </span>
+                          <span className={cls.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                            UAS: {cls.confPraUAS}/3
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status Evaluasi */}

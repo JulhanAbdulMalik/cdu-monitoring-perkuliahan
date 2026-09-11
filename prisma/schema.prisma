@@ -98,8 +98,9 @@ model Dosen {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  prodi Prodi   @relation(fields: [prodiId], references: [id])
-  kelas Kelas[]
+  prodi                Prodi            @relation(fields: [prodiId], references: [id])
+  kelas                Kelas[]
+  monitoringSesiDiajar MonitoringSesi[] @relation("SesiDosenPengajar")
 }
 
 model MataKuliah {
@@ -141,6 +142,7 @@ enum ModePembelajaran {
   DARING
   LURING
   HYBRID
+  BIMBINGAN
 }
 
 // ─────────────────────────────────────────
@@ -171,6 +173,12 @@ model MonitoringSesi {
   tugas       Boolean? // Tugas / Assignment / Case Study / Project
   kuis        Boolean? // Quiz
 
+  // ── Dosen Pengajar Sesi (Dosen Pengganti / Pergantian Dosen) ─────────────
+  dosenPengajarId   String?
+  dosenPengajar     Dosen?          @relation("SesiDosenPengajar", fields: [dosenPengajarId], references: [id])
+  statusPengajar    StatusPengajar  @default(UTAMA)
+  catatanGantiDosen String?
+
   // ── Metadata ──────────────────────────────────────────────────────────────
   catatanCdu   String?    // Catatan tambahan dari CDU
   sumberData   SumberData @default(MANUAL)
@@ -200,4 +208,10 @@ enum Kehadiran {
 enum SumberData {
   MANUAL        // Diisi manual oleh CDU
   IMPORT_EXCEL  // Dari import file Edlink
+}
+
+enum StatusPengajar {
+  UTAMA                 // Diajar oleh Dosen Utama kelas
+  PENGGANTI_INSIDENTAL  // Menggantikan sementara pada sesi ini (Kasus 1)
+  PERGANTIAN_TETAP      // Pergantian resmi mulai sesi ini ke depan (Kasus 2)
 }

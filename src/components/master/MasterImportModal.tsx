@@ -295,7 +295,7 @@ export default function MasterImportModal({
                                   </>
                                 )}
                                 <span>•</span>
-                                <span>({row.data.modePembelajaran === "LURING" ? "Offline" : "Online"})</span>
+                                <span>({row.data.modePembelajaran === "BIMBINGAN" ? "Bimbingan" : row.data.modePembelajaran === "LURING" ? "Offline" : "Online"})</span>
                               </div>
                             </div>
                           )}

@@ -31,9 +31,14 @@ interface DosenReportItem {
     id: string;
     kodeKelas: string;
     mataKuliah: { nama: string; kode: string; sks: number };
+    modePembelajaran?: "DARING" | "LURING" | "BIMBINGAN";
+    totalSesiBeban?: number;
+    sesiDiajar?: number[];
+    statusPenugasan?: string;
     totalHadir: number;
     persenKehadiran: number;
     totalSkorKonten: number;
+    maxSkorKonten?: number;
     persenKonten: number;
     statusEvaluasi: string;
   }>;
@@ -298,16 +303,50 @@ export default function LaporanDosenClient({
                                     {d.kelasList.map((cls) => (
                                       <tr key={cls.id}>
                                         <td className="py-2 font-bold text-[#a80063]">
-                                          {cls.kodeKelas}
+                                          <div className="flex items-center gap-1.5">
+                                            <span>{cls.kodeKelas}</span>
+                                            {cls.modePembelajaran && (
+                                              <span
+                                                className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                                  cls.modePembelajaran === "BIMBINGAN"
+                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                    : cls.modePembelajaran === "LURING"
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                                }`}
+                                              >
+                                                {cls.modePembelajaran === "BIMBINGAN"
+                                                  ? "Bimbingan"
+                                                  : cls.modePembelajaran === "LURING"
+                                                  ? "Offline"
+                                                  : "Online"}
+                                              </span>
+                                            )}
+                                          </div>
                                         </td>
                                         <td className="py-2">
-                                          {cls.mataKuliah.nama} ({cls.mataKuliah.sks} SKS)
+                                          <p className="font-semibold text-slate-800">
+                                            {cls.mataKuliah.nama} ({cls.mataKuliah.sks} SKS)
+                                          </p>
+                                          {cls.statusPenugasan && cls.statusPenugasan !== "Penuh (Sesi 1–16)" && (
+                                            <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                                              {cls.statusPenugasan}
+                                            </span>
+                                          )}
                                         </td>
                                         <td className="py-2 text-center font-semibold text-emerald-600">
-                                          {cls.totalHadir}/16 ({cls.persenKehadiran}%)
+                                          {cls.totalHadir}/{cls.totalSesiBeban ?? 16} ({cls.persenKehadiran}%)
                                         </td>
                                         <td className="py-2 text-center font-semibold text-slate-700">
-                                          {cls.totalSkorKonten}/28 ({cls.persenKonten}%)
+                                          {cls.modePembelajaran === "BIMBINGAN" ? (
+                                            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                              Bebas Konten
+                                            </span>
+                                          ) : (
+                                            <span>
+                                              {cls.totalSkorKonten}/{cls.maxSkorKonten ?? 42} ({cls.persenKonten}%)
+                                            </span>
+                                          )}
                                         </td>
                                         <td className="py-2 text-center">
                                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
@@ -316,7 +355,7 @@ export default function LaporanDosenClient({
                                         </td>
                                         <td className="py-2 text-right">
                                           <Link
-                                            href={`/monitoring?kelasId=${cls.id}`}
+                                            href={`/monitoring/${cls.id}`}
                                             className="text-xs font-semibold text-[#a80063] hover:underline"
                                           >
                                             Monitoring →

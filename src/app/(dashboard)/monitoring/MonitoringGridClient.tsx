@@ -2,7 +2,7 @@
 // src/app/(dashboard)/monitoring/MonitoringGridClient.tsx
 // Compact & High-Speed 3-Pillar Monitoring Grid with Live Conference Tracker & Quick Actions
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -32,15 +32,21 @@ import {
   ChevronDown,
   X,
   MessageSquare,
+  UserCog,
+  UserCheck,
+  ArrowRightLeft,
+  GraduationCap,
 } from "lucide-react";
 import {
   updateSingleMonitoringSesi,
   updateBatchMonitoringSesi,
   quickSetAllAttendance,
   quickSetAllPillars,
+  gantiDosenSesiAction,
 } from "@/actions/monitoring";
 import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
 import ImportEdlinkModal from "@/components/monitoring/ImportEdlinkModal";
+import GantiDosenModal, { DosenItemOption } from "@/components/monitoring/GantiDosenModal";
 import { ParsedSesiData } from "@/lib/excel-parser";
 import {
   getEstimatedSessionDate,
@@ -73,6 +79,14 @@ interface MonitoringSesiData {
   catatanCdu?: string | null;
   catatan?: string | null;
   isKhadiranOnly?: boolean;
+  dosenPengajarId?: string | null;
+  dosenPengajar?: {
+    id: string;
+    nama: string;
+    nidn?: string | null;
+  } | null;
+  statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  catatanGantiDosen?: string | null;
 }
 
 interface KelasDetailData {
@@ -80,7 +94,7 @@ interface KelasDetailData {
   kodeKelas: string;
   jadwalHari: string;
   jadwalJam: string;
-  modePembelajaran: "DARING" | "LURING";
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   semester: {
     id: string;
     tahunAkademik: string;
@@ -105,6 +119,7 @@ interface KelasDetailData {
     email: string | null;
   };
   monitoringSesi: MonitoringSesiData[];
+  dosenList?: DosenItemOption[];
 }
 
 interface SimpleKelasItem {
@@ -226,6 +241,94 @@ export default function MonitoringGridClient({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // ── State Modal Ganti Dosen ────────────────────────────────────────────────
+  const [gantiDosenModal, setGantiDosenModal] = useState<{
+    isOpen: boolean;
+    targetMode: "SINGLE" | "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM";
+    sesiNomor: number;
+    initialDosenId?: string | null;
+    initialStatus?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    initialCatatan?: string | null;
+  }>({
+    isOpen: false,
+    targetMode: "SINGLE",
+    sesiNomor: 1,
+    initialDosenId: null,
+    initialStatus: "UTAMA",
+    initialCatatan: "",
+  });
+
+  function openGantiDosenForSession(sesi: MonitoringSesiData) {
+    setGantiDosenModal({
+      isOpen: true,
+      targetMode: "SINGLE",
+      sesiNomor: sesi.nomorSesi,
+      initialDosenId: sesi.dosenPengajarId || (sesi.dosenPengajar?.id ?? null),
+      initialStatus: sesi.statusPengajar || "PENGGANTI_INSIDENTAL",
+      initialCatatan: sesi.catatanGantiDosen || "",
+    });
+  }
+
+  function openGantiDosenRange(mode: "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM") {
+    setGantiDosenModal({
+      isOpen: true,
+      targetMode: mode,
+      sesiNomor: mode === "RANGE_S1_8" ? 1 : mode === "RANGE_S9_16" ? 9 : 1,
+      initialDosenId: null,
+      initialStatus: "PERGANTIAN_TETAP",
+      initialCatatan: mode === "RANGE_S9_16" ? "Evaluasi CDU: Pergantian Dosen Pasca-UTS" : "",
+    });
+  }
+
+  function handleGantiDosenSuccess(result: {
+    nomorSesiMulai: number;
+    nomorSesiSampai: number;
+    dosenPengajarId: string | null;
+    statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    catatanGantiDosen: string | null;
+    dosenPengajarObj: DosenItemOption | null;
+  }) {
+    setSesiList((prev) =>
+      prev.map((s) => {
+        if (s.nomorSesi >= result.nomorSesiMulai && s.nomorSesi <= result.nomorSesiSampai) {
+          return {
+            ...s,
+            dosenPengajarId: result.dosenPengajarId,
+            dosenPengajar: result.dosenPengajarObj
+              ? {
+                  id: result.dosenPengajarObj.id,
+                  nama: result.dosenPengajarObj.nama,
+                  nidn: result.dosenPengajarObj.nidn,
+                }
+              : null,
+            statusPengajar: result.statusPengajar,
+            catatanGantiDosen: result.catatanGantiDosen,
+          };
+        }
+        return s;
+      })
+    );
+    router.refresh();
+  }
+
+  // Deteksi dosen pengajar unik di sesi perkuliahan untuk visual overview
+  const pengajarSesiMap = useMemo(() => {
+    const map = new Map<string, { nama: string; status: string; sesiList: number[] }>();
+    sesiList.forEach((s) => {
+      const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+      const key = isSub ? s.dosenPengajar!.id : "UTAMA";
+      const nama = isSub ? s.dosenPengajar!.nama : (currentKelas?.dosen.nama || "Dosen Utama");
+      const status = isSub ? s.statusPengajar! : "UTAMA";
+
+      if (!map.has(key)) {
+        map.set(key, { nama, status, sesiList: [s.nomorSesi] });
+      } else {
+        map.get(key)!.sesiList.push(s.nomorSesi);
+      }
+    });
+    return map;
+  }, [sesiList, currentKelas]);
+
   // Hitung Metrik & Kuota 3 Pilar
   const summary = calculateClassSummary(
     sesiList,
@@ -250,7 +353,7 @@ export default function MonitoringGridClient({
   ) {
     setSesiList((prev) =>
       prev.map((s) => {
-        if (s.id === sesiId && !s.isKhadiranOnly) {
+        if (s.id === sesiId && (!s.isKhadiranOnly || (currentKelas?.modePembelajaran === "BIMBINGAN" && field === "conference"))) {
           return { ...s, [field]: !s[field] };
         }
         return s;
@@ -390,6 +493,9 @@ export default function MonitoringGridClient({
           kuis: s.kuis,
           catatanCdu: s.catatanCdu ?? s.catatan ?? null,
           tanggal: finalTanggal,
+          dosenPengajarId: s.dosenPengajarId ?? null,
+          statusPengajar: s.statusPengajar ?? "UTAMA",
+          catatanGantiDosen: s.catatanGantiDosen ?? null,
         };
       });
 
@@ -605,12 +711,19 @@ export default function MonitoringGridClient({
                   {/* Mode Badge */}
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${
-                      currentKelas.modePembelajaran === "LURING"
+                      currentKelas.modePembelajaran === "BIMBINGAN"
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : currentKelas.modePembelajaran === "LURING"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                         : "bg-blue-50 text-blue-700 border-blue-200"
                     }`}
                   >
-                    {currentKelas.modePembelajaran === "LURING" ? (
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? (
+                      <>
+                        <GraduationCap size={10} />
+                        <span>Bimbingan</span>
+                      </>
+                    ) : currentKelas.modePembelajaran === "LURING" ? (
                       <>
                         <Building size={10} />
                         <span>Offline</span>
@@ -634,9 +747,42 @@ export default function MonitoringGridClient({
               <div className="pt-2.5 border-t border-slate-100 space-y-1 text-xs text-slate-600 font-medium mt-3">
                 <div className="flex items-center gap-1.5 truncate">
                   <User size={13} className="text-[#a80063] shrink-0" />
-                  <span className="truncate" title={currentKelas.dosen.nama}>{currentKelas.dosen.nama}</span>
+                  <span className="truncate font-semibold" title={currentKelas.dosen.nama}>
+                    {currentKelas.dosen.nama}
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200 shrink-0">
+                    Utama
+                  </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+
+                {/* Indikator Jika Ada Pergantian Dosen */}
+                {/* {pengajarSesiMap.size > 1 && (
+                  <div className="p-2 rounded-lg bg-[#fdf2f8] border border-[#fbcfe8] text-[10.5px] mt-1 space-y-1">
+                    <div className="flex items-center justify-between font-bold text-[#a80063]">
+                      <span className="flex items-center gap-1">
+                        <ArrowRightLeft size={11} />
+                        <span>Split Pengajar</span>
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-white text-[#a80063] border border-[#fbcfe8] font-extrabold">
+                        {pengajarSesiMap.size} Dosen
+                      </span>
+                    </div>
+                    <div className="space-y-0.5 pt-0.5 border-t border-[#fbcfe8]/60">
+                      {Array.from(pengajarSesiMap.values()).map((p: { nama: string; status: string; sesiList: number[] }, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-slate-700 text-[10px]">
+                          <span className="truncate max-w-[130px] font-medium" title={p.nama}>
+                            {p.nama}
+                          </span>
+                          <span className="font-bold text-[#a80063] shrink-0">
+                            S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )} */}
+
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-0.5">
                   <Clock size={12} className="text-slate-400 shrink-0" />
                   <span>{currentKelas.jadwalHari}, {currentKelas.jadwalJam}</span>
                 </div>
@@ -679,33 +825,65 @@ export default function MonitoringGridClient({
               <div>
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Konten Perkuliahan 3 Pilar
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Sesi Bimbingan" : "Konten Perkuliahan 3 Pilar"}
                   </p>
-                  <span className="text-xs font-extrabold text-[#a80063]">
-                    {summary.totalSkor3Pilar} / 42 Poin
+                  <span className={`text-xs font-extrabold ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.totalHadir} / 16 Sesi` : `${summary.totalSkor3Pilar} / 42 Poin`}
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between mt-1">
-                  <h3 className="text-2xl font-bold text-[#a80063] leading-none">
-                    {summary.persenKonten}%
+                  <h3 className={`text-2xl font-bold leading-none ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.persenKehadiran}%` : `${summary.persenKonten}%`}
                   </h3>
                   <span className="text-[11px] font-medium text-slate-500">
-                    Kelengkapan Sesi
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Kehadiran Bimbingan" : "Kelengkapan Sesi"}
                   </span>
                 </div>
               </div>
 
               <div className="mt-2.5">
-                {currentKelas.modePembelajaran === "LURING" ? (
-                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/80 text-[10.5px] text-slate-600">
-                    <div className="flex items-center gap-1 font-bold text-slate-700">
-                      <Building size={11} className="text-emerald-600 shrink-0" />
-                      <span>Kelas Offline (Tatap Muka)</span>
+                {currentKelas.modePembelajaran === "BIMBINGAN" ? (
+                  <div className="p-2.5 rounded-xl bg-purple-50/70 border border-purple-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-purple-900 font-semibold flex items-center gap-1">
+                        <GraduationCap size={13} className="text-purple-600 shrink-0" />
+                        <span>Bimbingan SCP / Skripsi</span>
+                      </span>
+                      <span className="font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded text-[10px]">
+                        Bebas 3 Pilar
+                      </span>
                     </div>
-                    <p className="text-[9.5px] text-slate-500 mt-0.5 leading-snug">
-                      Bebas kewajiban 3 Pilar & Live Conference.
-                    </p>
+                    <div className="flex items-center justify-between text-[10.5px] text-slate-600 pt-1 border-t border-purple-100">
+                      <span>Live Conf (16 Sesi):</span>
+                      <span className="font-bold text-slate-700 text-[10px]">
+                        UTS: {summary.confPraUTS}/8 • UAS: {summary.confPraUAS}/8
+                      </span>
+                    </div>
+                  </div>
+                ) : currentKelas.modePembelajaran === "LURING" ? (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-semibold flex items-center gap-1">
+                        <Building size={12} className="text-emerald-600 shrink-0" />
+                        <span>3 Pilar (Materi)</span>
+                      </span>
+                      <span className="font-bold text-[#a80063]">
+                        {summary.totalSkor3Pilar} / 42 Poin ({summary.persenKonten}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+                      <div
+                        className="h-full bg-[#a80063] rounded-full transition-all"
+                        style={{ width: `${summary.persenKonten}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">
+                      <span>Live Conference:</span>
+                      <span className="font-bold text-slate-600 bg-slate-200/60 px-1.5 py-0.2 rounded">
+                        Bebas Kuota (Tatap Muka)
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-1 text-[10.5px]">
@@ -738,11 +916,11 @@ export default function MonitoringGridClient({
               </div>
             </div>
 
-            {/* Card 4: Aksi Cepat Staf CDU */}
+            {/* Card 4: Aksi Cepat CDU */}
             <div className="duralux-card p-4 bg-gradient-to-br from-slate-50 to-[#fdf2f8]/40 border border-slate-200/80 flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-2">
                 <Zap size={14} className="text-amber-500" />
-                <span>Aksi Cepat Staf CDU</span>
+                <span>Aksi Cepat CDU</span>
               </div>
               <div className="grid grid-cols-1 gap-2 mt-auto">
                 <button
@@ -759,6 +937,44 @@ export default function MonitoringGridClient({
                 >
                   <span>Set 3 Pilar Lengkap (Skor 3)</span>
                 </button>
+
+                {/* Pergantian Dosen Quick Actions (CDU) */}
+                {/* <div className="pt-2 mt-1 border-t border-slate-200/70">
+                  <div className="flex items-center justify-between text-slate-600 font-bold text-[10.5px] mb-1.5">
+                    <span className="flex items-center gap-1">
+                      <ArrowRightLeft size={11} className="text-[#a80063]" />
+                      <span>Ganti Dosen:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openGantiDosenRange("CUSTOM")}
+                      className="text-[9.5px] text-[#a80063] hover:underline font-bold cursor-pointer"
+                    >
+                      Kustom...
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => openGantiDosenRange("RANGE_S1_8")}
+                      className="inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-white hover:bg-purple-50 text-purple-700 border border-slate-200 hover:border-purple-300 font-bold text-[10.5px] transition-all shadow-xs active:scale-95 cursor-pointer"
+                      title="Atur / Ganti Dosen Pengajar Sesi 1 s.d. 8 (Pra-UTS)"
+                    >
+                      <UserCog size={11} className="text-purple-600 shrink-0" />
+                      <span>Ganti S1–8</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openGantiDosenRange("RANGE_S9_16")}
+                      className="inline-flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-white hover:bg-[#fdf2f8] text-[#a80063] border border-slate-200 hover:border-[#fbcfe8] font-bold text-[10.5px] transition-all shadow-xs active:scale-95 cursor-pointer"
+                      title="Atur / Ganti Dosen Pengajar Sesi 9 s.d. 16 (Pasca Evaluasi UTS)"
+                    >
+                      <UserCog size={11} className="text-[#a80063] shrink-0" />
+                      <span>Ganti S9–16</span>
+                    </button>
+                  </div>
+                </div> */}
+
               </div>
             </div>
           </div>
@@ -793,20 +1009,30 @@ export default function MonitoringGridClient({
               </div>
 
               <div className="overflow-x-auto w-full">
-                <table style={{ width: "100%" }} className="w-full min-w-full table-fixed text-left border-collapse">
+                <table style={{ width: "100%" }} className="w-full min-w-[1000px] table-fixed text-left border-collapse">
                   <colgroup>
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "16%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "16%" }} />
-                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "13%" }} />
                     <col style={{ width: "15%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "13%" }} />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/70">
                       <th className="py-2.5 px-3 font-bold whitespace-nowrap">Sesi</th>
+
+                      {/* Pengajar Sesi */}
+                      <th className="py-2.5 px-3 font-bold min-w-[160px]">
+                        <div className="flex items-center gap-1">
+                          <User size={12} className="text-[#a80063]" />
+                          <span>Pengajar Sesi</span>
+                        </div>
+                      </th>
+
                       <th className="py-2.5 px-3 font-bold">Kehadiran Dosen</th>
                       
                       {/* Pilar 1: L/S */}
@@ -905,7 +1131,88 @@ export default function MonitoringGridClient({
                             </div>
                           </td>
 
-                          {/* 2. Kehadiran Dosen */}
+                          {/* 2. Pengajar Sesi / Ganti Dosen */}
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            {(() => {
+                              const isSub = sesi.dosenPengajar && sesi.statusPengajar && sesi.statusPengajar !== "UTAMA";
+                              const namaPengajar = isSub ? sesi.dosenPengajar!.nama : currentKelas?.dosen.nama;
+
+                              if (sesi.statusPengajar === "PERGANTIAN_TETAP" && isSub) {
+                                return (
+                                  <div className="flex items-center justify-between gap-1 p-1 px-1.5 rounded-md bg-[#fdf2f8] border border-[#fbcfe8]">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#a80063] shrink-0" />
+                                        <span className="text-[10px] font-bold text-[#a80063] truncate block" title={namaPengajar}>
+                                          {namaPengajar}
+                                        </span>
+                                      </div>
+                                      <span className="block text-[8.5px] font-bold text-purple-700 truncate" title={sesi.catatanGantiDosen || "Dosen Baru"}>
+                                        Dosen Baru {sesi.catatanGantiDosen ? `• ${sesi.catatanGantiDosen}` : ""}
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => openGantiDosenForSession(sesi)}
+                                      className="p-1 rounded text-[#a80063] hover:bg-[#fce7f3] transition-colors shrink-0 cursor-pointer"
+                                      title="Ubah / Reset Pengajar Sesi Ini"
+                                    >
+                                      <UserCog size={13} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              if (sesi.statusPengajar === "PENGGANTI_INSIDENTAL" && isSub) {
+                                return (
+                                  <div className="flex items-center justify-between gap-1 p-1 px-1.5 rounded-md bg-amber-50 border border-amber-200">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                        <span className="text-[10px] font-bold text-amber-900 truncate block" title={namaPengajar}>
+                                          {namaPengajar}
+                                        </span>
+                                      </div>
+                                      <span className="block text-[8.5px] font-bold text-amber-700 truncate" title={sesi.catatanGantiDosen || "Pengganti Sementara"}>
+                                        Pengganti {sesi.catatanGantiDosen ? `• ${sesi.catatanGantiDosen}` : ""}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => openGantiDosenForSession(sesi)}
+                                      className="p-1 rounded text-amber-700 hover:bg-amber-100 transition-colors shrink-0 cursor-pointer"
+                                      title="Ubah / Reset Dosen Pengganti"
+                                    >
+                                      <UserCog size={13} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              // Status UTAMA (Default)
+                              return (
+                                <div className="group flex items-center justify-between gap-1 p-0.5 rounded hover:bg-slate-100/80 transition-colors">
+                                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                                    <User size={11} className="text-slate-400 shrink-0" />
+                                    <span className="text-[11px] font-medium text-slate-700 truncate" title={namaPengajar}>
+                                      {namaPengajar}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => openGantiDosenForSession(sesi)}
+                                    className="p-1 rounded text-slate-400 hover:text-[#a80063] hover:bg-[#fdf2f8] transition-all shrink-0 cursor-pointer"
+                                    title="Ubah / Ganti Dosen Sesi Ini"
+                                  >
+                                    <UserCog size={13} />
+                                  </button>
+                                </div>
+                              );
+                            })()}
+                          </td>
+
+                          {/* 3. Kehadiran Dosen */}
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-1">
                               {/* HADIR */}
@@ -1033,22 +1340,24 @@ export default function MonitoringGridClient({
 
                           {/* 5. Pilar 3: T/V (Temu Virtual / Video) */}
                           <td className="py-2.5 px-2 text-center">
-                            {isExam ? (
+                            {isExam && currentKelas.modePembelajaran !== "BIMBINGAN" ? (
                               <span className="text-slate-300 text-xs">—</span>
                             ) : (
                               <div className="flex items-center justify-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleContentToggle(sesi.id, "video")}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                                    sesi.video
-                                      ? "bg-[#a80063] text-white shadow-xs"
-                                      : "bg-white text-slate-500 hover:bg-slate-100 border border-slate-200"
-                                  }`}
-                                  title="Video Pembelajaran (YouTube / Edlink)"
-                                >
-                                  Video
-                                </button>
+                                {currentKelas.modePembelajaran !== "BIMBINGAN" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleContentToggle(sesi.id, "video")}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                      sesi.video
+                                        ? "bg-[#a80063] text-white shadow-xs"
+                                        : "bg-white text-slate-500 hover:bg-slate-100 border border-slate-200"
+                                    }`}
+                                    title="Video Pembelajaran (YouTube / Edlink)"
+                                  >
+                                    Video
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => handleContentToggle(sesi.id, "conference")}
@@ -1067,7 +1376,11 @@ export default function MonitoringGridClient({
 
                           {/* 6. Skor Pilar (0, 1, 2, 3) */}
                           <td className="py-2.5 px-3 text-center">
-                            {isExam ? (
+                            {currentKelas.modePembelajaran === "BIMBINGAN" ? (
+                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200" title="Bebas kewajiban 3 pilar konten LMS">
+                                Bebas Konten
+                              </span>
+                            ) : isExam ? (
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                                 Ujian
                               </span>
@@ -1271,6 +1584,26 @@ export default function MonitoringGridClient({
           onClose={() => setIsImportModalOpen(false)}
           targetKelas={currentKelas as any}
           onSuccessApply={handleSuccessApply}
+        />
+      )}
+
+      {/* ── Direct In-Place Ganti Dosen Modal ──────────────────────────────── */}
+      {currentKelas && gantiDosenModal.isOpen && (
+        <GantiDosenModal
+          key={`ganti-dosen-${currentKelas.id}-${gantiDosenModal.sesiNomor}-${gantiDosenModal.targetMode}-${gantiDosenModal.initialDosenId || "utama"}`}
+          isOpen={gantiDosenModal.isOpen}
+          onClose={() => setGantiDosenModal((prev) => ({ ...prev, isOpen: false }))}
+          kelasId={currentKelas.id}
+          kodeKelas={currentKelas.kodeKelas}
+          mataKuliahNama={currentKelas.mataKuliah.nama}
+          dosenUtama={currentKelas.dosen}
+          dosenList={currentKelas.dosenList || []}
+          initialTargetMode={gantiDosenModal.targetMode}
+          initialSesiNomor={gantiDosenModal.sesiNomor}
+          initialDosenPengajarId={gantiDosenModal.initialDosenId}
+          initialStatusPengajar={gantiDosenModal.initialStatus}
+          initialCatatan={gantiDosenModal.initialCatatan}
+          onSuccess={handleGantiDosenSuccess}
         />
       )}
     </div>

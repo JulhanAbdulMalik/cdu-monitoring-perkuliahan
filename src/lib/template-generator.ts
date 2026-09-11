@@ -77,6 +77,18 @@ export function generateTemplate(type: "dosen" | "mata-kuliah" | "kelas" | "prod
         "-",
         "Online",
       ],
+      [
+        "25TI11009",
+        "Bimbingan Skripsi / SCP",
+        4,
+        "Teknik Informatika",
+        "TI26BIM",
+        "Julhan Abdul Malik, S.Kom",
+        "Jumat",
+        "13:30 s.d 15:10",
+        "-",
+        "Bimbingan",
+      ],
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws["!cols"] = [

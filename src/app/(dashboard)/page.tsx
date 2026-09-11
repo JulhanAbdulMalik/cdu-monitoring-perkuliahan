@@ -133,8 +133,8 @@ export default async function DashboardPage() {
           }
         }
 
-        // 3 Pilar untuk sesi reguler yang sudah terlaksana
-        if (!isExam && s.kehadiran !== "BELUM_DIISI") {
+        // 3 Pilar untuk sesi reguler yang sudah terlaksana (kecuali kelas Bimbingan karena bebas konten)
+        if (!isExam && s.kehadiran !== "BELUM_DIISI" && (cls.modePembelajaran as any) !== "BIMBINGAN") {
           totalRegularSesiTerlaksana++;
           const pilar = calculateSessionPillars(s);
           if (pilar.score !== null) {

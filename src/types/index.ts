@@ -7,7 +7,7 @@
 
 export type Role = "ADMIN" | "CDU_STAFF";
 export type Periode = "GANJIL" | "GENAP";
-export type ModePembelajaran = "DARING" | "LURING";
+export type ModePembelajaran = "DARING" | "LURING" | "BIMBINGAN";
 export type JenisSesi = "REGULER" | "UTS" | "UAS";
 export type Kehadiran =
   | "HADIR"
@@ -19,6 +19,7 @@ export type SumberData = "MANUAL" | "IMPORT_EXCEL";
 export const LABEL_MODE_PEMBELAJARAN: Record<string, string> = {
   DARING: "Online",
   LURING: "Offline",
+  BIMBINGAN: "Bimbingan",
 };
 
 // ─────────────────────────────────────────
@@ -121,6 +122,11 @@ export interface MonitoringSesi {
   tugas: boolean | null;
   kuis: boolean | null;
 
+  // Dosen Pengajar Sesi (Ganti Dosen / Dosen Baru)
+  dosenPengajarId?: string | null;
+  statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  catatanGantiDosen?: string | null;
+
   // Metadata
   catatanCdu?: string;
   sumberData: SumberData;
@@ -130,6 +136,7 @@ export interface MonitoringSesi {
 
   // Relations
   kelas?: Kelas;
+  dosenPengajar?: Dosen | null;
 }
 
 // ─────────────────────────────────────────

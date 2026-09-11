@@ -43,7 +43,7 @@ interface KelasItem {
   jadwalHari: string;
   jadwalJam: string;
   ruangan?: string | null;
-  modePembelajaran: "DARING" | "LURING";
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   semester: {
     id: string;
     tahunAkademik: string;
@@ -163,7 +163,7 @@ export default function KelasClient({
   const [jadwalHari, setJadwalHari] = useState("Senin");
   const [jadwalJam, setJadwalJam] = useState("08:00 - 09:40");
   const [ruangan, setRuangan] = useState("");
-  const [modePembelajaran, setModePembelajaran] = useState<"DARING" | "LURING">("DARING");
+  const [modePembelajaran, setModePembelajaran] = useState<"DARING" | "LURING" | "BIMBINGAN">("DARING");
 
   const [loading, setLoading] = useState(false);
 
@@ -212,7 +212,7 @@ export default function KelasClient({
     setJadwalHari(cls.jadwalHari || "Senin");
     setJadwalJam(cls.jadwalJam || "08:00 - 09:40");
     setRuangan(cls.ruangan || "");
-    setModePembelajaran(cls.modePembelajaran === "LURING" ? "LURING" : "DARING");
+    setModePembelajaran(cls.modePembelajaran || "DARING");
     setIsModalOpen(true);
   }
 
@@ -438,6 +438,7 @@ export default function KelasClient({
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online (Daring)</option>
               <option value="LURING">Offline (Luring)</option>
+              <option value="BIMBINGAN">Bimbingan (SCP/Skripsi)</option>
             </select>
           </div>
         </div>
@@ -558,12 +559,19 @@ export default function KelasClient({
                       <td className="py-3 pr-3">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            k.modePembelajaran === "LURING"
+                            k.modePembelajaran === "BIMBINGAN"
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : k.modePembelajaran === "LURING"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-blue-50 text-blue-700 border-blue-200"
                           }`}
                         >
-                          {k.modePembelajaran === "LURING" ? (
+                          {k.modePembelajaran === "BIMBINGAN" ? (
+                            <>
+                              <GraduationCap size={10} />
+                              <span>Bimbingan</span>
+                            </>
+                          ) : k.modePembelajaran === "LURING" ? (
                             <>
                               <Building size={10} />
                               <span>Offline</span>
@@ -928,11 +936,11 @@ export default function KelasClient({
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Mode Pembelajaran
                   </label>
-                  <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                     <button
                       type="button"
                       onClick={() => setModePembelajaran("DARING")}
-                      className={`py-1 text-xs font-bold rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      className={`py-1 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all cursor-pointer ${
                         modePembelajaran === "DARING"
                           ? "bg-white text-blue-600 shadow-xs"
                           : "text-slate-500 hover:text-slate-700"
@@ -944,7 +952,7 @@ export default function KelasClient({
                     <button
                       type="button"
                       onClick={() => setModePembelajaran("LURING")}
-                      className={`py-1 text-xs font-bold rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      className={`py-1 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all cursor-pointer ${
                         modePembelajaran === "LURING"
                           ? "bg-white text-emerald-600 shadow-xs"
                           : "text-slate-500 hover:text-slate-700"
@@ -953,11 +961,23 @@ export default function KelasClient({
                       <Building size={12} />
                       <span>Offline</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setModePembelajaran("BIMBINGAN")}
+                      className={`py-1 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                        modePembelajaran === "BIMBINGAN"
+                          ? "bg-white text-purple-700 shadow-xs"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <GraduationCap size={12} />
+                      <span>Bimbingan</span>
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* Ruang Kelas (Hanya untuk LURING/Offline) */}
+              {/* Ruang Kelas & Keterangan Mode */}
               {modePembelajaran === "LURING" ? (
                 <div className="animate-fade-in">
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -975,8 +995,15 @@ export default function KelasClient({
                     className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                   />
                 </div>
+              ) : modePembelajaran === "BIMBINGAN" ? (
+                <div className="p-2.5 rounded-lg bg-purple-50/70 border border-purple-100 text-[11px] text-purple-800 space-y-1 animate-fade-in">
+                  <div className="flex items-center gap-1.5">
+                    <GraduationCap size={13} className="shrink-0 text-purple-600" />
+                    <span>Kelas Bimbingan (SCP / Skripsi)</span>
+                  </div>
+                </div>
               ) : (
-                <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-[11px] text-blue-700 flex items-center gap-2">
+                <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-[11px] text-blue-700 flex items-center gap-2 animate-fade-in">
                   <Laptop size={13} className="shrink-0 text-blue-500" />
                   <span>Perkuliahan Online dilaksanakan melalui Edlink / LMS (tanpa ruang kelas fisik).</span>
                 </div>

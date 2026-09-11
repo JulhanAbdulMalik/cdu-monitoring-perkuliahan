@@ -6,6 +6,38 @@ import { prisma } from "@/lib/prisma";
 import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
 import { getWeekDates, getEstimatedSessionDate, DEFAULT_SEMESTER_START_DATE } from "@/lib/utils";
 
+export interface DosenPengajarPeran {
+  id: string;
+  nama: string;
+  nidn: string | null;
+  statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  sesiList: number[];
+  catatan?: string | null;
+}
+
+export interface SesiRekapItem {
+  nomorSesi: number;
+  kehadiran: string;
+  contentScore: number | null; // 0, 1, 2, 3 (null for exams)
+  hasSL: boolean;
+  hasQT: boolean;
+  hasTV: boolean;
+  lectureNote: boolean | null;
+  slide: boolean | null;
+  video: boolean | null;
+  conference: boolean | null;
+  tugas: boolean | null;
+  kuis: boolean | null;
+  dosenPengajarId?: string | null;
+  dosenPengajar?: {
+    id: string;
+    nama: string;
+    nidn: string | null;
+  } | null;
+  statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  catatanGantiDosen?: string | null;
+}
+
 export interface ClassRekapSummary {
   id: string;
   kodeKelas: string;
@@ -31,21 +63,10 @@ export interface ClassRekapSummary {
   };
   jadwalHari: string | null;
   jadwalJam: string | null;
-  modePembelajaran: "DARING" | "LURING";
-  sesi: Array<{
-    nomorSesi: number;
-    kehadiran: string;
-    contentScore: number | null; // 0, 1, 2, 3 (null for exams)
-    hasSL: boolean;
-    hasQT: boolean;
-    hasTV: boolean;
-    lectureNote: boolean | null;
-    slide: boolean | null;
-    video: boolean | null;
-    conference: boolean | null;
-    tugas: boolean | null;
-    kuis: boolean | null;
-  }>;
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
+  sesi: SesiRekapItem[];
+  dosenPengajarList: DosenPengajarPeran[];
+  isSplitPengajar: boolean;
   totalHadir: number;
   totalHadirLengkap: number;
   totalHadirTdkLengkap: number;
@@ -85,8 +106,19 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
           },
         },
         mataKuliah: { include: { prodi: true } },
-        dosen: true,
+        dosen: {
+          include: {
+            prodi: true,
+          },
+        },
         monitoringSesi: {
+          include: {
+            dosenPengajar: {
+              include: {
+                prodi: true,
+              },
+            },
+          },
           orderBy: { nomorSesi: "asc" },
         },
       },
@@ -99,7 +131,43 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
         cls.modePembelajaran as any
       );
 
-      const processedSesi = cls.monitoringSesi.map((s) => {
+      // Kumpulkan peran dosen pengajar di kelas ini
+      const peranMap = new Map<string, DosenPengajarPeran>();
+      peranMap.set(cls.dosen.id, {
+        id: cls.dosen.id,
+        nama: cls.dosen.nama,
+        nidn: cls.dosen.nidn ?? null,
+        statusPengajar: "UTAMA",
+        sesiList: [],
+      });
+
+      cls.monitoringSesi.forEach((s) => {
+        const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+        if (isSub) {
+          const subDosen = s.dosenPengajar!;
+          if (!peranMap.has(subDosen.id)) {
+            peranMap.set(subDosen.id, {
+              id: subDosen.id,
+              nama: subDosen.nama,
+              nidn: subDosen.nidn ?? null,
+              statusPengajar: s.statusPengajar as any,
+              sesiList: [s.nomorSesi],
+              catatan: s.catatanGantiDosen,
+            });
+          } else {
+            peranMap.get(subDosen.id)!.sesiList.push(s.nomorSesi);
+          }
+        } else {
+          peranMap.get(cls.dosen.id)!.sesiList.push(s.nomorSesi);
+        }
+      });
+
+      const dosenPengajarList = Array.from(peranMap.values()).filter(
+        (p) => p.sesiList.length > 0
+      );
+      const isSplitPengajar = dosenPengajarList.length > 1;
+
+      const processedSesi: SesiRekapItem[] = cls.monitoringSesi.map((s) => {
         const pilar = calculateSessionPillars(s);
 
         return {
@@ -115,6 +183,16 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
           conference: s.conference,
           tugas: s.tugas,
           kuis: s.kuis,
+          dosenPengajarId: s.dosenPengajarId,
+          dosenPengajar: s.dosenPengajar
+            ? {
+                id: s.dosenPengajar.id,
+                nama: s.dosenPengajar.nama,
+                nidn: s.dosenPengajar.nidn ?? null,
+              }
+            : null,
+          statusPengajar: s.statusPengajar as any,
+          catatanGantiDosen: s.catatanGantiDosen,
         };
       });
 
@@ -128,6 +206,8 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
         jadwalJam: cls.jadwalJam,
         modePembelajaran: cls.modePembelajaran as any,
         sesi: processedSesi,
+        dosenPengajarList,
+        isSplitPengajar,
         totalHadir: summary.totalHadir,
         totalHadirLengkap: summary.totalHadirLengkap,
         totalHadirTdkLengkap: summary.totalHadirTdkLengkap,
@@ -176,42 +256,231 @@ export async function getLaporanDosen(semesterId?: string) {
 
     const { rekapList, semesters, prodiList, activeSemesterId } = rekapRes.data;
 
-    const dosenMap = new Map<string, any>();
+    // Map dosen: key = dosenId
+    const dosenMap = new Map<
+      string,
+      {
+        id: string;
+        nama: string;
+        nidn: string | null;
+        prodi: { id: string; nama: string; kode: string };
+        kelasList: Array<{
+          id: string;
+          kodeKelas: string;
+          mataKuliah: { nama: string; kode: string; sks: number };
+          modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
+          totalSesiBeban: number;
+          sesiDiajar: number[];
+          statusPenugasan: string;
+          totalHadir: number;
+          persenKehadiran: number;
+          totalSkorKonten: number;
+          maxSkorKonten: number;
+          persenKonten: number;
+          statusEvaluasi: string;
+        }>;
+        totalKelas: number;
+        totalSesiBebanSemua: number;
+        totalHadirSemua: number;
+        totalAlphaSemua: number;
+        totalSkor3PilarSemua: number;
+        maxSkor3PilarSemua: number;
+        totalSkor3PilarDaring: number;
+        maxSkor3PilarDaring: number;
+        totalConfSemua: number;
+      }
+    >();
 
     for (const item of rekapList) {
-      const dosenId = item.dosen.id;
-      if (!dosenMap.has(dosenId)) {
-        dosenMap.set(dosenId, {
-          id: dosenId,
-          nama: item.dosen.nama,
-          nidn: item.dosen.nidn,
-          prodi: item.mataKuliah.prodi,
-          kelasList: [],
-          totalKelas: 0,
-          totalHadirSemua: 0,
-          totalAlphaSemua: 0,
-          totalSkor3PilarSemua: 0,
-          totalConfSemua: 0,
-        });
-      }
+      // Kelompokkan sesi pada kelas ini berdasarkan Dosen Pengajar riil
+      const pengajarDiKelas = new Map<
+        string,
+        {
+          dosenObj: {
+            id: string;
+            nama: string;
+            nidn: string | null;
+            prodi: { id: string; nama: string; kode: string };
+          };
+          statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+          sesiList: SesiRekapItem[];
+        }
+      >();
 
-      const entry = dosenMap.get(dosenId);
-      entry.kelasList.push(item);
-      entry.totalKelas++;
-      entry.totalHadirSemua += item.totalHadir;
-      entry.totalAlphaSemua += item.totalAlpha;
-      entry.totalSkor3PilarSemua += item.totalSkor3Pilar;
-      entry.totalConfSemua += item.confTotal;
+      // Inisialisasi Dosen Utama
+      pengajarDiKelas.set(item.dosen.id, {
+        dosenObj: {
+          id: item.dosen.id,
+          nama: item.dosen.nama,
+          nidn: item.dosen.nidn ?? null,
+          prodi: item.mataKuliah.prodi,
+        },
+        statusPengajar: "UTAMA",
+        sesiList: [],
+      });
+
+      item.sesi.forEach((s) => {
+        const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+        if (isSub) {
+          const subId = s.dosenPengajar!.id;
+          if (!pengajarDiKelas.has(subId)) {
+            pengajarDiKelas.set(subId, {
+              dosenObj: {
+                id: s.dosenPengajar!.id,
+                nama: s.dosenPengajar!.nama,
+                nidn: s.dosenPengajar!.nidn ?? null,
+                prodi: item.mataKuliah.prodi,
+              },
+              statusPengajar: s.statusPengajar as any,
+              sesiList: [s],
+            });
+          } else {
+            pengajarDiKelas.get(subId)!.sesiList.push(s);
+          }
+        } else {
+          pengajarDiKelas.get(item.dosen.id)!.sesiList.push(s);
+        }
+      });
+
+      // Hitung kontribusi per dosen di kelas ini
+      for (const [dosenId, data] of pengajarDiKelas.entries()) {
+        if (data.sesiList.length === 0) continue; // Dosen tidak mengajar sesi apapun di kelas ini
+
+        const totalSesiBeban = data.sesiList.length;
+        const nomorSesiArr = data.sesiList.map((s) => s.nomorSesi).sort((a, b) => a - b);
+        const minSesi = Math.min(...nomorSesiArr);
+        const maxSesi = Math.max(...nomorSesiArr);
+
+        // Format label status penugasan
+        let statusPenugasan = "Penuh (Sesi 1–16)";
+        if (totalSesiBeban < 16) {
+          if (minSesi === 1 && maxSesi === 8 && totalSesiBeban === 8) {
+            statusPenugasan = "Sesi 1–8 (Pra-UTS)";
+          } else if (minSesi === 9 && maxSesi === 16 && totalSesiBeban === 8) {
+            statusPenugasan = "Sesi 9–16 (Pasca-UTS)";
+          } else if (data.statusPengajar === "PENGGANTI_INSIDENTAL") {
+            statusPenugasan = `Pengganti (Sesi ${nomorSesiArr.join(", ")})`;
+          } else {
+            statusPenugasan = `Sesi ${nomorSesiArr.join(", ")}`;
+          }
+        }
+
+        // Kehadiran dosen pada beban sesinya
+        const hadirCount = data.sesiList.filter(
+          (s) =>
+            s.kehadiran === "HADIR" ||
+            s.kehadiran === "HADIR_TIDAK_LENGKAP" ||
+            (s.kehadiran as string) === "HADIR_TDK_LENGKAP"
+        ).length;
+        const alphaCount = data.sesiList.filter(
+          (s) => s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA"
+        ).length;
+        const persenKehadiran = Math.round((hadirCount / totalSesiBeban) * 100);
+
+        // 3 Pilar pada beban sesinya (sesi reguler)
+        const isBimbingan = (item.modePembelajaran as any) === "BIMBINGAN";
+        const regularSesi = data.sesiList.filter(
+          (s) => s.nomorSesi !== 8 && s.nomorSesi !== 16
+        );
+        const maxSkorKonten = isBimbingan ? 0 : regularSesi.length * 3;
+        const skorKonten = isBimbingan ? 0 : regularSesi.reduce(
+          (acc, s) => acc + (s.contentScore || 0),
+          0
+        );
+        const persenKonten = isBimbingan ? 100 :
+          maxSkorKonten > 0 ? Math.round((skorKonten / maxSkorKonten) * 100) : 0;
+
+        const confCount = data.sesiList.filter((s) => s.conference).length;
+
+        // Evaluasi kelas (Kehadiran & 3 Pilar berlaku untuk kelas daring/luring, sedangkan Bimbingan murni kehadiran)
+        let classEvaluasi = "MEMENUHI";
+        if (isBimbingan) {
+          if (persenKehadiran >= 85) {
+            classEvaluasi = "MEMENUHI";
+          } else if (persenKehadiran >= 75) {
+            classEvaluasi = "CUKUP";
+          } else {
+            classEvaluasi = "PERLU_PERHATIAN";
+          }
+        } else if (persenKehadiran >= 85 && persenKonten >= 75) {
+          classEvaluasi = "MEMENUHI";
+        } else if (persenKehadiran >= 75 && persenKonten >= 60) {
+          classEvaluasi = "CUKUP";
+        } else {
+          classEvaluasi = "PERLU_PERHATIAN";
+        }
+
+        // Masukkan ke dosenMap
+        if (!dosenMap.has(dosenId)) {
+          dosenMap.set(dosenId, {
+            id: dosenId,
+            nama: data.dosenObj.nama,
+            nidn: data.dosenObj.nidn,
+            prodi: data.dosenObj.prodi,
+            kelasList: [],
+            totalKelas: 0,
+            totalSesiBebanSemua: 0,
+            totalHadirSemua: 0,
+            totalAlphaSemua: 0,
+            totalSkor3PilarSemua: 0,
+            maxSkor3PilarSemua: 0,
+            totalSkor3PilarDaring: 0,
+            maxSkor3PilarDaring: 0,
+            totalConfSemua: 0,
+          });
+        }
+
+        const entry = dosenMap.get(dosenId)!;
+        entry.kelasList.push({
+          id: item.id,
+          kodeKelas: item.kodeKelas,
+          mataKuliah: item.mataKuliah,
+          modePembelajaran: item.modePembelajaran,
+          totalSesiBeban,
+          sesiDiajar: nomorSesiArr,
+          statusPenugasan,
+          totalHadir: hadirCount,
+          persenKehadiran,
+          totalSkorKonten: skorKonten,
+          maxSkorKonten,
+          persenKonten,
+          statusEvaluasi: classEvaluasi,
+        });
+
+        entry.totalKelas = entry.kelasList.length;
+        entry.totalSesiBebanSemua += totalSesiBeban;
+        entry.totalHadirSemua += hadirCount;
+        entry.totalAlphaSemua += alphaCount;
+        entry.totalSkor3PilarSemua += skorKonten;
+        entry.maxSkor3PilarSemua += maxSkorKonten;
+        entry.totalConfSemua += confCount;
+
+        if (item.modePembelajaran === "DARING") {
+          entry.totalSkor3PilarDaring += skorKonten;
+          entry.maxSkor3PilarDaring += maxSkorKonten;
+        }
+      }
     }
 
     const dosenReportList = Array.from(dosenMap.values()).map((d) => {
-      const avgKehadiran = Math.round((d.totalHadirSemua / (d.totalKelas * 16)) * 100);
-      const avgKonten = Math.round((d.totalSkor3PilarSemua / (d.totalKelas * 42)) * 100); // 42 max per class
+      // Rumus adil: pembagi adalah total sesi beban riil pengajar
+      const avgKehadiran =
+        d.totalSesiBebanSemua > 0
+          ? Math.round((d.totalHadirSemua / d.totalSesiBebanSemua) * 100)
+          : 0;
+      const avgKonten =
+        d.maxSkor3PilarSemua > 0
+          ? Math.round((d.totalSkor3PilarSemua / d.maxSkor3PilarSemua) * 100)
+          : 100;
 
       let status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
-      if (avgKehadiran < 75 || avgKonten < 60 || d.totalAlphaSemua >= 4) {
+      if (
+        avgKehadiran < 75 ||
+        (d.maxSkor3PilarSemua > 0 && avgKonten < 60) ||
+        d.totalAlphaSemua >= 4
+      ) {
         status = "PERLU_PEMBINAAN";
-      } else if (avgKehadiran < 90 || avgKonten < 80) {
+      } else if (avgKehadiran < 90 || (d.maxSkor3PilarSemua > 0 && avgKonten < 80)) {
         status = "BAIK";
       }
 
@@ -362,6 +631,9 @@ export async function getLaporanProdi(
         mataKuliah: { include: { prodi: true } },
         dosen: true,
         monitoringSesi: {
+          include: {
+            dosenPengajar: true,
+          },
           orderBy: { nomorSesi: "asc" },
         },
       },
@@ -444,7 +716,13 @@ export async function getLaporanProdi(
         if (isInRange) {
           entry.totalSesiRentang++;
           entry.kelasIdsRentang.add(cls.id);
-          entry.dosenIdsRentang.add(cls.dosenId);
+
+          const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+          const pengajarId = isSub ? s.dosenPengajar!.id : cls.dosen.id;
+          const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
+          const pengajarNidn = isSub ? s.dosenPengajar!.nidn ?? null : cls.dosen.nidn ?? null;
+
+          entry.dosenIdsRentang.add(pengajarId);
 
           const isHadir = s.kehadiran === "HADIR";
           const isHadirTdkLengkap = s.kehadiran === "HADIR_TIDAK_LENGKAP";
@@ -463,9 +741,9 @@ export async function getLaporanProdi(
               nomorSesi: s.nomorSesi,
               status: "ALPHA",
               catatan: s.catatanCdu ?? null,
-              dosenId: cls.dosen.id,
-              dosenNama: cls.dosen.nama,
-              dosenNidn: cls.dosen.nidn ?? null,
+              dosenId: pengajarId,
+              dosenNama: pengajarNama,
+              dosenNidn: pengajarNidn,
               mataKuliahNama: cls.mataKuliah.nama,
               mataKuliahKode: cls.mataKuliah.kode,
               kelasKode: cls.kodeKelas,
@@ -477,11 +755,6 @@ export async function getLaporanProdi(
           } else {
             entry.totalBelumDiisiRentang++;
 
-            // Sesi BELUM_DIISI MASUK KENDALA JIKA:
-            // 1. Filter rentang tanggal aktif (startDateTime & endDateTime):
-            //    Semua sesi yang terjadwal di rentang evaluasi ini tetapi BELUM_DIISI merupakan kendala evaluasi!
-            // 2. Filter All Time:
-            //    Hanya sesi bolong (nomorSesi <= maxSesiBerjalan) atau sesi yang memiliki catatan khusus CDU
             const isKendalaBelumDiisi = (startDateTime && endDateTime)
               ? true
               : (hasCatatan || s.nomorSesi <= maxSesiBerjalan);
@@ -492,9 +765,9 @@ export async function getLaporanProdi(
                 nomorSesi: s.nomorSesi,
                 status: "BELUM_DIISI",
                 catatan: s.catatanCdu ?? null,
-                dosenId: cls.dosen.id,
-                dosenNama: cls.dosen.nama,
-                dosenNidn: cls.dosen.nidn ?? null,
+                dosenId: pengajarId,
+                dosenNama: pengajarNama,
+                dosenNidn: pengajarNidn,
                 mataKuliahNama: cls.mataKuliah.nama,
                 mataKuliahKode: cls.mataKuliah.kode,
                 kelasKode: cls.kodeKelas,
