@@ -339,7 +339,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
+          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
             <Calendar size={18} className="text-[#a80063]" />
             <span>Kelola Data Semester</span>
           </h1>

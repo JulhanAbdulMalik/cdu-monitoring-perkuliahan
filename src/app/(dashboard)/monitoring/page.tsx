@@ -10,13 +10,14 @@ export const metadata: Metadata = {
 };
 
 interface MonitoringPageProps {
-  searchParams: Promise<{ semesterId?: string; prodiId?: string }>;
+  searchParams: Promise<{ prodiId?: string }>;
 }
 
 export default async function MonitoringPage({ searchParams }: MonitoringPageProps) {
   const resolvedSearchParams = await searchParams;
+  // Selalu gunakan Semester Aktif yang diset di Master Semester
   const listRes = await getMonitoringKelasList(
-    resolvedSearchParams.semesterId,
+    undefined,
     resolvedSearchParams.prodiId
   );
 
@@ -30,7 +31,7 @@ export default async function MonitoringPage({ searchParams }: MonitoringPagePro
       kelasList={kelasList as any}
       semesters={semesters}
       prodiList={prodiList}
-      defaultSemesterId={resolvedSearchParams.semesterId || activeSemesterId}
+      defaultSemesterId={activeSemesterId}
     />
   );
 }

@@ -527,7 +527,7 @@ export default function MonitoringGridClient({
           </Link>
 
           <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
               <Layers size={18} className="text-[#a80063]" />
               <span>Grid Monitoring Perkuliahan (3 Pilar)</span>
             </h1>
@@ -700,17 +700,17 @@ export default function MonitoringGridClient({
       ) : (
         <div className="space-y-4">
           {/* ── TOP CARDS ROW: Info Kelas, Statistik, Konten, & Aksi Cepat ────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
             {/* Card 1: Detail Kelas & Mode */}
-            <div className="duralux-card p-4 bg-white flex flex-col justify-between">
+            <div className="duralux-card p-3 bg-white flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold">
+                  <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[11px] font-extrabold">
                     {currentKelas.kodeKelas}
                   </span>
                   {/* Mode Badge */}
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
                       currentKelas.modePembelajaran === "BIMBINGAN"
                         ? "bg-purple-50 text-purple-700 border-purple-200"
                         : currentKelas.modePembelajaran === "LURING"
@@ -736,83 +736,56 @@ export default function MonitoringGridClient({
                     )}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 mt-1.5 leading-tight line-clamp-1" title={currentKelas.mataKuliah.nama}>
+                <h3 className="text-[12.5px] font-bold text-slate-900 mt-1 leading-tight line-clamp-1" title={currentKelas.mataKuliah.nama}>
                   {currentKelas.mataKuliah.nama}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
                   {currentKelas.mataKuliah.sks} SKS • {currentKelas.mataKuliah.prodi.nama}
                 </p>
               </div>
 
-              <div className="pt-2.5 border-t border-slate-100 space-y-1 text-xs text-slate-600 font-medium mt-3">
+              <div className="pt-2 border-t border-slate-100 space-y-0.5 text-[10.5px] text-slate-600 font-medium mt-2">
                 <div className="flex items-center gap-1.5 truncate">
-                  <User size={13} className="text-[#a80063] shrink-0" />
-                  <span className="truncate font-semibold" title={currentKelas.dosen.nama}>
+                  <User size={12} className="text-[#a80063] shrink-0" />
+                  <span className="truncate font-semibold text-slate-800" title={currentKelas.dosen.nama}>
                     {currentKelas.dosen.nama}
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200 shrink-0">
+                  <span className="text-[8.5px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200 shrink-0">
                     Utama
                   </span>
                 </div>
 
-                {/* Indikator Jika Ada Pergantian Dosen */}
-                {/* {pengajarSesiMap.size > 1 && (
-                  <div className="p-2 rounded-lg bg-[#fdf2f8] border border-[#fbcfe8] text-[10.5px] mt-1 space-y-1">
-                    <div className="flex items-center justify-between font-bold text-[#a80063]">
-                      <span className="flex items-center gap-1">
-                        <ArrowRightLeft size={11} />
-                        <span>Split Pengajar</span>
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-white text-[#a80063] border border-[#fbcfe8] font-extrabold">
-                        {pengajarSesiMap.size} Dosen
-                      </span>
-                    </div>
-                    <div className="space-y-0.5 pt-0.5 border-t border-[#fbcfe8]/60">
-                      {Array.from(pengajarSesiMap.values()).map((p: { nama: string; status: string; sesiList: number[] }, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-slate-700 text-[10px]">
-                          <span className="truncate max-w-[130px] font-medium" title={p.nama}>
-                            {p.nama}
-                          </span>
-                          <span className="font-bold text-[#a80063] shrink-0">
-                            S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
-
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-0.5">
-                  <Clock size={12} className="text-slate-400 shrink-0" />
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5">
+                  <Clock size={11} className="text-slate-400 shrink-0" />
                   <span>{currentKelas.jadwalHari}, {currentKelas.jadwalJam}</span>
                 </div>
               </div>
             </div>
 
             {/* Card 2: Statistik Kehadiran Dosen */}
-            <div className="duralux-card p-4 bg-white flex flex-col justify-between">
+            <div className="duralux-card p-3 bg-white flex flex-col justify-between">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
                   Statistik Kehadiran Dosen
                 </p>
                 <div className="flex items-baseline justify-between mt-1">
-                  <h3 className="text-2xl font-bold text-slate-900 leading-none">
+                  <h3 className="text-2xl font-bold text-emerald-600 leading-none">
                     {summary.persenKehadiran}%
                   </h3>
-                  <span className="text-[11px] font-medium text-slate-500">
+                  <span className="text-[10px] font-medium text-slate-500">
                     {summary.totalHadir}/16 Sesi Terisi
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-1.5 mt-3">
-                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div className="space-y-1 mt-2">
+                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full transition-all duration-300"
                     style={{ width: `${summary.persenKehadiran}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10.5px] font-semibold pt-0.5">
+                <div className="flex justify-between text-[9.5px] font-semibold pt-0.5">
                   <span className="text-emerald-600">{summary.totalHadirLengkap} Hadir</span>
                   <span className="text-amber-600">{summary.totalHadirTdkLengkap} HTL</span>
                   <span className="text-rose-600">{summary.totalAlpha} Alpha</span>
@@ -821,119 +794,111 @@ export default function MonitoringGridClient({
             </div>
 
             {/* Card 3: Skor 3 Pilar & Live Conference Quota */}
-            <div className="duralux-card p-4 bg-white flex flex-col justify-between">
+            <div className="duralux-card p-3 bg-white flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Sesi Bimbingan" : "Konten Perkuliahan 3 Pilar"}
+                  <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Live Conference" : "Konten Perkuliahan 3 Pilar"}
                   </p>
-                  <span className={`text-xs font-extrabold ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.totalHadir} / 16 Sesi` : `${summary.totalSkor3Pilar} / 42 Poin`}
+                  <span className={`text-[11px] font-extrabold ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} / 16 Sesi` : `${summary.totalSkor3Pilar} / 42 Poin`}
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between mt-1">
                   <h3 className={`text-2xl font-bold leading-none ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.persenKehadiran}%` : `${summary.persenKonten}%`}
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} Kali` : `${summary.persenKonten}%`}
                   </h3>
-                  <span className="text-[11px] font-medium text-slate-500">
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Kehadiran Bimbingan" : "Kelengkapan Sesi"}
+                  <span className="text-[10px] font-medium text-slate-500">
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? "Temu Virtual" : "Kelengkapan Sesi"}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-2.5">
+              <div className="space-y-1 mt-2">
                 {currentKelas.modePembelajaran === "BIMBINGAN" ? (
-                  <div className="p-2.5 rounded-xl bg-purple-50/70 border border-purple-200/80 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-purple-900 font-semibold flex items-center gap-1">
-                        <GraduationCap size={13} className="text-purple-600 shrink-0" />
-                        <span>Bimbingan SCP / Skripsi</span>
-                      </span>
-                      <span className="font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded text-[10px]">
-                        Bebas 3 Pilar
-                      </span>
+                  <>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.round((summary.confTotal / 16) * 100))}%` }}
+                      />
                     </div>
-                    <div className="flex items-center justify-between text-[10.5px] text-slate-600 pt-1 border-t border-purple-100">
-                      <span>Live Conf (16 Sesi):</span>
-                      <span className="font-bold text-slate-700 text-[10px]">
+                    <div className="flex items-center justify-between text-[9.5px] font-semibold pt-0.5">
+                      <span className="text-purple-700 flex items-center gap-1 font-medium">
+                        <GraduationCap size={11} className="text-purple-600 shrink-0" />
+                        <span>Bebas 3 Pilar</span>
+                      </span>
+                      <span className="text-slate-700 font-semibold text-[9.5px]">
                         UTS: {summary.confPraUTS}/8 • UAS: {summary.confPraUAS}/8
                       </span>
                     </div>
-                  </div>
+                  </>
                 ) : currentKelas.modePembelajaran === "LURING" ? (
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 font-semibold flex items-center gap-1">
-                        <Building size={12} className="text-emerald-600 shrink-0" />
-                        <span>3 Pilar (Materi)</span>
-                      </span>
-                      <span className="font-bold text-[#a80063]">
-                        {summary.totalSkor3Pilar} / 42 Poin ({summary.persenKonten}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-slate-200/80 overflow-hidden">
+                  <>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                       <div
-                        className="h-full bg-[#a80063] rounded-full transition-all"
+                        className="h-full bg-[#a80063] rounded-full transition-all duration-300"
                         style={{ width: `${summary.persenKonten}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">
-                      <span>Live Conference:</span>
-                      <span className="font-bold text-slate-600 bg-slate-200/60 px-1.5 py-0.2 rounded">
-                        Bebas Kuota (Tatap Muka)
+                    <div className="flex items-center justify-between text-[9.5px] font-semibold pt-0.5">
+                      <span className="text-emerald-700 flex items-center gap-1">
+                        <Building size={10} className="text-emerald-600 shrink-0" />
+                        <span>Tatap Muka Fisik</span>
+                      </span>
+                      <span className="text-slate-600 text-[9px] bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200/60 font-medium">
+                        Bebas Kuota Live Conf
                       </span>
                     </div>
-                  </div>
+                  </>
                 ) : (
-                  <div className="space-y-1 text-[10.5px]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Pra-UTS:</span>
+                  <>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-[#a80063] rounded-full transition-all duration-300"
+                        style={{ width: `${summary.persenKonten}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[9.5px] font-semibold pt-0.5">
                       <span
-                        className={`px-1.5 py-0.2 rounded font-bold text-[9.5px] ${
-                          summary.confPraUTS >= 3
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        className={`${
+                          summary.confPraUTS >= 3 ? "text-emerald-600" : "text-amber-600"
                         }`}
                       >
-                        {summary.confPraUTS}/3 Conf {summary.confPraUTS >= 3 ? "✓" : "⚠️"}
+                        UTS: {summary.confPraUTS}/3 Conf {summary.confPraUTS >= 3 ? "✓" : "⚠️"}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Pra-UAS:</span>
                       <span
-                        className={`px-1.5 py-0.2 rounded font-bold text-[9.5px] ${
-                          summary.confPraUAS >= 3
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        className={`${
+                          summary.confPraUAS >= 3 ? "text-emerald-600" : "text-amber-600"
                         }`}
                       >
-                        {summary.confPraUAS}/3 Conf {summary.confPraUAS >= 3 ? "✓" : "⚠️"}
+                        UAS: {summary.confPraUAS}/3 Conf {summary.confPraUAS >= 3 ? "✓" : "⚠️"}
                       </span>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
 
             {/* Card 4: Aksi Cepat CDU */}
-            <div className="duralux-card p-4 bg-gradient-to-br from-slate-50 to-[#fdf2f8]/40 border border-slate-200/80 flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs mb-2">
-                <Zap size={14} className="text-amber-500" />
+            <div className="duralux-card p-3 bg-gradient-to-br from-slate-50 to-[#fdf2f8]/40 border border-slate-200/80 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[10.5px] mb-1">
+                <Zap size={13} className="text-amber-500" />
                 <span>Aksi Cepat CDU</span>
               </div>
-              <div className="grid grid-cols-1 gap-2 mt-auto">
+              <div className="grid grid-cols-1 gap-1.5 mt-auto">
                 <button
                   type="button"
                   onClick={requestQuickSetAllHadir}
-                  className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2.5 rounded-lg bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 hover:border-emerald-300 font-semibold text-xs transition-all cursor-pointer shadow-xs active:scale-95"
+                  className="inline-flex items-center justify-center gap-1 w-full py-1 px-2 rounded-lg bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 hover:border-emerald-300 font-semibold text-[10.5px] transition-all cursor-pointer shadow-xs active:scale-95"
                 >
                   <span>Set Semua Hadir (S1–S16)</span>
                 </button>
                 <button
                   type="button"
                   onClick={requestQuickSetAllPillarsComplete}
-                  className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2.5 rounded-lg bg-white hover:bg-[#fdf2f8] text-[#a80063] border border-slate-200 hover:border-[#fbcfe8] font-semibold text-xs transition-all cursor-pointer shadow-xs active:scale-95"
+                  className="inline-flex items-center justify-center gap-1 w-full py-1 px-2 rounded-lg bg-white hover:bg-[#fdf2f8] text-[#a80063] border border-slate-200 hover:border-[#fbcfe8] font-semibold text-[10.5px] transition-all cursor-pointer shadow-xs active:scale-95"
                 >
                   <span>Set 3 Pilar Lengkap (Skor 3)</span>
                 </button>

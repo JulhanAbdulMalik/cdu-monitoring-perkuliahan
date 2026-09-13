@@ -359,7 +359,7 @@ export default async function DashboardPage() {
       {/* ── 1. Top Greeting & Action Header ───────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none">
+          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none">
             Selamat Datang, {userName}! 👋
           </h1>
           <p className="text-xs text-slate-500 font-normal mt-1">

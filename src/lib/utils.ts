@@ -249,4 +249,31 @@ export function getEstimatedSessionDate(
   return dates[nomorSesi - 1] || dates[dates.length - 1];
 }
 
+// Menghitung nomor sesi perkuliahan aktif saat ini (1–16) berdasarkan tanggal hari ini dan kalender libur semester
+export function getCurrentActiveSessionNumber(
+  semesterStartDateStr: string = DEFAULT_SEMESTER_START_DATE,
+  hariLiburList: HariLiburItem[] = []
+): number {
+  const dates = getAllEstimatedSessionDates(16, "Senin", semesterStartDateStr, hariLiburList);
+  if (!dates || dates.length === 0) return 1;
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const firstSesiStr = toDateStr(dates[0]);
+
+  // Jika hari ini masih sebelum sesi 1 dimulai
+  if (todayStr < firstSesiStr) return 1;
+
+  for (let i = 0; i < dates.length; i++) {
+    const startSesi = toDateStr(dates[i]);
+    const endSesi = i < dates.length - 1 ? toDateStr(dates[i + 1]) : "9999-12-31";
+    if (todayStr >= startSesi && todayStr < endSesi) {
+      return i + 1;
+    }
+  }
+
+  return 16;
+}
+
+
+
 

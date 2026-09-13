@@ -2,7 +2,7 @@
 // src/app/(dashboard)/monitoring/MonitoringListClient.tsx
 // Comprehensive List of All Monitored Classes with Last Updated Timestamp & 3-Pillar Progress
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Layers,
@@ -16,6 +16,8 @@ import {
   Sparkles,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
+  CalendarCheck,
   User,
   ExternalLink,
   ArrowUpDown,
@@ -24,13 +26,15 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
-import { formatTerakhirUpdateParts } from "@/lib/utils";
+import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE } from "@/lib/utils";
 
 interface SemesterOption {
   id: string;
   tahunAkademik: string;
   periode: string;
   aktif: boolean;
+  tanggalMulai?: Date | string | null;
+  hariLibur?: any[];
 }
 
 interface ProdiOption {
@@ -142,16 +146,55 @@ export default function MonitoringListClient({
   prodiList,
   defaultSemesterId,
 }: MonitoringListClientProps) {
-  const [selectedSemester, setSelectedSemester] = useState<string>(defaultSemesterId);
   const [filterProdi, setFilterProdi] = useState<string>("ALL");
   const [filterMode, setFilterMode] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [filterHari, setFilterHari] = useState<string>("ALL");
+  const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "SUDAH">("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("TERBARU");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const activeSem = useMemo(
+    () => semesters.find((s) => s.aktif) || semesters.find((s) => s.id === defaultSemesterId) || semesters[0],
+    [semesters, defaultSemesterId]
+  );
+
+  const defaultActiveSesi = useMemo(() => {
+    const semStartStr = activeSem?.tanggalMulai
+      ? new Date(activeSem.tanggalMulai).toISOString().split("T")[0]
+      : DEFAULT_SEMESTER_START_DATE;
+    return getCurrentActiveSessionNumber(semStartStr, activeSem?.hariLibur);
+  }, [activeSem]);
+
+  const [selectedSesi, setSelectedSesi] = useState<number>(defaultActiveSesi);
+
+  // Sinkronisasi selectedSesi bila default sesi berubah karena ganti semester
+  useEffect(() => {
+    setSelectedSesi(defaultActiveSesi);
+  }, [defaultActiveSesi]);
 
   // Process and compute stats for every class
   const processedClasses = kelasList.map((cls) => {
     const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran);
+
+    // Evaluasi status monitoring untuk sesi target (selectedSesi)
+    const targetSesiData = cls.monitoringSesi.find((s) => s.nomorSesi === selectedSesi);
+    const isMonitored = targetSesiData ? targetSesiData.kehadiran !== "BELUM_DIISI" : false;
+    let targetSesiKehadiranLabel = "Belum Dicek";
+    let targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
+
+    if (targetSesiData) {
+      if (targetSesiData.kehadiran === "HADIR") {
+        targetSesiKehadiranLabel = "Hadir";
+        targetSesiKehadiranColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      } else if (targetSesiData.kehadiran === "HADIR_TIDAK_LENGKAP" || targetSesiData.kehadiran === "HTL") {
+        targetSesiKehadiranLabel = "HTL";
+        targetSesiKehadiranColor = "bg-amber-50 text-amber-700 border-amber-200";
+      } else if (targetSesiData.kehadiran === "TIDAK_HADIR" || targetSesiData.kehadiran === "ALPHA") {
+        targetSesiKehadiranLabel = "Alpha";
+        targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
+      }
+    }
 
     // Compute true latest update timestamp across class and its sessions
     let latestTime = new Date(cls.updatedAt).getTime();
@@ -187,6 +230,10 @@ export default function MonitoringListClient({
     return {
       ...cls,
       summary,
+      targetSesiData,
+      isMonitored,
+      targetSesiKehadiranLabel,
+      targetSesiKehadiranColor,
       latestTime,
       updateParts,
       dosenPengajarList,
@@ -194,11 +241,13 @@ export default function MonitoringListClient({
     };
   });
 
-  // Filter list
-  const filteredList = processedClasses.filter((item) => {
+  // 1. Base list: disaring berdasarkan Prodi, Mode, Hari, dan Search Query
+  const baseList = processedClasses.filter((item) => {
     const matchProdi = filterProdi === "ALL" || item.mataKuliah.prodi.id === filterProdi;
     const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
-    const matchStatus = filterStatus === "ALL" || item.summary.statusEvaluasi === filterStatus;
+    const matchHari =
+      filterHari === "ALL" ||
+      (item.jadwalHari && item.jadwalHari.trim().toLowerCase() === filterHari.toLowerCase());
     const q = searchQuery.toLowerCase();
     const matchPengajar = item.dosenPengajarList?.some((p) =>
       p.nama.toLowerCase().includes(q)
@@ -210,7 +259,26 @@ export default function MonitoringListClient({
       item.dosen.nama.toLowerCase().includes(q) ||
       matchPengajar;
 
-    return matchProdi && matchMode && matchStatus && matchSearch;
+    return matchProdi && matchMode && matchHari && matchSearch;
+  });
+
+  // Metrik untuk Tab & Daily Progress Widget
+  const totalInBase = baseList.length;
+  const sudahDimonitorCount = baseList.filter((c) => c.isMonitored).length;
+  const belumDimonitorCount = baseList.filter((c) => !c.isMonitored).length;
+  const persenSelesai = totalInBase > 0 ? Math.round((sudahDimonitorCount / totalInBase) * 100) : 0;
+
+  // 2. Final filtered list: menerapkan monitoringTab dan filterStatus
+  const filteredList = baseList.filter((item) => {
+    const matchStatus = filterStatus === "ALL" || item.summary.statusEvaluasi === filterStatus;
+    const matchTab =
+      monitoringTab === "ALL"
+        ? true
+        : monitoringTab === "BELUM"
+        ? !item.isMonitored
+        : item.isMonitored;
+
+    return matchStatus && matchTab;
   });
 
   // Sort list
@@ -364,14 +432,22 @@ export default function MonitoringListClient({
   const bimbinganMemenuhi = bimbinganList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
   const bimbinganPerhatian = bimbinganList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
 
+  const totalMemenuhi = filteredList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
+  const totalPerhatian = filteredList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
+
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar ──────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
+          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none flex flex-wrap items-center gap-2">
             <Layers size={18} className="text-[#a80063]" />
             <span>Daftar Kelas Monitoring Perkuliahan</span>
+            {activeSem && (
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                {activeSem.tahunAkademik} ({activeSem.periode})
+              </span>
+            )}
           </h1>
           <p className="text-xs text-slate-500 font-normal mt-1">
             Pilih kelas untuk melakukan monitoring sesi 1–16, evaluasi 3 pilar materi, dan kuota Live Conference
@@ -392,18 +468,36 @@ export default function MonitoringListClient({
       </div>
 
       {/* ── KPI Summary Cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Card 1: Total Kelas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: Progres Monitoring */}
         <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Total Kelas Dimonitor
-          </p>
-          <h3 className="text-2xl font-bold text-slate-900 mt-1 leading-none">
-            {totalClasses}
-          </h3>
-          <p className="text-[11px] text-slate-400 mt-1 truncate">
-            {onlineList.length} Online • {offlineList.length} Offline{bimbinganList.length > 0 ? ` • ${bimbinganList.length} Bimbingan` : ""}
-          </p>
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+              Progres Sesi {selectedSesi} {filterHari !== "ALL" ? `• ${filterHari}` : ""}
+            </p>
+            {selectedSesi === defaultActiveSesi && (
+              <span className="text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-full shrink-0">
+                Minggu Ini
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-baseline justify-between mt-1">
+            <h3 className="text-2xl font-bold text-slate-900 leading-none">
+              {persenSelesai}%
+            </h3>
+            <span className="text-[11px] font-bold text-slate-500">
+              {sudahDimonitorCount}/{totalInBase} Kelas
+            </span>
+          </div>
+
+          {/* Mini Progress Bar (Single Green Color) */}
+          <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2.5">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${persenSelesai}%` }}
+            />
+          </div>
         </div>
 
         {/* Card 2: Rata Kehadiran */}
@@ -450,112 +544,52 @@ export default function MonitoringListClient({
           </p>
         </div>
 
-        {/* Card 4: Status (Dipisahkan Online, Offline & Bimbingan) */}
+        {/* Card 4: Status Evaluasi Kelas (Compact & Efisien) */}
         <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Status
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Status Evaluasi
+            </p>
+            <span className="text-[10px] font-semibold text-slate-400">
+              {totalClasses} Kelas
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-2 mt-1">
+            <h3 className="text-2xl font-bold text-emerald-600 leading-none">
+              {totalMemenuhi} <span className="text-[11px] font-semibold text-emerald-700">Sesuai</span>
+            </h3>
+            <span className="text-slate-300">•</span>
+            <h3 className="text-2xl font-bold text-rose-600 leading-none">
+              {totalPerhatian} <span className="text-[11px] font-semibold text-rose-700">Perhatian</span>
+            </h3>
+          </div>
+
+          <p className="text-[10.5px] text-slate-400 mt-1 truncate">
+            {filterMode === "ALL" ? (
+              <>
+                <span className="text-blue-600 font-semibold">Online:</span> {onlineMemenuhi} ✓ - {onlinePerhatian} ⚠
+                <span className="text-slate-300 mx-1">•</span>
+                <span className="text-emerald-600 font-semibold">Offline:</span> {offlineMemenuhi} ✓ - {offlinePerhatian} ⚠
+                {bimbinganList.length > 0 && (
+                  <>
+                    <span className="text-slate-300 mx-1">•</span>
+                    <span className="text-purple-600 font-semibold">Bimbingan:</span> {bimbinganMemenuhi} ✓ - {bimbinganPerhatian} ⚠
+                  </>
+                )}
+              </>
+            ) : filterMode === "DARING" ? (
+              "Hadir ≥85%, 3 Pilar & Live Conf"
+            ) : filterMode === "LURING" ? (
+              "Hanya Kehadiran Fisik Dosen (≥85%)"
+            ) : (
+              "Kehadiran Bimbingan Sesi (≥85%)"
+            )}
           </p>
-          
-          {filterMode === "BIMBINGAN" ? (
-            <div>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {bimbinganMemenuhi} Sesuai
-                </span>
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                  {bimbinganPerhatian} Perhatian
-                </span>
-              </div>
-              <p className="text-[10px] text-purple-600 mt-1.5 truncate" title="Faktor evaluasi bimbingan: Kehadiran Sesi Pembimbingan (≥85%, Bebas 3 Pilar)">
-                Faktor: Kehadiran Bimbingan (≥85%)
-              </p>
-            </div>
-          ) : filterMode === "LURING" ? (
-            <div>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {offlineMemenuhi} Sesuai
-                </span>
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                  {offlinePerhatian} Perhatian
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1.5 truncate" title="Faktor evaluasi kelas offline: Hanya Kehadiran Fisik Dosen di Kelas (≥85%, Bebas 3 Pilar & Live Conf)">
-                Faktor: Hanya Kehadiran Fisik Dosen (≥85%)
-              </p>
-            </div>
-          ) : filterMode === "DARING" ? (
-            <div>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {onlineMemenuhi} Sesuai
-                </span>
-                <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                  {onlinePerhatian} Perhatian
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1.5 truncate" title="Faktor evaluasi kelas online: Kehadiran Dosen ≥85%, 3 Pilar Lengkap, & Kuota Live Conference">
-                Faktor: Kehadiran ≥85%, 3 Pilar & Live Conf
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5 mt-1">
-              {/* Baris Online */}
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 text-[9.5px] shrink-0">
-                    Online
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-normal truncate" title="Faktor evaluasi: Kehadiran Dosen ≥85%, 3 Pilar Lengkap, & Kuota Live Conference">
-                    Hadir, 3 Pilar & Conf
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 font-bold text-slate-700 text-[11px] shrink-0 ml-1">
-                  <span className="text-emerald-600">{onlineMemenuhi} Sesuai</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-rose-600">{onlinePerhatian} Perhatian</span>
-                </div>
-              </div>
-
-              {/* Baris Offline */}
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 text-[9.5px] shrink-0">
-                    Offline
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-normal truncate" title="Faktor evaluasi: Hanya Kehadiran Fisik Dosen di Kelas (≥85%, Bebas 3 Pilar & Live Conf)">
-                    Hanya Kehadiran Fisik
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 font-bold text-slate-700 text-[11px] shrink-0 ml-1">
-                  <span className="text-emerald-600">{offlineMemenuhi} Sesuai</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-rose-600">{offlinePerhatian} Perhatian</span>
-                </div>
-              </div>
-
-              {/* Baris Bimbingan jika ada */}
-              {bimbinganList.length > 0 && (
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 text-[9.5px] shrink-0">
-                      Bimbingan
-                    </span>
-                    <span className="text-[9px] text-slate-400 font-normal truncate">
-                      Presensi Bimbingan
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 font-bold text-slate-700 text-[11px] shrink-0 ml-1">
-                    <span className="text-emerald-600">{bimbinganMemenuhi} Sesuai</span>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-rose-600">{bimbinganPerhatian} Perhatian</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
+
+
 
       {/* ── Search & Filter Controls ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70">
@@ -573,22 +607,40 @@ export default function MonitoringListClient({
 
         {/* Filters & Sorting */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Semester Selector */}
+
+
+          {/* Sesi Selector (1-16) */}
           <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Semester:</span>
+            <span className="text-[11px] font-medium hidden sm:inline">Sesi:</span>
             <select
-              value={selectedSemester}
-              onChange={(e) => {
-                setSelectedSemester(e.target.value);
-                window.location.href = `/monitoring?semesterId=${e.target.value}&prodiId=${filterProdi}`;
-              }}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700"
+              value={selectedSesi}
+              onChange={(e) => setSelectedSesi(Number(e.target.value))}
+              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-800 font-semibold"
             >
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.tahunAkademik} ({s.periode}) {s.aktif ? "• Aktif" : ""}
+              {Array.from({ length: 16 }, (_, i) => i + 1).map((sNum) => (
+                <option key={sNum} value={sNum}>
+                  Sesi {sNum} {sNum === defaultActiveSesi ? "(Minggu Ini)" : sNum === 8 ? "(UTS)" : sNum === 16 ? "(UAS)" : ""}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Hari Filter (Dropdown Bersih) */}
+          <div className="flex items-center gap-1 text-xs text-slate-500">
+            <span className="text-[11px] font-medium hidden sm:inline">Hari:</span>
+            <select
+              value={filterHari}
+              onChange={(e) => setFilterHari(e.target.value)}
+              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700 font-medium"
+            >
+              <option value="ALL">Semua Hari</option>
+              <option value="Senin">Senin</option>
+              <option value="Selasa">Selasa</option>
+              <option value="Rabu">Rabu</option>
+              <option value="Kamis">Kamis</option>
+              <option value="Jumat">Jumat</option>
+              <option value="Sabtu">Sabtu</option>
+              <option value="Minggu">Minggu</option>
             </select>
           </div>
 
@@ -640,6 +692,70 @@ export default function MonitoringListClient({
         </div>
       </div>
 
+      {/* ── Sub-Tab Segmented Control (Opsi A) ────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setMonitoringTab("ALL")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              monitoringTab === "ALL"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/60"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span>Semua Kelas</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/70 text-slate-700 font-bold">
+              {totalInBase}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMonitoringTab("BELUM")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              monitoringTab === "BELUM"
+                ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-xs"
+                : "text-slate-600 hover:text-rose-600 hover:bg-rose-50/50"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              <span>Belum Dimonitor</span>
+            </span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 font-extrabold">
+              {belumDimonitorCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMonitoringTab("SUDAH")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              monitoringTab === "SUDAH"
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs"
+                : "text-slate-600 hover:text-emerald-600 hover:bg-emerald-50/50"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Sudah Dimonitor</span>
+            </span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-extrabold">
+              {sudahDimonitorCount}
+            </span>
+          </button>
+        </div>
+
+        {/* Info Keterangan Sesi Terpilih */}
+        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200/70 shadow-2xs">
+          <Clock size={12} className="text-[#a80063] shrink-0" />
+          <span>
+            Status monitoring diukur dari <strong>Kehadiran Sesi {selectedSesi}</strong>
+          </span>
+        </div>
+      </div>
+
       {/* ── Monitored Class Table Card ───────────────────────────────────────── */}
       <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
@@ -662,7 +778,21 @@ export default function MonitoringListClient({
               {sortedList.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-slate-400">
-                    Tidak ada kelas yang sesuai dengan kriteria filter.
+                    {monitoringTab === "BELUM" ? (
+                      <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
+                        <CheckCircle2 size={32} className="text-emerald-500" />
+                        <p className="font-bold text-sm">Semua kelas sudah selesai dimonitor!</p>
+                        <p className="text-xs text-slate-400">Tidak ada antrean kelas yang belum dicek pada kriteria filter ini.</p>
+                      </div>
+                    ) : monitoringTab === "SUDAH" ? (
+                      <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400">
+                        <AlertCircle size={32} className="text-slate-300" />
+                        <p className="font-bold text-sm">Belum ada kelas yang selesai dimonitor</p>
+                        <p className="text-xs text-slate-400">Silakan lakukan pengecekan kelas pada tab "Belum Dimonitor".</p>
+                      </div>
+                    ) : (
+                      "Tidak ada kelas yang sesuai dengan kriteria filter."
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -784,6 +914,27 @@ export default function MonitoringListClient({
                         <span className="text-[9px] text-emerald-600 font-bold">
                           {cls.summary.persenKehadiran}%
                         </span>
+
+                        {/* Status Monitoring Sesi Terpilih */}
+                        <div className="mt-0.5">
+                          {cls.isMonitored ? (
+                            <span
+                              className={`inline-flex items-center gap-1 text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${cls.targetSesiKehadiranColor}`}
+                              title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
+                            >
+                              <CheckCircle2 size={9} className="shrink-0" />
+                              <span>S{selectedSesi}: {cls.targetSesiKehadiranLabel}</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1 text-[8.5px] font-bold px-1.5 py-0.2 rounded border bg-rose-50 text-rose-700 border-rose-200"
+                              title={`Presensi Sesi ${selectedSesi} belum diisi oleh staf CDU`}
+                            >
+                              <AlertCircle size={9} className="shrink-0 text-rose-500" />
+                              <span>S{selectedSesi}: Belum Dicek</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
