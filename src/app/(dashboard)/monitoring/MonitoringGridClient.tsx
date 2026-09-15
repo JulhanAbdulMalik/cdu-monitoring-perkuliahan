@@ -53,6 +53,7 @@ import {
   DEFAULT_SEMESTER_START_DATE,
   formatDateShort,
   HariLiburItem,
+  formatPct,
 } from "@/lib/utils";
 
 const CATATAN_PRESETS = [
@@ -770,7 +771,7 @@ export default function MonitoringGridClient({
                 </p>
                 <div className="flex items-baseline justify-between mt-1">
                   <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-                    {summary.persenKehadiran}%
+                    {formatPct(summary.persenKehadiran)}
                   </h3>
                   <span className="text-[10px] font-medium text-slate-500">
                     {summary.totalHadir}/16 Sesi Terisi
@@ -807,7 +808,7 @@ export default function MonitoringGridClient({
 
                 <div className="flex items-baseline justify-between mt-1">
                   <h3 className={`text-2xl font-bold leading-none ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} Kali` : `${summary.persenKonten}%`}
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} Kali` : formatPct(summary.persenKonten)}
                   </h3>
                   <span className="text-[10px] font-medium text-slate-500">
                     {currentKelas.modePembelajaran === "BIMBINGAN" ? "Temu Virtual" : "Kelengkapan Sesi"}

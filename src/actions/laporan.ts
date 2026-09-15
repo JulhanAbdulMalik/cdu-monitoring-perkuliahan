@@ -375,7 +375,7 @@ export async function getLaporanDosen(semesterId?: string) {
         const alphaCount = data.sesiList.filter(
           (s) => s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA"
         ).length;
-        const persenKehadiran = Math.round((hadirCount / totalSesiBeban) * 100);
+        const persenKehadiran = Math.round((hadirCount / totalSesiBeban) * 1000) / 10;
 
         // 3 Pilar pada beban sesinya (sesi reguler)
         const isBimbingan = (item.modePembelajaran as any) === "BIMBINGAN";
@@ -388,7 +388,7 @@ export async function getLaporanDosen(semesterId?: string) {
           0
         );
         const persenKonten = isBimbingan ? 100 :
-          maxSkorKonten > 0 ? Math.round((skorKonten / maxSkorKonten) * 100) : 0;
+          maxSkorKonten > 0 ? Math.round((skorKonten / maxSkorKonten) * 1000) / 10 : 0;
 
         const confCount = data.sesiList.filter((s) => s.conference).length;
 
@@ -466,11 +466,11 @@ export async function getLaporanDosen(semesterId?: string) {
       // Rumus adil: pembagi adalah total sesi beban riil pengajar
       const avgKehadiran =
         d.totalSesiBebanSemua > 0
-          ? Math.round((d.totalHadirSemua / d.totalSesiBebanSemua) * 100)
+          ? Math.round((d.totalHadirSemua / d.totalSesiBebanSemua) * 1000) / 10
           : 0;
       const avgKonten =
         d.maxSkor3PilarSemua > 0
-          ? Math.round((d.totalSkor3PilarSemua / d.maxSkor3PilarSemua) * 100)
+          ? Math.round((d.totalSkor3PilarSemua / d.maxSkor3PilarSemua) * 1000) / 10
           : 100;
 
       let status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
@@ -804,18 +804,18 @@ export async function getLaporanProdi(
     const prodiReportList: ProdiReportItem[] = Array.from(prodiMap.values()).map((p) => {
       const avgKehadiranRentang =
         p.totalSesiRentang > 0
-          ? Math.round(((p.totalHadirRentang + p.totalHadirTdkLengkapRentang) / p.totalSesiRentang) * 100)
+          ? Math.round(((p.totalHadirRentang + p.totalHadirTdkLengkapRentang) / p.totalSesiRentang) * 1000) / 10
           : 0;
 
       const avgKontenRentang =
         p.totalRegularSesiRentang > 0
-          ? Math.round((p.totalSkor3PilarRentang / (p.totalRegularSesiRentang * 3)) * 100)
+          ? Math.round((p.totalSkor3PilarRentang / (p.totalRegularSesiRentang * 3)) * 1000) / 10
           : 0;
 
       const avgKehadiranSemester =
-        p.totalKelas > 0 ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 100) : 0;
+        p.totalKelas > 0 ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 1000) / 10 : 0;
       const avgKontenSemester =
-        p.totalKelas > 0 ? Math.round((p.totalSkor3PilarSemester / (p.totalKelas * 42)) * 100) : 0;
+        p.totalKelas > 0 ? Math.round((p.totalSkor3PilarSemester / (p.totalKelas * 42)) * 1000) / 10 : 0;
 
       let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
       if (p.totalSesiRentang === 0) {
@@ -870,12 +870,12 @@ export async function getLaporanProdi(
 
     const avgKehadiranRentangSemua =
       globalTotalSesiRentang > 0
-        ? Math.round((globalTotalHadirRentang / globalTotalSesiRentang) * 100)
+        ? Math.round((globalTotalHadirRentang / globalTotalSesiRentang) * 1000) / 10
         : 0;
 
     const avgKontenRentangSemua =
       globalTotalRegularSesiRentang > 0
-        ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 100)
+        ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 1000) / 10
         : 0;
 
     return {

@@ -5,22 +5,21 @@ import { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import {
-  FileDown,
-  Calendar,
-  ClipboardList,
-  BarChart3,
-  School,
-  ArrowRight,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { Calendar } from "lucide-react";
 import SparklineCard from "@/components/dashboard/SparklineCard";
-import MonitoringTrendChart, { TrendItem } from "@/components/dashboard/MonitoringTrendChart";
-import WeeklyMonitoringTrendChart, { WeeklyTrendItem } from "@/components/dashboard/WeeklyMonitoringTrendChart";
+import MonitoringTrendChart, {
+  TrendItem,
+  WeeklyTrendItem,
+} from "@/components/dashboard/MonitoringTrendChart";
 import StatusDonutChart, { DonutStatusItem } from "@/components/dashboard/StatusDonutChart";
 import RecentClassesTable from "@/components/dashboard/RecentClassesTable";
 import { calculateClassSummary, calculateSessionPillars } from "@/lib/score-calculator";
+import {
+  formatPct,
+  roundPct,
+  getCurrentActiveSessionNumber,
+  DEFAULT_SEMESTER_START_DATE,
+} from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -32,13 +31,19 @@ export default async function DashboardPage() {
   let totalKelas = 0;
   let totalDosen = 0;
   let totalProdi = 0;
+  let kelasOffline = 0;
+  let kelasOnline = 0;
+  let kelasBimbingan = 0;
+  let totalKelasNonBimbingan = 0;
   let activeSemester: any = null;
   let recentClassesList: any[] = [];
   let avgKehadiranUniv = 0;
   let avgKontenUniv = 0;
   let kelasPerluPerhatianCount = 0;
+  let kelasCukupCount = 0;
   let totalAlpha = 0;
   let totalSesiTerlaksana = 0;
+  let totalHadir = 0;
   let trendData: TrendItem[] = [];
   let weeklyTrendData: WeeklyTrendItem[] = [];
   let donutData: DonutStatusItem[] = [];
@@ -48,13 +53,20 @@ export default async function DashboardPage() {
   let sparklineKontenData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
   let sparklineAlphaData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
 
+  let currentActiveSesi = 1;
+  let sudahDimonitorSesiAktif = 0;
+  let belumDimonitorSesiAktif = 0;
+  let persenSelesaiSesiAktif = 0;
+
   try {
     activeSemester =
       (await prisma.semester.findFirst({
         where: { aktif: true },
+        include: { hariLibur: true },
       })) ||
       (await prisma.semester.findFirst({
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+        include: { hariLibur: true },
       }));
 
     totalDosen = await prisma.dosen.count();
@@ -77,11 +89,33 @@ export default async function DashboardPage() {
 
     totalKelas = rawClasses.length;
 
-    let totalHadir = 0;
+    // Sesi aktif saat ini & progres monitoring sesi aktif
+    const semStartStr = activeSemester?.tanggalMulai
+      ? new Date(activeSemester.tanggalMulai).toISOString().split("T")[0]
+      : DEFAULT_SEMESTER_START_DATE;
+    currentActiveSesi = getCurrentActiveSessionNumber(semStartStr, activeSemester?.hariLibur);
+
+    sudahDimonitorSesiAktif = rawClasses.filter((cls) => {
+      const targetSesi = cls.monitoringSesi.find((s) => s.nomorSesi === currentActiveSesi);
+      return targetSesi ? targetSesi.kehadiran !== "BELUM_DIISI" : false;
+    }).length;
+    belumDimonitorSesiAktif = totalKelas - sudahDimonitorSesiAktif;
+    persenSelesaiSesiAktif =
+      totalKelas > 0 ? roundPct(sudahDimonitorSesiAktif, totalKelas) : 0;
+
+    // Count by mode
+    kelasOffline = rawClasses.filter(c => (c.modePembelajaran as string) === "LURING").length;
+    kelasOnline = rawClasses.filter(c => (c.modePembelajaran as string) === "DARING").length;
+    kelasBimbingan = rawClasses.filter(c => (c.modePembelajaran as string) === "BIMBINGAN").length;
+
     let totalHadirLengkap = 0;
     let totalHadirTdkLengkap = 0;
     let totalRegularSesiTerlaksana = 0;
     let totalSkor3PilarTerlaksana = 0;
+    let sumPersenKontenNonBimbingan = 0;
+    totalKelasNonBimbingan = 0;
+    // Total scheduled sessions = 16 per class (for true attendance %)  
+    const totalJadwalSesi = rawClasses.length * 16;
 
     // Array 16 sesi untuk akumulasi trend data S1 - S16
     const sesiAggregates = Array.from({ length: 16 }, (_, i) => ({
@@ -98,8 +132,15 @@ export default async function DashboardPage() {
         cls.modePembelajaran as any
       );
 
-      if (summary.statusEvaluasi === "PERLU_PERHATIAN" || summary.totalAlpha >= 2) {
+      if (summary.statusEvaluasi === "PERLU_PERHATIAN") {
         kelasPerluPerhatianCount++;
+      } else if (summary.statusEvaluasi === "CUKUP") {
+        kelasCukupCount++;
+      }
+
+      if ((cls.modePembelajaran as any) !== "BIMBINGAN") {
+        totalKelasNonBimbingan++;
+        sumPersenKontenNonBimbingan += summary.persenKonten;
       }
 
       for (const s of cls.monitoringSesi) {
@@ -133,8 +174,8 @@ export default async function DashboardPage() {
           }
         }
 
-        // 3 Pilar untuk sesi reguler yang sudah terlaksana (kecuali kelas Bimbingan karena bebas konten)
-        if (!isExam && s.kehadiran !== "BELUM_DIISI" && (cls.modePembelajaran as any) !== "BIMBINGAN") {
+        // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
+        if (!isExam && (cls.modePembelajaran as any) !== "BIMBINGAN") {
           totalRegularSesiTerlaksana++;
           const pilar = calculateSessionPillars(s);
           if (pilar.score !== null) {
@@ -148,17 +189,18 @@ export default async function DashboardPage() {
       }
     }
 
-    avgKehadiranUniv =
-      totalSesiTerlaksana > 0
-        ? Math.round((totalHadir / totalSesiTerlaksana) * 100)
-        : 0;
+    // Kehadiran: hadir / total sesi terjadwal (bukan hanya yang sudah diisi)
+    avgKehadiranUniv = roundPct(totalHadir, totalJadwalSesi);
 
-    avgKontenUniv =
-      totalRegularSesiTerlaksana > 0
-        ? Math.round((totalSkor3PilarTerlaksana / (totalRegularSesiTerlaksana * 3)) * 100)
-        : 0;
+    // Konten: Rerata persentase konten dari seluruh kelas reguler (Non-Bimbingan)
+    // Selaras 1:1 dengan halaman Rekapitulasi Sesi
+    avgKontenUniv = totalKelasNonBimbingan > 0
+      ? Math.round((sumPersenKontenNonBimbingan / totalKelasNonBimbingan) * 10) / 10
+      : 0;
 
-    // Trend S1 - S16 (Per Sesi)
+    const targetPilarSesi = totalKelasNonBimbingan * 3;
+
+    // Trend S1 - S16 (Per Sesi): Mengukur capaian terhadap seluruh kelas aktif universitas
     trendData = sesiAggregates.map((agg) => {
       const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
       const sesiLabel =
@@ -171,15 +213,15 @@ export default async function DashboardPage() {
           : `Sesi ${agg.nomorSesi}`;
 
       const kehadiran =
-        agg.totalTerisi > 0 ? Math.round((agg.totalHadir / agg.totalTerisi) * 100) : 0;
+        totalKelas > 0 ? roundPct(agg.totalHadir, totalKelas) : 0;
 
       let konten = 0;
       if (isExam) {
         konten = kehadiran;
       } else {
         konten =
-          agg.totalRegular > 0
-            ? Math.round((agg.totalSkorPilar / (agg.totalRegular * 3)) * 100)
+          targetPilarSesi > 0
+            ? roundPct(agg.totalSkorPilar, targetPilarSesi)
             : 0;
       }
 
@@ -188,10 +230,13 @@ export default async function DashboardPage() {
         full: fullLabel,
         kehadiran,
         konten,
+        totalTerisi: agg.totalTerisi,
+        totalRegular: agg.totalRegular,
+        totalSkorPilar: agg.totalSkorPilar,
       };
     });
 
-    // Trend Minggu 1 - 16 (Periode Mingguan)
+    // Trend Minggu 1 - 16 (Periode Mingguan): Mengukur capaian terhadap seluruh kelas aktif universitas
     weeklyTrendData = sesiAggregates.map((agg) => {
       const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
       const mingguLabel =
@@ -222,15 +267,15 @@ export default async function DashboardPage() {
           : "Pekan Perkuliahan";
 
       const kehadiran =
-        agg.totalTerisi > 0 ? Math.round((agg.totalHadir / agg.totalTerisi) * 100) : 0;
+        totalKelas > 0 ? roundPct(agg.totalHadir, totalKelas) : 0;
 
       let konten = 0;
       if (isExam) {
         konten = kehadiran;
       } else {
         konten =
-          agg.totalRegular > 0
-            ? Math.round((agg.totalSkorPilar / (agg.totalRegular * 3)) * 100)
+          targetPilarSesi > 0
+            ? roundPct(agg.totalSkorPilar, targetPilarSesi)
             : 0;
       }
 
@@ -248,15 +293,15 @@ export default async function DashboardPage() {
     // Donut Chart Data
     const hadirLengkapPersen =
       totalSesiTerlaksana > 0
-        ? Math.round((totalHadirLengkap / totalSesiTerlaksana) * 100)
+        ? roundPct(totalHadirLengkap, totalSesiTerlaksana)
         : 0;
     const hadirTdkLengkapPersen =
       totalSesiTerlaksana > 0
-        ? Math.round((totalHadirTdkLengkap / totalSesiTerlaksana) * 100)
+        ? roundPct(totalHadirTdkLengkap, totalSesiTerlaksana)
         : 0;
     const alphaPersen =
       totalSesiTerlaksana > 0
-        ? Math.round((totalAlpha / totalSesiTerlaksana) * 100)
+        ? roundPct(totalAlpha, totalSesiTerlaksana)
         : 0;
 
     donutData = [
@@ -382,175 +427,102 @@ export default async function DashboardPage() {
                 : "Semester Aktif"}
             </span>
           </div>
-
-          <Link
-            href="/laporan/rekap"
-            className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold shadow-xs"
-          >
-            <FileDown size={14} />
-            <span>Export Laporan</span>
-          </Link>
         </div>
       </div>
 
-      {/* ── 2. Top 4 Metric Cards with Sparklines ─────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* ── 2. Top 5 Metric Cards with Sparklines ─────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
         <SparklineCard
           title="Total Kelas Aktif"
           value={totalKelas}
-          subtitle={`Dari ${totalProdi} Prodi • ${totalDosen} Dosen`}
-          trendText={`${totalKelas} Kelas`}
+          subtitle={`${totalProdi} Prodi • ${totalDosen} Dosen terdaftar`}
+          trendText={`Sem. Aktif`}
           isPositive={true}
-          colorHex="#a80063"
-          chartData={sparklineClassData}
+          details={[
+            { label: "Offline", value: kelasOffline, color: "blue" },
+            { label: "Online", value: kelasOnline, color: "emerald" },
+            { label: "Bimbingan", value: kelasBimbingan, color: "violet" },
+          ]}
         />
 
         <SparklineCard
           title="Rata-rata Kehadiran"
-          value={`${avgKehadiranUniv}%`}
-          subtitle="Target 90% CDU"
+          value={formatPct(avgKehadiranUniv)}
+          valueColor="emerald"
+          subtitle={`Seluruh ${totalKelas} kelas • ${totalSesiTerlaksana} sesi tercatat`}
           trendText={avgKehadiranUniv >= 90 ? "Target Tercapai" : "Di Bawah Target"}
           isPositive={avgKehadiranUniv >= 90}
-          colorHex="#10b981"
-          chartData={sparklineKehadiranData}
+          progress={avgKehadiranUniv}
+          progressColor="emerald"
+          details={[
+            { label: "Hadir", value: `${totalHadir}`, color: "emerald" },
+            { label: "Alpha", value: `${totalAlpha}`, color: "rose" },
+            { label: "Target CDU", value: "≥90%", color: "slate" },
+          ]}
         />
 
         <SparklineCard
-          title="Kelengkapan Konten"
-          value={`${avgKontenUniv}%`}
-          subtitle="3 Pilar: Slide, Tugas, Video/Conf"
+          title="Rata-rata Konten"
+          value={formatPct(avgKontenUniv)}
+          valueColor="maroon"
+          subtitle={`Rerata skor 3 Pilar dari ${totalKelasNonBimbingan} kelas reguler`}
           trendText={avgKontenUniv >= 75 ? "Sesuai Standar" : "Perlu Optimasi"}
           isPositive={avgKontenUniv >= 75}
-          colorHex="#8b5cf6"
-          chartData={sparklineKontenData}
+          progress={avgKontenUniv}
+          progressColor="maroon"
+          details={[
+            { label: "L/S", value: "Pilar 1", color: "maroon" },
+            { label: "T/Q", value: "Pilar 2", color: "maroon" },
+            { label: "V/C", value: "Pilar 3", color: "maroon" },
+          ]}
+        />
+
+        <SparklineCard
+          title={`Progres Monitoring - Sesi ${currentActiveSesi}`}
+          value={formatPct(persenSelesaiSesiAktif)}
+          subtitle={`${sudahDimonitorSesiAktif}/${totalKelas} kelas telah dicek`}
+          trendText="Minggu Ini"
+          isPositive={persenSelesaiSesiAktif >= 80}
+          progress={persenSelesaiSesiAktif}
+          progressColor="emerald"
+          details={[
+            { label: "Selesai", value: sudahDimonitorSesiAktif, color: "emerald" },
+            { label: "Belum", value: belumDimonitorSesiAktif, color: "rose" },
+            { label: "Target", value: "100%", color: "slate" },
+          ]}
         />
 
         <SparklineCard
           title="Kelas Perlu Perhatian"
           value={`${kelasPerluPerhatianCount} Kelas`}
-          subtitle={`${totalAlpha} sesi Alpha tercatat`}
-          trendText={kelasPerluPerhatianCount === 0 ? "Kondisi Baik" : `${kelasPerluPerhatianCount} Perlu Ditindak`}
+          subtitle={`${totalAlpha} sesi alpha • ${kelasCukupCount} kelas cukup`}
+          trendText={kelasPerluPerhatianCount === 0 ? "Kondisi Baik" : `${kelasPerluPerhatianCount} Ditindak`}
           isPositive={kelasPerluPerhatianCount === 0}
-          colorHex="#ef4444"
-          chartData={sparklineAlphaData}
+          details={[
+            { label: "Perhatian", value: kelasPerluPerhatianCount, color: "rose" },
+            { label: "Cukup", value: kelasCukupCount, color: "amber" },
+            { label: "Memenuhi", value: totalKelas - kelasPerluPerhatianCount - kelasCukupCount, color: "emerald" },
+          ]}
         />
       </div>
 
-      {/* ── 3. Middle Row: Trend Spline Charts (Per Sesi & Per Minggu) ────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
-        <MonitoringTrendChart data={trendData} />
-        {/* <WeeklyMonitoringTrendChart data={weeklyTrendData} /> */}
+      {/* ── 3. Middle Row: Unified Trend Spline Chart & Donut Distribution Chart ─ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+        <div className="lg:col-span-2">
+          <MonitoringTrendChart
+            sessionData={trendData}
+            weeklyData={weeklyTrendData}
+          />
+        </div>
+
+        <div className="lg:col-span-1">
+          <StatusDonutChart data={donutData} totalSesi={totalSesiTerlaksana} />
+        </div>
       </div>
 
-      {/* ── 4. Bottom Row: Recent Classes Table + Status Donut & Quick Actions ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <RecentClassesTable classes={recentClassesList} />
-        </div>
-
-        <div className="lg:col-span-1 space-y-4">
-          <StatusDonutChart data={donutData} totalSesi={totalSesiTerlaksana} />
-
-          {/* Quick Action Widget Card */}
-          {/* <div className="duralux-card p-4 sm:p-5 bg-white">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-7 h-7 rounded-lg bg-[#fdf2f8] text-[#a80063] flex items-center justify-center text-xs font-bold">
-                ⚡
-              </span>
-              <h3 className="font-bold text-xs sm:text-sm text-slate-900">
-                Aksi Cepat CDU
-              </h3>
-            </div>
-
-            <div className="space-y-2">
-              {[
-                {
-                  label: "Input Monitoring Kelas",
-                  desc: "Grid 16 Sesi perkuliahan",
-                  href: "/monitoring",
-                  icon: ClipboardList,
-                  bg: "bg-[#fdf2f8]",
-                  text: "text-[#a80063]",
-                },
-                {
-                  label: "Laporan per Dosen",
-                  desc: "Evaluasi kepatuhan mengajar",
-                  href: "/laporan/dosen",
-                  icon: Users,
-                  bg: "bg-emerald-50",
-                  text: "text-emerald-600",
-                },
-                {
-                  label: "Laporan per Program Studi",
-                  desc: "Rekap performa & evaluasi alpha prodi",
-                  href: "/laporan/prodi",
-                  icon: BarChart3,
-                  bg: "bg-amber-50",
-                  text: "text-amber-600",
-                },
-                {
-                  label: "Tabel Rekapitulasi",
-                  desc: "Export Excel & Rekap Komprehensif",
-                  href: "/laporan/rekap",
-                  icon: FileDown,
-                  bg: "bg-blue-50",
-                  text: "text-blue-600",
-                },
-                {
-                  label: "Kelola Master Kelas",
-                  desc: "Dosen, Mata Kuliah & Jadwal",
-                  href: "/master/kelas",
-                  icon: School,
-                  bg: "bg-purple-50",
-                  text: "text-purple-600",
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="group flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-[#fbcfe8] hover:bg-[#fdf2f8]/40 transition-all text-slate-800"
-                  >
-                    <div
-                      className={`w-7 h-7 rounded-lg ${item.bg} ${item.text} flex items-center justify-center shrink-0 transition-transform group-hover:scale-105`}
-                    >
-                      <Icon size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-xs text-slate-800 group-hover:text-[#a80063] transition-colors truncate">
-                        {item.label}
-                      </p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        {item.desc}
-                      </p>
-                    </div>
-                    <ArrowRight
-                      size={13}
-                      className="text-slate-400 group-hover:text-[#a80063] group-hover:translate-x-0.5 transition-all shrink-0"
-                    />
-                  </Link>
-                );
-              })}
-            </div>
-          </div> */}
-
-          {/* Mini Guide Widget Card */}
-          {/* <div className="p-4 rounded-xl bg-gradient-to-tr from-[#1e1b4b] to-[#312e81] text-white relative overflow-hidden shadow-xs">
-            <div className="relative z-10">
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-white text-[9px] font-semibold backdrop-blur-md mb-1.5">
-                <Sparkles size={10} className="text-[#f472b6]" />
-                <span>Aturan CDU</span>
-              </div>
-              <h4 className="text-xs font-bold text-white">
-                Sesi 8 (UTS) & 16 (UAS)
-              </h4>
-              <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed font-normal">
-                Hanya kehadiran dosen yang dicatat. Konten otomatis dinonaktifkan (NULL) untuk sesi ujian.
-              </p>
-            </div>
-          </div> */}
-        </div>
+      {/* ── 4. Bottom Row: Status Monitoring Kelas Terkini (Full Width) ────────── */}
+      <div>
+        <RecentClassesTable classes={recentClassesList} />
       </div>
     </div>
   );

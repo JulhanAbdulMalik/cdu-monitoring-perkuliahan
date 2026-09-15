@@ -11,6 +11,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Format persentase dengan 1 angka desimal: "12.5%", "100.0%", "0.0%"
+export function formatPct(value: number | string | undefined | null): string {
+  if (value === undefined || value === null || value === "" || isNaN(Number(value))) return "0.0%";
+  return Number(value).toFixed(1) + "%";
+}
+
+// Hitung persentase dengan 1 desimal (float, bukan integer)
+export function roundPct(numerator: number, denominator: number): number {
+  if (denominator === 0) return 0;
+  return Math.round((numerator / denominator) * 1000) / 10; // 1 desimal
+}
+
 export function formatDate(date: Date | string | null, fmt = "dd MMM yyyy") {
   if (!date) return "—";
   return format(new Date(date), fmt, { locale: idLocale });

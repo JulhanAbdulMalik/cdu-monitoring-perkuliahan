@@ -3,6 +3,7 @@
 // Compact Donut Chart (Plus Jakarta Sans)
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { formatPct } from "@/lib/utils";
 
 export interface DonutStatusItem {
   name: string;
@@ -45,7 +46,7 @@ export default function StatusDonutChart({ data, totalSesi }: StatusDonutChartPr
             <Tooltip
               formatter={(value: any, name: any, entry: any) => {
                 const countText = entry?.payload?.count !== undefined ? ` (${entry.payload.count} sesi)` : "";
-                return [`${value}%${countText}`, name];
+                return [`${formatPct(value)}${countText}`, name];
               }}
               contentStyle={{
                 backgroundColor: "#ffffff",
@@ -99,7 +100,7 @@ export default function StatusDonutChart({ data, totalSesi }: StatusDonutChartPr
               {item.count !== undefined && (
                 <span className="text-[10px] text-slate-400">({item.count})</span>
               )}
-              <span className="font-semibold text-slate-900">{item.value}%</span>
+              <span className="font-semibold text-slate-900">{formatPct(item.value)}</span>
             </div>
           </div>
         ))}

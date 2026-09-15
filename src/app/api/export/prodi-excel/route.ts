@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getLaporanProdi } from "@/actions/laporan";
-import { getWeekDates, formatTanggalRange } from "@/lib/utils";
+import { getWeekDates, formatTanggalRange, formatPct } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,9 +53,9 @@ export async function GET(request: NextRequest) {
     const semCell = worksheet.getCell("A3");
     semCell.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
-    } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | Rata Kehadiran Univ: ${
+    } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | Rata Kehadiran Univ: ${formatPct(
       globalSummary.avgKehadiranRentangSemua
-    }% | Rata Konten 3P: ${globalSummary.avgKontenRentangSemua}% | Live Conf: ${globalSummary.totalConfRentangSemua}`;
+    )} | Rata Konten 3P: ${formatPct(globalSummary.avgKontenRentangSemua)} | Live Conf: ${globalSummary.totalConfRentangSemua}`;
     semCell.font = { name: "Arial", size: 9, italic: true, color: { argb: "FF64748B" } };
     semCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(3).height = 18;
@@ -117,17 +117,17 @@ export async function GET(request: NextRequest) {
         p.totalHadirTdkLengkapRentang,
         p.totalAlphaRentang,
         p.totalBelumDiisiRentang,
-        `${p.avgKehadiranRentang}%`,
+        formatPct(p.avgKehadiranRentang),
         `${p.totalSkor3PilarRentang}/${p.totalRegularSesiRentang * 3}`,
-        `${p.avgKontenRentang}%`,
+        formatPct(p.avgKontenRentang),
         p.totalConfRentang,
         p.statusKinerjaRentang === "SANGAT_BAIK"
           ? "Sangat Baik"
           : p.statusKinerjaRentang === "BAIK"
           ? "Baik"
           : "Perlu Pembinaan",
-        `${p.avgKehadiranSemester}%`,
-        `${p.avgKontenSemester}%`,
+        formatPct(p.avgKehadiranSemester),
+        formatPct(p.avgKontenSemester),
       ];
 
       const row = worksheet.addRow(rowValues);

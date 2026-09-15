@@ -34,7 +34,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { ProdiReportItem } from "@/actions/laporan";
-import { getWeekDates, formatTanggalRange } from "@/lib/utils";
+import { getWeekDates, formatTanggalRange, formatPct } from "@/lib/utils";
 
 interface SemesterOption {
   id: string;
@@ -256,7 +256,7 @@ export default function LaporanProdiClient({
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-              {globalSummary.avgKehadiranRentangSemua}%
+              {formatPct(globalSummary.avgKehadiranRentangSemua)}
             </h3>
             <span className="text-[11px] text-slate-500">
               Universitas
@@ -274,7 +274,7 @@ export default function LaporanProdiClient({
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <h3 className="text-2xl font-bold text-[#a80063] leading-none">
-              {globalSummary.avgKontenRentangSemua}%
+              {formatPct(globalSummary.avgKontenRentangSemua)}
             </h3>
             <span className="text-[11px] text-slate-500">
               Universitas
@@ -583,7 +583,7 @@ export default function LaporanProdiClient({
                         {isAllTime ? "Kehadiran Dosen:" : "Kehadiran Dosen (Rentang):"}
                       </span>
                       <span className="font-bold text-emerald-600">
-                        {p.avgKehadiranRentang}%
+                        {formatPct(p.avgKehadiranRentang)}
                       </span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -605,7 +605,7 @@ export default function LaporanProdiClient({
                         {isAllTime ? "Konten 3 Pilar:" : "Konten 3 Pilar (Rentang):"}
                       </span>
                       <span className="font-bold text-[#a80063]">
-                        {p.avgKontenRentang}%
+                        {formatPct(p.avgKontenRentang)}
                       </span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -718,7 +718,7 @@ export default function LaporanProdiClient({
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <span className="font-bold text-emerald-600 text-xs">
-                              {p.avgKehadiranRentang}%
+                              {formatPct(p.avgKehadiranRentang)}
                             </span>
                             <span className="block text-[9px] text-slate-400">
                               H:{p.totalHadirRentang} A:{p.totalAlphaRentang}
@@ -726,7 +726,7 @@ export default function LaporanProdiClient({
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <span className="font-bold text-[#a80063] text-xs">
-                              {p.avgKontenRentang}%
+                              {formatPct(p.avgKontenRentang)}
                             </span>
                             <span className="block text-[9px] text-slate-400">
                               {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}

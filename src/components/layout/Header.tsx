@@ -49,7 +49,7 @@ export default function Header() {
     : "CDU";
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200/70 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.015)]">
+    <header className="h-14 bg-white border-b border-slate-200/70 px-3 sm:px-4 md:px-5 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.015)]">
       {/* Top Accent Strip in #a80063 */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#a80063] via-[#c026d3] to-[#e879f9]" />
 

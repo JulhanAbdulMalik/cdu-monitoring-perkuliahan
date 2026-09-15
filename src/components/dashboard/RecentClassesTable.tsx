@@ -50,7 +50,7 @@ export default function RecentClassesTable({ classes }: RecentClassesTableProps)
               <th className="pb-2.5 font-bold">Mata Kuliah</th>
               <th className="pb-2.5 font-bold">Dosen Pengampu</th>
               <th className="pb-2.5 font-bold">Progress Sesi</th>
-              <th className="pb-2.5 font-bold">Status</th>
+              <th className="pb-2.5 text-center font-bold">Status</th>
               <th className="pb-2.5 text-right font-bold">Aksi</th>
             </tr>
           </thead>
@@ -97,7 +97,7 @@ export default function RecentClassesTable({ classes }: RecentClassesTableProps)
                   <td className="py-2.5 pr-3 min-w-[120px]">
                     <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-0.5">
                       <span>{item.progress}/16 Sesi</span>
-                      <span>{Math.round((item.progress / 16) * 100)}%</span>
+                      <span>{((item.progress / 16) * 100).toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-1 rounded-full bg-slate-100 overflow-hidden">
                       <div
@@ -108,7 +108,7 @@ export default function RecentClassesTable({ classes }: RecentClassesTableProps)
                   </td>
 
                   {/* Status Badge */}
-                  <td className="py-2.5 pr-3">
+                  <td className="py-2.5 pr-3 text-center">
                     {item.status === "LENGKAP" && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
                         <span className="w-1 h-1 rounded-full bg-emerald-500" />

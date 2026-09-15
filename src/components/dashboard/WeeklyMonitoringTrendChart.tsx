@@ -12,6 +12,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { formatPct } from "@/lib/utils";
 import { useState } from "react";
 import { CalendarDays } from "lucide-react";
 
@@ -64,17 +65,17 @@ function CustomTooltip({ active, payload }: any) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3 text-[11px]">
             <span className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
+              <span className="w-2 h-2 rounded-full bg-[#10b981]" />
               Kehadiran Dosen:
             </span>
-            <span className="font-bold text-slate-900">{payload[0]?.value}%</span>
+            <span className="font-bold text-slate-900">{formatPct(payload[0]?.value)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-[11px]">
             <span className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
               Kelengkapan Konten:
             </span>
-            <span className="font-bold text-slate-900">{payload[1]?.value}%</span>
+            <span className="font-bold text-slate-900">{formatPct(payload[1]?.value)}</span>
           </div>
           {data.totalSesi !== undefined && data.totalSesi > 0 && (
             <div className="pt-1 mt-1 border-t border-slate-50 text-[10px] text-slate-400 flex items-center justify-between">
@@ -127,11 +128,11 @@ export default function WeeklyMonitoringTrendChart({ data }: WeeklyMonitoringTre
         <div className="flex items-center gap-3 self-start sm:self-auto">
           <div className="hidden md:flex items-center gap-3 text-[11px] font-medium mr-1">
             <div className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
+              <span className="w-2 h-2 rounded-full bg-[#10b981]" />
               <span>Kehadiran</span>
             </div>
             <div className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
               <span>Konten</span>
             </div>
           </div>
@@ -177,12 +178,12 @@ export default function WeeklyMonitoringTrendChart({ data }: WeeklyMonitoringTre
           <AreaChart data={displayedData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
             <defs>
               <linearGradient id="colorKehadiranWeekly" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#a80063" stopOpacity={0.12} />
-                <stop offset="95%" stopColor="#a80063" stopOpacity={0.0} />
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.14} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
               </linearGradient>
               <linearGradient id="colorKontenWeekly" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.12} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                <stop offset="5%" stopColor="#a80063" stopOpacity={0.14} />
+                <stop offset="95%" stopColor="#a80063" stopOpacity={0.0} />
               </linearGradient>
             </defs>
 
@@ -207,19 +208,19 @@ export default function WeeklyMonitoringTrendChart({ data }: WeeklyMonitoringTre
               type="monotone"
               dataKey="kehadiran"
               name="Kehadiran Dosen"
-              stroke="#a80063"
+              stroke="#10b981"
               strokeWidth={2}
               fill="url(#colorKehadiranWeekly)"
-              activeDot={{ r: 5, fill: "#a80063", stroke: "#ffffff", strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: "#10b981", stroke: "#ffffff", strokeWidth: 2 }}
             />
             <Area
               type="monotone"
               dataKey="konten"
               name="Kelengkapan Konten"
-              stroke="#10b981"
+              stroke="#a80063"
               strokeWidth={1.8}
               fill="url(#colorKontenWeekly)"
-              activeDot={{ r: 4, fill: "#10b981", stroke: "#ffffff", strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: "#a80063", stroke: "#ffffff", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>

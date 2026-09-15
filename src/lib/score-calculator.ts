@@ -142,8 +142,9 @@ export function calculateClassSummary(
   });
 
   const totalHadir = totalHadirLengkap + totalHadirTdkLengkap;
-  const persenKehadiran = Math.round((totalHadir / 16) * 100);
-  const persenKonten = modePembelajaran === "BIMBINGAN" ? 100 : Math.round((totalSkor3Pilar / 42) * 100); // 14 regular sesi * 3 max = 42
+  // Simpan sebagai float 1 desimal agar tampilan UI akurat (misal: 6.3%, bukan 6%)
+  const persenKehadiran = Math.round((totalHadir / 16) * 1000) / 10;
+  const persenKonten = modePembelajaran === "BIMBINGAN" ? 100 : Math.round((totalSkor3Pilar / 42) * 1000) / 10; // 14 regular sesi * 3 max = 42
 
   const confTotal = confPraUTS + confPraUAS;
   const isConfCompliant = modePembelajaran !== "DARING" ? true : confPraUTS >= 3 && confPraUAS >= 3;

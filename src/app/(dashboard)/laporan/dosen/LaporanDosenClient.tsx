@@ -17,6 +17,7 @@ import {
   Printer,
   Sparkles,
 } from "lucide-react";
+import { formatPct } from "@/lib/utils";
 
 interface DosenReportItem {
   id: string;
@@ -220,7 +221,7 @@ export default function LaporanDosenClient({
                         <td className="py-3 pr-3 text-center">
                           <div className="inline-flex flex-col items-center">
                             <span className="font-bold text-emerald-600 text-xs">
-                              {d.avgKehadiran}%
+                              {formatPct(d.avgKehadiran)}
                             </span>
                             <div className="w-14 h-1 rounded-full bg-slate-100 overflow-hidden mt-0.5">
                               <div
@@ -235,7 +236,7 @@ export default function LaporanDosenClient({
                         <td className="py-3 pr-3 text-center">
                           <div className="inline-flex flex-col items-center">
                             <span className="font-bold text-[#a80063] text-xs">
-                              {d.avgKonten}%
+                              {formatPct(d.avgKonten)}
                             </span>
                             <div className="w-14 h-1 rounded-full bg-slate-100 overflow-hidden mt-0.5">
                               <div
@@ -335,7 +336,7 @@ export default function LaporanDosenClient({
                                           )}
                                         </td>
                                         <td className="py-2 text-center font-semibold text-emerald-600">
-                                          {cls.totalHadir}/{cls.totalSesiBeban ?? 16} ({cls.persenKehadiran}%)
+                                          {cls.totalHadir}/{cls.totalSesiBeban ?? 16} ({formatPct(cls.persenKehadiran)})
                                         </td>
                                         <td className="py-2 text-center font-semibold text-slate-700">
                                           {cls.modePembelajaran === "BIMBINGAN" ? (
@@ -344,7 +345,7 @@ export default function LaporanDosenClient({
                                             </span>
                                           ) : (
                                             <span>
-                                              {cls.totalSkorKonten}/{cls.maxSkorKonten ?? 42} ({cls.persenKonten}%)
+                                              {cls.totalSkorKonten}/{cls.maxSkorKonten ?? 42} ({formatPct(cls.persenKonten)})
                                             </span>
                                           )}
                                         </td>

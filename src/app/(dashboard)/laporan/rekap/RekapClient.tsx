@@ -24,6 +24,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { ClassRekapSummary } from "@/actions/laporan";
+import { formatPct } from "@/lib/utils";
 
 interface SemesterOption {
   id: string;
@@ -204,23 +205,6 @@ export default function RekapClient({
     );
   }
 
-  // Calculate Global KPI
-  const totalClasses = filteredRekap.length;
-  const avgKehadiran =
-    totalClasses > 0
-      ? Math.round(
-          filteredRekap.reduce((acc, c) => acc + c.persenKehadiran, 0) / totalClasses
-        )
-      : 0;
-  const avgKonten =
-    totalClasses > 0
-      ? Math.round(
-          filteredRekap.reduce((acc, c) => acc + c.persenKonten, 0) / totalClasses
-        )
-      : 0;
-  const countMemenuhi = filteredRekap.filter((c) => c.statusEvaluasi === "MEMENUHI").length;
-  const countPerhatian = filteredRekap.filter((c) => c.statusEvaluasi === "PERLU_PERHATIAN").length;
-
   const currentSem =
     semesters.find((s) => s.id === selectedSemester) || semesters[0];
 
@@ -282,71 +266,6 @@ export default function RekapClient({
         </p>
       </div>
 
-      {/* ── KPI Summary Cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 print:hidden">
-        {/* Card 1: Total Kelas */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Total Kelas Dimonitor
-          </p>
-          <h3 className="text-2xl font-bold text-slate-900 mt-1 leading-none">
-            {totalClasses}
-          </h3>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Kelas terdaftar di filter
-          </p>
-        </div>
-
-        {/* Card 2: Rata Kehadiran */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Rata-rata Kehadiran
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-              {avgKehadiran}%
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Target CDU: ≥ 85%
-          </p>
-        </div>
-
-        {/* Card 3: Rata Konten 3 Pilar */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Konten Perkuliahan 3 Pilar
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-[#a80063] leading-none">
-              {avgKonten}%
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Maks 42 Poin (14 sesi × 3)
-          </p>
-        </div>
-
-        {/* Card 4: Status Evaluasi */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Status Evaluasi
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-              {countMemenuhi} Sesuai
-            </span>
-            {countPerhatian > 0 && (
-              <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
-                {countPerhatian} Perhatian
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1 truncate">
-            Termasuk kuota Live Conf
-          </p>
-        </div>
-      </div>
 
       {/* ── Search & Filter Controls ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70 print:hidden">
@@ -460,7 +379,7 @@ export default function RekapClient({
             <span className="font-bold text-slate-700">Pengajar:</span>
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-purple-600 ring-1 ring-purple-200" />
-              <span>Dosen Baru (S9–16)</span>
+              <span>Dosen Baru</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-amber-500 ring-1 ring-amber-200" />
@@ -666,7 +585,7 @@ export default function RekapClient({
                         {cls.totalHadir}/16
                       </span>
                       <span className="block text-[9px] text-slate-400 font-medium">
-                        {cls.persenKehadiran}%
+                        {formatPct(cls.persenKehadiran)}
                       </span>
                     </td>
 
@@ -682,7 +601,7 @@ export default function RekapClient({
                             {cls.totalSkor3Pilar}/42
                           </span>
                           <span className="block text-[9px] text-slate-400 font-medium">
-                            {cls.persenKonten}%
+                            {formatPct(cls.persenKonten)}
                           </span>
                         </>
                       )}

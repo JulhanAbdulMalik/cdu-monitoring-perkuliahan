@@ -26,7 +26,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
-import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE } from "@/lib/utils";
+import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE, formatPct, roundPct } from "@/lib/utils";
 
 interface SemesterOption {
   id: string;
@@ -266,7 +266,7 @@ export default function MonitoringListClient({
   const totalInBase = baseList.length;
   const sudahDimonitorCount = baseList.filter((c) => c.isMonitored).length;
   const belumDimonitorCount = baseList.filter((c) => !c.isMonitored).length;
-  const persenSelesai = totalInBase > 0 ? Math.round((sudahDimonitorCount / totalInBase) * 100) : 0;
+  const persenSelesai = totalInBase > 0 ? roundPct(sudahDimonitorCount, totalInBase) : 0;
 
   // 2. Final filtered list: menerapkan monitoringTab dan filterStatus
   const filteredList = baseList.filter((item) => {
@@ -403,37 +403,7 @@ export default function MonitoringListClient({
     );
   }
 
-  // Global KPI Calculations (Separate Online vs Offline vs Bimbingan)
   const totalClasses = filteredList.length;
-  const onlineList = filteredList.filter((c) => c.modePembelajaran === "DARING");
-  const offlineList = filteredList.filter((c) => c.modePembelajaran === "LURING");
-  const bimbinganList = filteredList.filter((c) => c.modePembelajaran === "BIMBINGAN");
-
-  const avgKehadiran =
-    totalClasses > 0
-      ? Math.round(
-          filteredList.reduce((acc, c) => acc + c.summary.persenKehadiran, 0) / totalClasses
-        )
-      : 0;
-
-  const onlineAvgKonten =
-    onlineList.length > 0
-      ? Math.round(
-          onlineList.reduce((acc, c) => acc + c.summary.persenKonten, 0) / onlineList.length
-        )
-      : 0;
-
-  const onlineMemenuhi = onlineList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
-  const onlinePerhatian = onlineList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
-
-  const offlineMemenuhi = offlineList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
-  const offlinePerhatian = offlineList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
-
-  const bimbinganMemenuhi = bimbinganList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
-  const bimbinganPerhatian = bimbinganList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
-
-  const totalMemenuhi = filteredList.filter((c) => c.summary.statusEvaluasi === "MEMENUHI").length;
-  const totalPerhatian = filteredList.filter((c) => c.summary.statusEvaluasi === "PERLU_PERHATIAN").length;
 
   return (
     <div className="space-y-4">
@@ -467,127 +437,6 @@ export default function MonitoringListClient({
         </div>
       </div>
 
-      {/* ── KPI Summary Cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Card 1: Progres Monitoring */}
-        <div className="duralux-card p-4 bg-white">
-          <div className="flex items-center justify-between gap-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
-              Progres Sesi {selectedSesi} {filterHari !== "ALL" ? `• ${filterHari}` : ""}
-            </p>
-            {selectedSesi === defaultActiveSesi && (
-              <span className="text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-full shrink-0">
-                Minggu Ini
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-baseline justify-between mt-1">
-            <h3 className="text-2xl font-bold text-slate-900 leading-none">
-              {persenSelesai}%
-            </h3>
-            <span className="text-[11px] font-bold text-slate-500">
-              {sudahDimonitorCount}/{totalInBase} Kelas
-            </span>
-          </div>
-
-          {/* Mini Progress Bar (Single Green Color) */}
-          <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2.5">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-              style={{ width: `${persenSelesai}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Card 2: Rata Kehadiran */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Rata-rata Kehadiran
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-              {avgKehadiran}%
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Target CDU: ≥ 85%
-          </p>
-        </div>
-
-        {/* Card 3: Rata-rata Konten 3 Pilar */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Rata-rata Konten 3 Pilar
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            {filterMode === "BIMBINGAN" ? (
-              <h3 className="text-xl font-bold text-purple-600 leading-none">
-                Bebas Konten
-              </h3>
-            ) : filterMode === "LURING" ? (
-              <h3 className="text-xl font-bold text-slate-500 leading-none">
-                Bebas Kewajiban
-              </h3>
-            ) : (
-              <h3 className="text-2xl font-bold text-[#a80063] leading-none">
-                {onlineAvgKonten}%
-              </h3>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            {filterMode === "BIMBINGAN"
-              ? "Bimbingan SCP / Skripsi"
-              : filterMode === "LURING"
-              ? "Opsional (Hanya untuk Online)"
-              : "Rata-rata Kelas Online (Maks 42)"}
-          </p>
-        </div>
-
-        {/* Card 4: Status Evaluasi Kelas (Compact & Efisien) */}
-        <div className="duralux-card p-4 bg-white">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Status Evaluasi
-            </p>
-            <span className="text-[10px] font-semibold text-slate-400">
-              {totalClasses} Kelas
-            </span>
-          </div>
-
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-              {totalMemenuhi} <span className="text-[11px] font-semibold text-emerald-700">Sesuai</span>
-            </h3>
-            <span className="text-slate-300">•</span>
-            <h3 className="text-2xl font-bold text-rose-600 leading-none">
-              {totalPerhatian} <span className="text-[11px] font-semibold text-rose-700">Perhatian</span>
-            </h3>
-          </div>
-
-          <p className="text-[10.5px] text-slate-400 mt-1 truncate">
-            {filterMode === "ALL" ? (
-              <>
-                <span className="text-blue-600 font-semibold">Online:</span> {onlineMemenuhi} ✓ - {onlinePerhatian} ⚠
-                <span className="text-slate-300 mx-1">•</span>
-                <span className="text-emerald-600 font-semibold">Offline:</span> {offlineMemenuhi} ✓ - {offlinePerhatian} ⚠
-                {bimbinganList.length > 0 && (
-                  <>
-                    <span className="text-slate-300 mx-1">•</span>
-                    <span className="text-purple-600 font-semibold">Bimbingan:</span> {bimbinganMemenuhi} ✓ - {bimbinganPerhatian} ⚠
-                  </>
-                )}
-              </>
-            ) : filterMode === "DARING" ? (
-              "Hadir ≥85%, 3 Pilar & Live Conf"
-            ) : filterMode === "LURING" ? (
-              "Hanya Kehadiran Fisik Dosen (≥85%)"
-            ) : (
-              "Kehadiran Bimbingan Sesi (≥85%)"
-            )}
-          </p>
-        </div>
-      </div>
 
 
 
@@ -912,7 +761,7 @@ export default function MonitoringListClient({
                           />
                         </div>
                         <span className="text-[9px] text-emerald-600 font-bold">
-                          {cls.summary.persenKehadiran}%
+                          {formatPct(cls.summary.persenKehadiran)}
                         </span>
 
                         {/* Status Monitoring Sesi Terpilih */}
@@ -959,7 +808,7 @@ export default function MonitoringListClient({
                             />
                           </div>
                           <span className="text-[9px] text-slate-400 font-semibold">
-                            {cls.summary.persenKonten}% Lengkap
+                            {formatPct(cls.summary.persenKonten)} Lengkap
                           </span>
                         </div>
                       )}

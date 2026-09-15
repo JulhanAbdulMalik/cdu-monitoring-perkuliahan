@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getRekapLaporan } from "@/actions/laporan";
+import { formatPct } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -185,9 +186,9 @@ export async function GET(request: NextRequest) {
         dosenDisplayText,
         ...sesiValues,
         `${cls.totalHadir}/16`,
-        `${cls.persenKehadiran}%`,
+        formatPct(cls.persenKehadiran),
         cls.modePembelajaran === "BIMBINGAN" ? "Bebas Konten" : `${cls.totalSkor3Pilar}/42`,
-        cls.modePembelajaran === "BIMBINGAN" ? "—" : `${cls.persenKonten}%`,
+        cls.modePembelajaran === "BIMBINGAN" ? "—" : formatPct(cls.persenKonten),
         cls.modePembelajaran === "LURING"
           ? "Bebas Conf"
           : cls.modePembelajaran === "BIMBINGAN"
