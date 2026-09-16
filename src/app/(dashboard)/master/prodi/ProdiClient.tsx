@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 import {
   createFakultas,
@@ -467,60 +468,101 @@ export default function ProdiClient({
         </div>
       </div>
 
-      {/* ── Tabs & Filter Controls ──────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70">
-        {/* Tab Buttons */}
-        <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/60 text-xs font-medium text-slate-600 self-start">
-          <button
-            onClick={() => setActiveTab("prodi")}
-            className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-              activeTab === "prodi"
-                ? "bg-white text-[#a80063] font-bold shadow-xs"
-                : "hover:text-slate-900"
-            }`}
-          >
-            Program Studi ({prodiList.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("fakultas")}
-            className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-              activeTab === "fakultas"
-                ? "bg-white text-[#a80063] font-bold shadow-xs"
-                : "hover:text-slate-900"
-            }`}
-          >
-            Fakultas ({fakultas.length})
-          </button>
-        </div>
-
-        {/* Search & Fakultas Filter (on Prodi tab) */}
-        {activeTab === "prodi" && (
-          <div className="flex items-center gap-2.5 flex-1 max-w-md justify-end">
-            <div className="relative w-full max-w-[200px]">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari prodi / kode..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 pr-3 py-1 bg-slate-50 text-xs rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-              />
-            </div>
-
-            <select
-              value={filterFakultas}
-              onChange={(e) => setFilterFakultas(e.target.value)}
-              className="px-2.5 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[160px] truncate cursor-pointer"
+      {/* ── Tabs & Filter Controls Bar ─────────────────────────────────────── */}
+      <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Tab Buttons */}
+          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/60 text-xs font-medium text-slate-600 self-start">
+            <button
+              onClick={() => setActiveTab("prodi")}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                activeTab === "prodi"
+                  ? "bg-white text-[#a80063] font-bold shadow-xs"
+                  : "hover:text-slate-900"
+              }`}
             >
-              <option value="ALL">Semua Fakultas</option>
-              {fakultas.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.nama}
-                </option>
-              ))}
-            </select>
+              Program Studi ({prodiList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("fakultas")}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                activeTab === "fakultas"
+                  ? "bg-white text-[#a80063] font-bold shadow-xs"
+                  : "hover:text-slate-900"
+              }`}
+            >
+              Fakultas ({fakultas.length})
+            </button>
           </div>
-        )}
+
+          {/* Search, Fakultas Filter & Reset (on Prodi tab) */}
+          {activeTab === "prodi" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-48 lg:w-56">
+                <Search
+                  size={13}
+                  className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                    searchQuery ? "text-[#a80063]" : "text-slate-400"
+                  }`}
+                />
+                <input
+                  type="text"
+                  placeholder="Cari prodi / kode..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
+                    searchQuery
+                      ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-medium"
+                      : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                  }`}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                    title="Hapus pencarian"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={filterFakultas}
+                onChange={(e) => setFilterFakultas(e.target.value)}
+                className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[160px] truncate ${
+                  filterFakultas !== "ALL"
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Filter Fakultas"
+              >
+                <option value="ALL">Semua Fakultas</option>
+                {fakultas.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nama}
+                  </option>
+                ))}
+              </select>
+
+              {(searchQuery || filterFakultas !== "ALL") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterFakultas("ALL");
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                  title="Reset semua filter ke default"
+                >
+                  <RotateCcw size={10} />
+                  <span>Reset Filter</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Table Card: Program Studi ────────────────────────────────────────── */}

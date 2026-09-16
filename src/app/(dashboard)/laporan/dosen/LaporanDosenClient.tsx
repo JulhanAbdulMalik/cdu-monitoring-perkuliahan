@@ -20,6 +20,8 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import { formatPct } from "@/lib/utils";
 
@@ -271,52 +273,76 @@ export default function LaporanDosenClient({
         </div>
       </div>
 
-      {/* ── Search & Filter Bar ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70 print:hidden">
-        <div className="relative w-full max-w-xs">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari dosen / NIDN..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-7 pr-3 py-1 bg-slate-50 text-xs rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Semester */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Semester:</span>
-            <select
-              value={selectedSemester}
-              onChange={(e) => {
-                setSelectedSemester(e.target.value);
-                window.location.href = `/laporan/dosen?semesterId=${e.target.value}`;
-              }}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[150px] truncate"
-            >
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.tahunAkademik} ({s.periode})
-                </option>
-              ))}
-            </select>
+      {/* ── Standardized Single-Row Filter Toolbar ─────────────────────────── */}
+      <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Left Controls: Search */}
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+            <div className="relative w-full sm:w-48 lg:w-64">
+              <Search
+                size={13}
+                className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                  searchQuery ? "text-[#a80063]" : "text-slate-400"
+                }`}
+              />
+              <input
+                type="text"
+                placeholder="Cari dosen / NIDN..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
+                  searchQuery
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                }`}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Status */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Kinerja:</span>
+          {/* Right Controls: Filter & Reset */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status / Kinerja Filter */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterStatus !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Kinerja Dosen"
             >
-              <option value="ALL">Semua</option>
+              <option value="ALL">Semua Kinerja</option>
               <option value="SANGAT_BAIK">Sangat Baik (≥90%)</option>
               <option value="BAIK">Baik (75%–89%)</option>
               <option value="PERLU_PEMBINAAN">Perlu Pembinaan (&lt;75%)</option>
             </select>
+
+            {/* Reset All Filters Button */}
+            {(searchQuery || filterStatus !== "ALL") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterStatus("ALL");
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Reset semua filter ke default"
+              >
+                <RotateCcw size={10} />
+                <span>Reset Filter</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

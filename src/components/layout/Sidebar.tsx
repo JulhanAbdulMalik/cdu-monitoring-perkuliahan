@@ -25,6 +25,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -51,6 +52,11 @@ const navGroups: NavGroup[] = [
         label: "Dashboard",
         href: "/",
         icon: LayoutDashboard,
+      },
+      {
+        label: "Lapor CDU",
+        href: "/lapor-cdu",
+        icon: AlertCircle,
       },
     ],
   },

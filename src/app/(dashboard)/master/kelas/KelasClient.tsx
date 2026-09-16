@@ -31,6 +31,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/kelas";
 import MasterImportModal from "@/components/master/MasterImportModal";
@@ -530,49 +531,54 @@ export default function KelasClient({
         </div>
       </div>
 
-      {/* ── Filter Controls Bar ─────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70">
-        {/* Search */}
-        <div className="relative w-full lg:max-w-xs">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari MK, Dosen, Kelas, atau Prodi..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-7 pr-3 py-1 bg-slate-50 text-xs rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-          />
-        </div>
-
-        {/* Filter Dropdowns */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Filter Semester */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Semester:</span>
-            <select
-              value={selectedSemester}
-              onChange={(e) => {
-                setSelectedSemester(e.target.value);
-                handleReloadData(e.target.value);
-              }}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[155px] truncate cursor-pointer"
-            >
-              <option value="ALL">Semua Semester</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.tahunAkademik} ({s.periode}) {s.aktif ? "★ Aktif" : ""}
-                </option>
-              ))}
-            </select>
+      {/* ── Standardized Single-Row Filter Toolbar ─────────────────────────── */}
+      <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Left Controls: Search */}
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+            <div className="relative w-full sm:w-48 lg:w-64">
+              <Search
+                size={13}
+                className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                  searchQuery ? "text-[#a80063]" : "text-slate-400"
+                }`}
+              />
+              <input
+                type="text"
+                placeholder="Cari MK, Dosen, Kelas, atau Prodi..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
+                  searchQuery
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                }`}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Filter Prodi */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Prodi:</span>
+          {/* Right Controls: Filter Dropdowns & Reset */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Prodi */}
             <select
               value={filterProdi}
               onChange={(e) => setFilterProdi(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[150px] truncate cursor-pointer"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
+                filterProdi !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Program Studi"
             >
               <option value="ALL">Semua Prodi</option>
               {prodiList.map((p) => (
@@ -581,15 +587,17 @@ export default function KelasClient({
                 </option>
               ))}
             </select>
-          </div>
 
-          {/* Filter Hari */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Hari:</span>
+            {/* Filter Hari */}
             <select
               value={filterHari}
               onChange={(e) => setFilterHari(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none cursor-pointer"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterHari !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Hari Perkuliahan"
             >
               <option value="ALL">Semua Hari</option>
               {HARI_OPTIONS.map((h) => (
@@ -598,21 +606,41 @@ export default function KelasClient({
                 </option>
               ))}
             </select>
-          </div>
 
-          {/* Filter Mode */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-slate-400 font-medium">Mode:</span>
+            {/* Filter Mode */}
             <select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none cursor-pointer"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterMode !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Mode Pembelajaran"
             >
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online (Daring)</option>
               <option value="LURING">Offline (Luring)</option>
               <option value="BIMBINGAN">Bimbingan (SCP/Skripsi)</option>
             </select>
+
+            {/* Reset All Filters Button */}
+            {(searchQuery || filterProdi !== "ALL" || filterHari !== "ALL" || filterMode !== "ALL") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setFilterProdi("ALL");
+                  setFilterHari("ALL");
+                  setFilterMode("ALL");
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Reset semua filter ke default"
+              >
+                <RotateCcw size={10} />
+                <span>Reset Filter</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -26,6 +26,8 @@ model User {
 
   prodis            Prodi[]          @relation("UserProdis")
   monitoringUpdates MonitoringSesi[]
+  laporanDibuat     LaporCdu[]       @relation("PelaporLaporCdu")
+  laporanDiproses   LaporCdu[]       @relation("ProsesLaporCdu")
 }
 
 enum Role {
@@ -89,6 +91,7 @@ model Prodi {
   dosen      Dosen[]
   mataKuliah MataKuliah[]
   users      User[]       @relation("UserProdis")
+  laporanCdu LaporCdu[]
 }
 
 model Dosen {
@@ -136,6 +139,7 @@ model Kelas {
   mataKuliah     MataKuliah       @relation(fields: [mataKuliahId], references: [id])
   dosen          Dosen            @relation(fields: [dosenId], references: [id])
   monitoringSesi MonitoringSesi[]
+  laporanCdu     LaporCdu[]
 
   @@unique([kodeKelas, semesterId, mataKuliahId])
 }
@@ -216,4 +220,51 @@ enum StatusPengajar {
   UTAMA                 // Diajar oleh Dosen Utama kelas
   PENGGANTI_INSIDENTAL  // Menggantikan sementara pada sesi ini (Kasus 1)
   PERGANTIAN_TETAP      // Pergantian resmi mulai sesi ini ke depan (Kasus 2)
+}
+
+// ─────────────────────────────────────────
+// LAPOR CDU (Pusat Pengaduan & Sanggahan)
+// ─────────────────────────────────────────
+
+model LaporCdu {
+  id              String         @id @default(cuid())
+  kelasId         String
+  nomorSesi       Int            // Sesi 1 - 16
+  prodiId         String
+  pelaporId       String
+  
+  kategori        KategoriLapor
+  keterangan      String         @db.Text
+  tautanBukti     String?        // Link Google Drive / Zoom / rekaman (opsional teks)
+  
+  status          StatusLapor    @default(PENDING) // PENDING, DISETUJUI, DITOLAK
+  catatanCdu      String?        @db.Text
+  diprosesOlehId  String?
+  tanggalDiproses DateTime?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  kelas           Kelas          @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  prodi           Prodi          @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  pelapor         User           @relation("PelaporLaporCdu", fields: [pelaporId], references: [id], onDelete: Cascade)
+  diprosesOleh    User?          @relation("ProsesLaporCdu", fields: [diprosesOlehId], references: [id], onDelete: SetNull)
+
+  @@index([kelasId, nomorSesi])
+  @@index([prodiId])
+  @@index([status])
+}
+
+enum StatusLapor {
+  PENDING
+  DISETUJUI
+  DITOLAK
+}
+
+enum KategoriLapor {
+  KEHADIRAN_ALPHA     // Seharusnya Hadir tapi tercatat Alpha
+  LIVE_CONFERENCE     // Sudah Live tapi belum tercentang
+  KONTEN_MATERI       // Modul/Slide/Tugas belum tercatat
+  DOSEN_PENGGANTI     // Diajar dosen pengganti belum disesuaikan
+  LAINNYA             // Kendala teknis lainnya
 }

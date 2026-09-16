@@ -552,26 +552,8 @@ export default function LaporanProdiClient({
             </form>
           </div>
 
-          {/* Right Controls: Semester, Status, Sort, Reset & View Mode */}
+          {/* Right Controls: Status, Sort, Reset & View Mode */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Semester Selector */}
-            <div className="flex items-center gap-1">
-              <select
-                value={selectedSemester}
-                onChange={(e) => {
-                  setSelectedSemester(e.target.value);
-                  navigateToRange(startDate, endDate, e.target.value);
-                }}
-                className="px-2 py-1 bg-slate-50 text-[11px] text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[130px] truncate cursor-pointer font-medium"
-                title="Pilih Semester"
-              >
-                {semesters.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.tahunAkademik} ({s.periode}) {s.aktif ? "★" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* Status Filter with Subtle Transparent Maroon Active Style */}
             <div className="flex items-center">

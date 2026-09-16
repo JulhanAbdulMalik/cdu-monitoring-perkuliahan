@@ -24,6 +24,8 @@ import {
   ArrowUp,
   ArrowDown,
   GraduationCap,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
 import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE, formatPct, roundPct } from "@/lib/utils";
@@ -440,47 +442,72 @@ export default function MonitoringListClient({
 
 
 
-      {/* ── Search & Filter Controls ─────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/70">
-        {/* Search */}
-        <div className="relative w-full lg:max-w-xs">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari kode kelas, mata kuliah, dosen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#a80063]"
-          />
-        </div>
+      {/* ── Standardized Single-Row Filter Toolbar ─────────────────────────── */}
+      <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Left Controls: Search */}
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+            <div className="relative w-full sm:w-48 lg:w-64">
+              <Search
+                size={13}
+                className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
+                  searchQuery ? "text-[#a80063]" : "text-slate-400"
+                }`}
+              />
+              <input
+                type="text"
+                placeholder="Cari kode kelas, mata kuliah, dosen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
+                  searchQuery
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                }`}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
 
-        {/* Filters & Sorting */}
-        <div className="flex flex-wrap items-center gap-2">
-
-
-          {/* Sesi Selector (1-16) */}
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Sesi:</span>
+          {/* Right Controls: Filters & Reset */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Sesi Selector (1-16) */}
             <select
               value={selectedSesi}
               onChange={(e) => setSelectedSesi(Number(e.target.value))}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-800 font-semibold"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                selectedSesi !== defaultActiveSesi
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Pilih Sesi Monitoring"
             >
               {Array.from({ length: 16 }, (_, i) => i + 1).map((sNum) => (
                 <option key={sNum} value={sNum}>
-                  Sesi {sNum} {sNum === defaultActiveSesi ? "(Minggu Ini)" : sNum === 8 ? "(UTS)" : sNum === 16 ? "(UAS)" : ""}
+                  Sesi {sNum} {sNum === defaultActiveSesi ? "(Aktif)" : sNum === 8 ? "(UTS)" : sNum === 16 ? "(UAS)" : ""}
                 </option>
               ))}
             </select>
-          </div>
 
-          {/* Hari Filter (Dropdown Bersih) */}
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Hari:</span>
+            {/* Hari Filter */}
             <select
               value={filterHari}
               onChange={(e) => setFilterHari(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700 font-medium"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterHari !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Hari Perkuliahan"
             >
               <option value="ALL">Semua Hari</option>
               <option value="Senin">Senin</option>
@@ -491,15 +518,17 @@ export default function MonitoringListClient({
               <option value="Sabtu">Sabtu</option>
               <option value="Minggu">Minggu</option>
             </select>
-          </div>
 
-          {/* Prodi Filter */}
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Prodi:</span>
+            {/* Prodi Filter */}
             <select
               value={filterProdi}
               onChange={(e) => setFilterProdi(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
+                filterProdi !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Program Studi"
             >
               <option value="ALL">Semua Prodi</option>
               {prodiList.map((p) => (
@@ -508,35 +537,59 @@ export default function MonitoringListClient({
                 </option>
               ))}
             </select>
-          </div>
 
-          {/* Mode Pembelajaran Filter */}
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Mode:</span>
+            {/* Mode Pembelajaran Filter */}
             <select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterMode !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Mode Pembelajaran"
             >
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online</option>
               <option value="LURING">Offline</option>
               <option value="BIMBINGAN">Bimbingan</option>
             </select>
-          </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <span className="text-[11px] font-medium hidden sm:inline">Status:</span>
+            {/* Status Evaluasi Filter */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#a80063] text-slate-700"
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterStatus !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Status Evaluasi"
             >
               <option value="ALL">Semua Status</option>
               <option value="MEMENUHI">Sesuai</option>
               <option value="PERLU_PERHATIAN">Perlu Perhatian</option>
             </select>
+
+            {/* Reset All Filters Button */}
+            {(searchQuery || selectedSesi !== defaultActiveSesi || filterHari !== "ALL" || filterProdi !== "ALL" || filterMode !== "ALL" || filterStatus !== "ALL") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedSesi(defaultActiveSesi);
+                  setFilterHari("ALL");
+                  setFilterProdi("ALL");
+                  setFilterMode("ALL");
+                  setFilterStatus("ALL");
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                title="Reset semua filter ke default"
+              >
+                <RotateCcw size={10} />
+                <span>Reset Filter</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
