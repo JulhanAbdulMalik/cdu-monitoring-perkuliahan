@@ -346,19 +346,6 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 ---
 
-### Akun Bawaan (Default Seed)
-
-Setelah menjalankan `npm run db:seed`, akun berikut siap digunakan untuk login:
-
-| Role                  | Email                   | Password   | Hak Akses                                                    |
-| :-------------------- | :---------------------- | :--------- | :----------------------------------------------------------- |
-| **Super Admin**       | `admin@nusaputra.ac.id` | `admin123` | Akses Penuh: Monitoring, Data Master, Kelola Akun, Lapor CDU |
-| **Admin (Staff CDU)** | `cdu@nusaputra.ac.id`   | `cdu123`   | Monitoring Sesi, Verifikasi Lapor CDU, Rekapitulasi Laporan  |
-
-> ⚠️ **PENTING UNTUK PRODUCTION**: Segera ganti password akun default melalui menu **Pengaturan > Kelola Akun** setelah sistem pertama kali dideploy!
-
----
-
 ## 📜 Daftar Perintah (NPM Scripts)
 
 | Perintah              | Deskripsi                                                      |
