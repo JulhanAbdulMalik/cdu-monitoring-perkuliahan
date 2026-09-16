@@ -16,4 +16,6 @@ export const prisma =
         : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Simpan di globalThis baik di dev (mencegah leak HMR) maupun di production serverless (reuse connection pool)
+globalForPrisma.prisma = prisma;
+

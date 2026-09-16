@@ -33,31 +33,19 @@ export default async function LaporCduPage({ searchParams }: LaporCduPageProps) 
 
   const resolvedSearchParams = await searchParams;
 
-  // Ambil semester aktif
-  const activeSemester =
-    (await prisma.semester.findFirst({ where: { aktif: true } })) ||
-    (await prisma.semester.findFirst({
+  // Optimasi Waterfall: Ambil allSemesters dan accessibleProdis secara paralel
+  const [allSemesters, accessibleProdis] = await Promise.all([
+    prisma.semester.findMany({
       orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-    }));
-
-  const allSemesters = await prisma.semester.findMany({
-    orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-  });
-
-  // Ambil daftar prodi sesuai hak akses
-  let accessibleProdis: { id: string; nama: string; kode: string }[] = [];
-  if (userRole === "DOSEN") {
-    accessibleProdis = await prisma.prodi.findMany({
-      where: { id: { in: userProdiIds } },
+    }),
+    prisma.prodi.findMany({
+      where: userRole === "DOSEN" ? { id: { in: userProdiIds } } : undefined,
       select: { id: true, nama: true, kode: true },
       orderBy: { nama: "asc" },
-    });
-  } else {
-    accessibleProdis = await prisma.prodi.findMany({
-      select: { id: true, nama: true, kode: true },
-      orderBy: { nama: "asc" },
-    });
-  }
+    }),
+  ]);
+
+  const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
 
   const defaultSemesterId = resolvedSearchParams.semesterId || activeSemester?.id || "";
 

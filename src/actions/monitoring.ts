@@ -8,10 +8,22 @@ import { parseEdlinkExcel, ParsedSesiData } from "@/lib/excel-parser";
 
 export async function getMonitoringKelasList(semesterId?: string, prodiId?: string) {
   try {
-    const activeSemester = await prisma.semester.findFirst({
-      where: { aktif: true },
-    });
+    // Optimasi Waterfall: Ambil allSemesters & allProdi secara paralel
+    const [allSemesters, allProdi] = await Promise.all([
+      prisma.semester.findMany({
+        include: {
+          hariLibur: {
+            orderBy: { tanggalMulai: "asc" },
+          },
+        },
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+      }),
+      prisma.prodi.findMany({
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
+    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
 
     const kelasList = await prisma.kelas.findMany({
@@ -39,19 +51,6 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
     });
 
-    const allSemesters = await prisma.semester.findMany({
-      include: {
-        hariLibur: {
-          orderBy: { tanggalMulai: "asc" },
-        },
-      },
-      orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-    });
-
-    const allProdi = await prisma.prodi.findMany({
-      orderBy: { nama: "asc" },
-    });
-
     return {
       success: true,
       data: {
@@ -68,47 +67,48 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
 
 export async function getMonitoringKelasDetail(kelasId: string) {
   try {
-    const kelas = await prisma.kelas.findUnique({
-      where: { id: kelasId },
-      include: {
-        semester: {
-          include: {
-            hariLibur: {
-              orderBy: { tanggalMulai: "asc" },
+    // Optimasi Waterfall: Jalankan query detail kelas dan daftar seluruh dosen secara paralel
+    const [kelas, allDosen] = await Promise.all([
+      prisma.kelas.findUnique({
+        where: { id: kelasId },
+        include: {
+          semester: {
+            include: {
+              hariLibur: {
+                orderBy: { tanggalMulai: "asc" },
+              },
+            },
+          },
+          mataKuliah: { include: { prodi: true } },
+          dosen: true,
+          monitoringSesi: {
+            include: {
+              dosenPengajar: true,
+            },
+            orderBy: { nomorSesi: "asc" },
+          },
+        },
+      }),
+      prisma.dosen.findMany({
+        select: {
+          id: true,
+          nama: true,
+          nidn: true,
+          prodi: {
+            select: {
+              id: true,
+              nama: true,
+              kode: true,
             },
           },
         },
-        mataKuliah: { include: { prodi: true } },
-        dosen: true,
-        monitoringSesi: {
-          include: {
-            dosenPengajar: true,
-          },
-          orderBy: { nomorSesi: "asc" },
-        },
-      },
-    });
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
     if (!kelas) {
       return { success: false, error: "Kelas tidak ditemukan" };
     }
-
-    // Ambil daftar seluruh dosen untuk dropdown pengganti
-    const allDosen = await prisma.dosen.findMany({
-      select: {
-        id: true,
-        nama: true,
-        nidn: true,
-        prodi: {
-          select: {
-            id: true,
-            nama: true,
-            kode: true,
-          },
-        },
-      },
-      orderBy: { nama: "asc" },
-    });
 
     return {
       success: true,

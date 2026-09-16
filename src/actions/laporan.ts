@@ -88,10 +88,17 @@ export interface ClassRekapSummary {
 
 export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
   try {
-    const activeSemester = await prisma.semester.findFirst({
-      where: { aktif: true },
-    });
+    // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
+    const [allSemesters, allProdi] = await Promise.all([
+      prisma.semester.findMany({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+      }),
+      prisma.prodi.findMany({
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
+    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
 
     const rawClasses = await prisma.kelas.findMany({
@@ -223,14 +230,6 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
         statusEvaluasi: summary.statusEvaluasi,
         evaluasiNote: summary.evaluasiNote,
       };
-    });
-
-    const allSemesters = await prisma.semester.findMany({
-      orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-    });
-
-    const allProdi = await prisma.prodi.findMany({
-      orderBy: { nama: "asc" },
     });
 
     return {
@@ -606,19 +605,22 @@ export async function getLaporanProdi(
       endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
     }
 
-    const activeSemester = await prisma.semester.findFirst({
-      where: { aktif: true },
-    });
-    const targetSemesterId = semesterId || activeSemester?.id;
+    // Optimasi Waterfall: Ambil allSemesters & allProdi secara paralel
+    const [allSemesters, allProdi] = await Promise.all([
+      prisma.semester.findMany({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+      }),
+      prisma.prodi.findMany({
+        include: {
+          fakultas: true,
+          dosen: true,
+        },
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
-    // Get all prodis
-    const allProdi = await prisma.prodi.findMany({
-      include: {
-        fakultas: true,
-        dosen: true,
-      },
-      orderBy: { nama: "asc" },
-    });
+    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
+    const targetSemesterId = semesterId || activeSemester?.id;
 
     // Get all classes for the semester with their monitoring sessions
     const rawClasses = await prisma.kelas.findMany({
@@ -865,10 +867,6 @@ export async function getLaporanProdi(
         avgKehadiranSemester,
         avgKontenSemester,
       };
-    });
-
-    const allSemesters = await prisma.semester.findMany({
-      orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
     });
 
     const avgKehadiranRentangSemua =

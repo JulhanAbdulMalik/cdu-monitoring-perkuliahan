@@ -18,10 +18,25 @@ const kelasSchema = z.object({
 
 export async function getKelasList(semesterId?: string) {
   try {
-    const activeSemester = await prisma.semester.findFirst({
-      where: { aktif: true },
-    });
+    // Optimasi Waterfall: Jalankan query data master secara paralel
+    const [allSemesters, allMataKuliah, allDosen, allProdi] = await Promise.all([
+      prisma.semester.findMany({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+      }),
+      prisma.mataKuliah.findMany({
+        include: { prodi: true },
+        orderBy: [{ prodi: { nama: "asc" } }, { nama: "asc" }],
+      }),
+      prisma.dosen.findMany({
+        include: { prodi: true },
+        orderBy: { nama: "asc" },
+      }),
+      prisma.prodi.findMany({
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
+    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
 
     const kelas = await prisma.kelas.findMany({
@@ -37,24 +52,6 @@ export async function getKelasList(semesterId?: string) {
         },
       },
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
-    });
-
-    const allSemesters = await prisma.semester.findMany({
-      orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-    });
-
-    const allMataKuliah = await prisma.mataKuliah.findMany({
-      include: { prodi: true },
-      orderBy: [{ prodi: { nama: "asc" } }, { nama: "asc" }],
-    });
-
-    const allDosen = await prisma.dosen.findMany({
-      include: { prodi: true },
-      orderBy: { nama: "asc" },
-    });
-
-    const allProdi = await prisma.prodi.findMany({
-      orderBy: { nama: "asc" },
     });
 
     return {

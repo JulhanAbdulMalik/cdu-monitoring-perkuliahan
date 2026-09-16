@@ -15,21 +15,22 @@ const dosenSchema = z.object({
 
 export async function getDosenList() {
   try {
-    const dosen = await prisma.dosen.findMany({
-      include: {
-        prodi: {
-          include: { fakultas: true },
+    const [dosen, prodiList] = await Promise.all([
+      prisma.dosen.findMany({
+        include: {
+          prodi: {
+            include: { fakultas: true },
+          },
+          _count: {
+            select: { kelas: true },
+          },
         },
-        _count: {
-          select: { kelas: true },
-        },
-      },
-      orderBy: { nama: "asc" },
-    });
-
-    const prodiList = await prisma.prodi.findMany({
-      orderBy: { nama: "asc" },
-    });
+        orderBy: { nama: "asc" },
+      }),
+      prisma.prodi.findMany({
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
     return { success: true, data: { dosen, prodiList } };
   } catch (error: any) {

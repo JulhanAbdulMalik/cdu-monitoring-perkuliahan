@@ -26,13 +26,14 @@ export default async function KelolaAkunPage() {
     redirect("/");
   }
 
-  const res = await getUserList();
+  const [res, allProdis] = await Promise.all([
+    getUserList(),
+    prisma.prodi.findMany({
+      select: { id: true, nama: true, kode: true },
+      orderBy: { nama: "asc" },
+    }),
+  ]);
   const users = res.success && res.data ? res.data : [];
-
-  const allProdis = await prisma.prodi.findMany({
-    select: { id: true, nama: true, kode: true },
-    orderBy: { nama: "asc" },
-  });
 
   return (
     <UserManagementClient

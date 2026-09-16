@@ -59,29 +59,26 @@ export default async function DashboardPage() {
   let persenSelesaiSesiAktif = 0;
 
   try {
-    activeSemester =
-      (await prisma.semester.findFirst({
-        where: { aktif: true },
-        include: { hariLibur: true },
-      })) ||
-      (await prisma.semester.findFirst({
-        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-        include: { hariLibur: true },
-      }));
-
     const userRole = (session?.user as any)?.role;
     const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
     const isDosen = userRole === "DOSEN";
 
-    if (isDosen) {
-      totalDosen = await prisma.dosen.count({
-        where: { prodiId: { in: userProdiIds } },
-      });
-      totalProdi = userProdiIds.length;
-    } else {
-      totalDosen = await prisma.dosen.count();
-      totalProdi = await prisma.prodi.count();
-    }
+    // Optimasi Waterfall: Jalankan query semester, total dosen, dan total prodi secara paralel
+    const [allSemesters, dosenCount, prodiCount] = await Promise.all([
+      prisma.semester.findMany({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+        include: { hariLibur: true },
+      }),
+      isDosen
+        ? prisma.dosen.count({ where: { prodiId: { in: userProdiIds } } })
+        : prisma.dosen.count(),
+      isDosen ? Promise.resolve(userProdiIds.length) : prisma.prodi.count(),
+    ]);
+
+    activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0] || null;
+    totalDosen = dosenCount;
+    totalProdi = prodiCount;
+
 
     const rawClasses = await prisma.kelas.findMany({
       where: {

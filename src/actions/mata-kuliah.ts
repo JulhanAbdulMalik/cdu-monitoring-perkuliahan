@@ -15,21 +15,22 @@ const mataKuliahSchema = z.object({
 
 export async function getMataKuliahList() {
   try {
-    const mataKuliah = await prisma.mataKuliah.findMany({
-      include: {
-        prodi: {
-          include: { fakultas: true },
+    const [mataKuliah, prodiList] = await Promise.all([
+      prisma.mataKuliah.findMany({
+        include: {
+          prodi: {
+            include: { fakultas: true },
+          },
+          _count: {
+            select: { kelas: true },
+          },
         },
-        _count: {
-          select: { kelas: true },
-        },
-      },
-      orderBy: [{ prodi: { nama: "asc" } }, { kode: "asc" }],
-    });
-
-    const prodiList = await prisma.prodi.findMany({
-      orderBy: { nama: "asc" },
-    });
+        orderBy: [{ prodi: { nama: "asc" } }, { kode: "asc" }],
+      }),
+      prisma.prodi.findMany({
+        orderBy: { nama: "asc" },
+      }),
+    ]);
 
     return { success: true, data: { mataKuliah, prodiList } };
   } catch (error: any) {
