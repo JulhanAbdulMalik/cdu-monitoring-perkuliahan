@@ -7,6 +7,8 @@ import ExcelJS from "exceljs";
 import { getLaporanDosen } from "@/actions/laporan";
 import { formatPct } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
