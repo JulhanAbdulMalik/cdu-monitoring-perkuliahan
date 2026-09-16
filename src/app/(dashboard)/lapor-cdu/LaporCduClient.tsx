@@ -910,7 +910,7 @@ export default function LaporCduClient({
                     >
                       {availableClasses.map((c) => (
                         <option key={c.id} value={c.id}>
-                          [{c.kodeKelas}] {c.mataKuliah.nama} — {c.dosen.nama}
+                          [{c.kodeKelas}] {c.mataKuliah.nama} - {c.dosen.nama}
                         </option>
                       ))}
                     </select>

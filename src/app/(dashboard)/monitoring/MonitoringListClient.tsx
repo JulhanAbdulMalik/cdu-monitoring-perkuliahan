@@ -445,9 +445,9 @@ export default function MonitoringListClient({
       {/* ── Standardized Single-Row Filter Toolbar ─────────────────────────── */}
       <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
-          {/* Left Controls: Search */}
-          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
-            <div className="relative w-full sm:w-48 lg:w-64">
+          {/* Left Controls: Search & Segmented Status Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-48 lg:w-56">
               <Search
                 size={13}
                 className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
@@ -475,6 +475,60 @@ export default function MonitoringListClient({
                   <X size={12} />
                 </button>
               )}
+            </div>
+
+            {/* Segmented Filter Status Monitoring */}
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => setMonitoringTab("ALL")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  monitoringTab === "ALL"
+                    ? "bg-white text-slate-900 shadow-2xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Semua Kelas</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/70 text-slate-700 font-bold">
+                  {totalInBase}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMonitoringTab("BELUM")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  monitoringTab === "BELUM"
+                    ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs"
+                    : "text-slate-600 hover:text-rose-600 hover:bg-rose-50/50"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  <span>Belum Dimonitor</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 font-extrabold">
+                  {belumDimonitorCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMonitoringTab("SUDAH")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  monitoringTab === "SUDAH"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs"
+                    : "text-slate-600 hover:text-emerald-600 hover:bg-emerald-50/50"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Sudah Dimonitor</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-extrabold">
+                  {sudahDimonitorCount}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -572,11 +626,12 @@ export default function MonitoringListClient({
             </select>
 
             {/* Reset All Filters Button */}
-            {(searchQuery || selectedSesi !== defaultActiveSesi || filterHari !== "ALL" || filterProdi !== "ALL" || filterMode !== "ALL" || filterStatus !== "ALL") && (
+            {(searchQuery || monitoringTab !== "ALL" || selectedSesi !== defaultActiveSesi || filterHari !== "ALL" || filterProdi !== "ALL" || filterMode !== "ALL" || filterStatus !== "ALL") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
+                  setMonitoringTab("ALL");
                   setSelectedSesi(defaultActiveSesi);
                   setFilterHari("ALL");
                   setFilterProdi("ALL");
@@ -591,70 +646,6 @@ export default function MonitoringListClient({
               </button>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* ── Sub-Tab Segmented Control (Opsi A) ────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-2xs">
-          <button
-            type="button"
-            onClick={() => setMonitoringTab("ALL")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              monitoringTab === "ALL"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/60"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span>Semua Kelas</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/70 text-slate-700 font-bold">
-              {totalInBase}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMonitoringTab("BELUM")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              monitoringTab === "BELUM"
-                ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-xs"
-                : "text-slate-600 hover:text-rose-600 hover:bg-rose-50/50"
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              <span>Belum Dimonitor</span>
-            </span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 font-extrabold">
-              {belumDimonitorCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMonitoringTab("SUDAH")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              monitoringTab === "SUDAH"
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs"
-                : "text-slate-600 hover:text-emerald-600 hover:bg-emerald-50/50"
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Sudah Dimonitor</span>
-            </span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-extrabold">
-              {sudahDimonitorCount}
-            </span>
-          </button>
-        </div>
-
-        {/* Info Keterangan Sesi Terpilih */}
-        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200/70 shadow-2xs">
-          <Clock size={12} className="text-[#a80063] shrink-0" />
-          <span>
-            Status monitoring diukur dari <strong>Kehadiran Sesi {selectedSesi}</strong>
-          </span>
         </div>
       </div>
 
