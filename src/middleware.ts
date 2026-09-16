@@ -1,20 +1,28 @@
 // src/middleware.ts
-// Proteksi route — menggunakan auth.config.ts (Edge-safe, tanpa Node.js imports)
+// Proteksi route — Edge-safe menggunakan getToken dari next-auth/jwt
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth.config";
-import { NextResponse } from "next/server";
+const secret =
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  "cdu-monitoring-nusa-putra-secret-key-2026-change-in-production";
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((req) => {
+export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
   const isLoginPage = nextUrl.pathname === "/login";
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
 
   // Biarkan API auth route lewat
   if (isApiAuth) return NextResponse.next();
+
+  // Ambil session token langsung dari cookies (cek secure cookie untuk production, fallback non-secure)
+  let token = await getToken({ req, secret, secureCookie: true });
+  if (!token) {
+    token = await getToken({ req, secret, secureCookie: false });
+  }
+
+  const isLoggedIn = !!token;
 
   // Redirect ke /login jika belum login
   if (!isLoggedIn && !isLoginPage) {
@@ -29,8 +37,8 @@ export default auth((req) => {
   }
 
   // ── Route Protections Berdasarkan Role ─────────────────────────────
-  if (isLoggedIn) {
-    const userRole = (req.auth?.user as any)?.role;
+  if (isLoggedIn && token) {
+    const userRole = token.role as string | undefined;
 
     // Data Master & Kelola Akun: Khusus SUPER_ADMIN
     if (
@@ -47,7 +55,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|public/).*)"],
