@@ -10,7 +10,11 @@ import { GraduationCap, Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const rawCallback = searchParams.get("callbackUrl");
+  const callbackUrl =
+    !rawCallback || rawCallback === "/login" || rawCallback.startsWith("/login")
+      ? "/"
+      : rawCallback;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,8 +45,8 @@ function LoginForm() {
           toast.error(`Gagal masuk (${res.error}). Silakan coba lagi.`);
         }
       } else {
-        toast.success("Berhasil masuk!");
-        window.location.href = callbackUrl;
+        toast.success("Berhasil masuk! Mengalihkan...");
+        window.location.replace(callbackUrl);
       }
     } catch (err: any) {
       console.error("Login catch error:", err);
