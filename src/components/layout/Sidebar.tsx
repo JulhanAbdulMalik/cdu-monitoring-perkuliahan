@@ -31,12 +31,13 @@ import { useSidebar } from "./SidebarContext";
 
 interface NavGroup {
   category: string;
+  allowedRoles?: ("SUPER_ADMIN" | "ADMIN" | "DOSEN")[];
   items: {
     label: string;
     href: string;
     icon: React.ElementType;
     badge?: string;
-    superAdminOnly?: boolean;
+    allowedRoles?: ("SUPER_ADMIN" | "ADMIN" | "DOSEN")[];
     children?: { label: string; href: string }[];
   }[];
 }
@@ -44,6 +45,7 @@ interface NavGroup {
 const navGroups: NavGroup[] = [
   {
     category: "MAIN",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "DOSEN"],
     items: [
       {
         label: "Dashboard",
@@ -54,6 +56,7 @@ const navGroups: NavGroup[] = [
   },
   {
     category: "MONITORING",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN"],
     items: [
       {
         label: "Monitoring Kelas",
@@ -64,6 +67,7 @@ const navGroups: NavGroup[] = [
   },
   {
     category: "LAPORAN",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "DOSEN"],
     items: [
       {
         label: "Rekapitulasi Sesi",
@@ -84,6 +88,7 @@ const navGroups: NavGroup[] = [
   },
   {
     category: "DATA MASTER",
+    allowedRoles: ["SUPER_ADMIN"],
     items: [
       {
         label: "Semester",
@@ -109,13 +114,13 @@ const navGroups: NavGroup[] = [
   },
   {
     category: "PENGATURAN",
+    allowedRoles: ["SUPER_ADMIN"],
     items: [
       {
         label: "Kelola Akun",
         href: "/kelola-akun",
         icon: ShieldCheck,
         badge: "Super",
-        superAdminOnly: true,
       },
     ],
   },
@@ -126,13 +131,15 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const { isCollapsed, toggleSidebar } = useSidebar();
 
-  const userRole = (session?.user as any)?.role;
-  const isSuperAdmin = userRole === "SUPER_ADMIN";
+  const userRole = (session?.user as any)?.role as "SUPER_ADMIN" | "ADMIN" | "DOSEN" | undefined;
 
   const filteredNavGroups = navGroups
+    .filter((group) => !group.allowedRoles || (userRole && group.allowedRoles.includes(userRole)))
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin),
+      items: group.items.filter(
+        (item) => !item.allowedRoles || (userRole && item.allowedRoles.includes(userRole))
+      ),
     }))
     .filter((group) => group.items.length > 0);
 

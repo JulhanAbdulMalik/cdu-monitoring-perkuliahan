@@ -14,15 +14,17 @@ const createUserSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
   email: z.string().email("Format email tidak valid"),
   password: z.string().min(6, "Password minimal 6 karakter"),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "CDU_STAFF"]),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "DOSEN"]),
+  prodiIds: z.array(z.string()).optional(),
 });
 
 // Skema validasi pembaruan pengguna
 const updateUserSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
   email: z.string().email("Format email tidak valid"),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "CDU_STAFF"]),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "DOSEN"]),
   password: z.string().optional(),
+  prodiIds: z.array(z.string()).optional(),
 });
 
 // Helper untuk memeriksa otorisasi Super Admin
@@ -50,6 +52,14 @@ export async function getUserList() {
         role: true,
         createdAt: true,
         updatedAt: true,
+        prodis: {
+          select: {
+            id: true,
+            nama: true,
+            kode: true,
+          },
+          orderBy: { nama: "asc" },
+        },
         _count: {
           select: {
             monitoringUpdates: true,
@@ -69,7 +79,8 @@ export async function createUser(formData: {
   name: string;
   email: string;
   password: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "CDU_STAFF";
+  role: "SUPER_ADMIN" | "ADMIN" | "DOSEN";
+  prodiIds?: string[];
 }) {
   try {
     await requireSuperAdmin();
@@ -95,6 +106,10 @@ export async function createUser(formData: {
         email,
         password: hashedPassword,
         role: parsed.role as Role,
+        prodis:
+          parsed.prodiIds && parsed.prodiIds.length > 0
+            ? { connect: parsed.prodiIds.map((id) => ({ id })) }
+            : undefined,
       },
       select: {
         id: true,
@@ -102,6 +117,9 @@ export async function createUser(formData: {
         email: true,
         role: true,
         createdAt: true,
+        prodis: {
+          select: { id: true, nama: true, kode: true },
+        },
       },
     });
 
@@ -123,8 +141,9 @@ export async function updateUser(
   formData: {
     name: string;
     email: string;
-    role: "SUPER_ADMIN" | "ADMIN" | "CDU_STAFF";
+    role: "SUPER_ADMIN" | "ADMIN" | "DOSEN";
     password?: string;
+    prodiIds?: string[];
   }
 ) {
   try {
@@ -150,6 +169,9 @@ export async function updateUser(
       name: parsed.name.trim(),
       email,
       role: parsed.role as Role,
+      prodis: {
+        set: (parsed.prodiIds || []).map((id) => ({ id })),
+      },
     };
 
     // Jika password baru diberikan dan tidak kosong
@@ -169,6 +191,9 @@ export async function updateUser(
         email: true,
         role: true,
         updatedAt: true,
+        prodis: {
+          select: { id: true, nama: true, kode: true },
+        },
       },
     });
 

@@ -2,7 +2,8 @@
 // Focused 16-Session 3-Pillar Monitoring Grid Page for a Specific Class
 
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getMonitoringKelasList, getMonitoringKelasDetail } from "@/actions/monitoring";
 import MonitoringGridClient from "../MonitoringGridClient";
 
@@ -28,6 +29,10 @@ export async function generateMetadata({
 export default async function MonitoringDetailPage({
   params,
 }: MonitoringDetailPageProps) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if ((session.user as any)?.role === "DOSEN") redirect("/");
+
   const resolvedParams = await params;
   const detailRes = await getMonitoringKelasDetail(resolvedParams.kelasId);
 

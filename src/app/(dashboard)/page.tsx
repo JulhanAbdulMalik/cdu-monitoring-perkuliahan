@@ -69,11 +69,25 @@ export default async function DashboardPage() {
         include: { hariLibur: true },
       }));
 
-    totalDosen = await prisma.dosen.count();
-    totalProdi = await prisma.prodi.count();
+    const userRole = (session?.user as any)?.role;
+    const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+    const isDosen = userRole === "DOSEN";
+
+    if (isDosen) {
+      totalDosen = await prisma.dosen.count({
+        where: { prodiId: { in: userProdiIds } },
+      });
+      totalProdi = userProdiIds.length;
+    } else {
+      totalDosen = await prisma.dosen.count();
+      totalProdi = await prisma.prodi.count();
+    }
 
     const rawClasses = await prisma.kelas.findMany({
-      where: activeSemester ? { semesterId: activeSemester.id } : {},
+      where: {
+        ...(activeSemester ? { semesterId: activeSemester.id } : {}),
+        ...(isDosen ? { mataKuliah: { prodiId: { in: userProdiIds } } } : {}),
+      },
       include: {
         mataKuliah: {
           include: { prodi: true },

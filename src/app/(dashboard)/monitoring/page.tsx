@@ -2,6 +2,8 @@
 // Main List View for All Monitored Classes (Daftar Kelas Monitoring)
 
 import { Metadata } from "next";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { getMonitoringKelasList } from "@/actions/monitoring";
 import MonitoringListClient from "./MonitoringListClient";
 
@@ -14,6 +16,10 @@ interface MonitoringPageProps {
 }
 
 export default async function MonitoringPage({ searchParams }: MonitoringPageProps) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if ((session.user as any)?.role === "DOSEN") redirect("/");
+
   const resolvedSearchParams = await searchParams;
   // Selalu gunakan Semester Aktif yang diset di Master Semester
   const listRes = await getMonitoringKelasList(

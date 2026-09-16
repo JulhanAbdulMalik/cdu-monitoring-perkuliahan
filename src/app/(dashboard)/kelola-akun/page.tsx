@@ -5,6 +5,7 @@ import { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getUserList } from "@/actions/user";
+import { prisma } from "@/lib/prisma";
 import UserManagementClient from "./UserManagementClient";
 
 export const metadata: Metadata = {
@@ -28,11 +29,17 @@ export default async function KelolaAkunPage() {
   const res = await getUserList();
   const users = res.success && res.data ? res.data : [];
 
+  const allProdis = await prisma.prodi.findMany({
+    select: { id: true, nama: true, kode: true },
+    orderBy: { nama: "asc" },
+  });
+
   return (
     <UserManagementClient
       initialUsers={users as any}
       currentUserId={session.user.id || ""}
       currentUserEmail={session.user.email || ""}
+      allProdis={allProdis}
     />
   );
 }

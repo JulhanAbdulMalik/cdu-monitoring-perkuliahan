@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Lock,
+  GraduationCap,
 } from "lucide-react";
 import { createUser, updateUser, deleteUser, getUserList } from "@/actions/user";
 
@@ -31,9 +32,14 @@ export interface UserItem {
   id: string;
   name: string;
   email: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "CDU_STAFF";
+  role: "SUPER_ADMIN" | "ADMIN" | "DOSEN";
   createdAt: Date | string;
   updatedAt: Date | string;
+  prodis?: {
+    id: string;
+    nama: string;
+    kode: string;
+  }[];
   _count?: {
     monitoringUpdates: number;
   };
@@ -43,12 +49,14 @@ interface UserManagementClientProps {
   initialUsers: UserItem[];
   currentUserId: string;
   currentUserEmail: string;
+  allProdis?: { id: string; nama: string; kode: string }[];
 }
 
 export default function UserManagementClient({
   initialUsers,
   currentUserId,
   currentUserEmail,
+  allProdis = [],
 }: UserManagementClientProps) {
   const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<UserItem[]>(initialUsers);
@@ -70,13 +78,15 @@ export default function UserManagementClient({
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
-  const [newRole, setNewRole] = useState<"SUPER_ADMIN" | "ADMIN" | "CDU_STAFF">("CDU_STAFF");
+  const [newRole, setNewRole] = useState<"SUPER_ADMIN" | "ADMIN" | "DOSEN">("DOSEN");
+  const [newProdiIds, setNewProdiIds] = useState<string[]>([]);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Form Edit States
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editRole, setEditRole] = useState<"SUPER_ADMIN" | "ADMIN" | "CDU_STAFF">("CDU_STAFF");
+  const [editRole, setEditRole] = useState<"SUPER_ADMIN" | "ADMIN" | "DOSEN">("DOSEN");
+  const [editProdiIds, setEditProdiIds] = useState<string[]>([]);
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -86,7 +96,7 @@ export default function UserManagementClient({
   const totalUsers = users.length;
   const totalSuperAdmin = users.filter((u) => u.role === "SUPER_ADMIN").length;
   const totalAdmin = users.filter((u) => u.role === "ADMIN").length;
-  const totalStaff = users.filter((u) => u.role === "CDU_STAFF").length;
+  const totalDosen = users.filter((u) => u.role === "DOSEN").length;
 
   // Filter users
   const filteredUsers = users.filter((u) => {
@@ -109,7 +119,8 @@ export default function UserManagementClient({
     setNewEmail("");
     setNewPassword("");
     setNewPasswordConfirm("");
-    setNewRole("CDU_STAFF");
+    setNewRole("DOSEN");
+    setNewProdiIds([]);
     setShowNewPassword(false);
     setIsCreateOpen(true);
   }
@@ -119,6 +130,7 @@ export default function UserManagementClient({
     setEditName(user.name);
     setEditEmail(user.email);
     setEditRole(user.role);
+    setEditProdiIds((user.prodis || []).map((p) => p.id));
     setEditPassword("");
     setShowEditPassword(false);
     setIsEditOpen(true);
@@ -146,6 +158,11 @@ export default function UserManagementClient({
       return;
     }
 
+    if (newRole === "DOSEN" && newProdiIds.length === 0) {
+      toast.error("Akun Dosen (Kaprodi) wajib memiliki minimal 1 Program Studi yang dipilih");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await createUser({
@@ -153,6 +170,7 @@ export default function UserManagementClient({
         email: newEmail.trim(),
         password: newPassword,
         role: newRole,
+        prodiIds: newRole === "DOSEN" ? newProdiIds : [],
       });
 
       if (!res.success) {
@@ -183,6 +201,11 @@ export default function UserManagementClient({
       return;
     }
 
+    if (editRole === "DOSEN" && editProdiIds.length === 0) {
+      toast.error("Akun Dosen (Kaprodi) wajib memiliki minimal 1 Program Studi yang dipilih");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await updateUser(selectedUser.id, {
@@ -190,12 +213,13 @@ export default function UserManagementClient({
         email: editEmail.trim(),
         role: editRole,
         password: editPassword.trim() || undefined,
+        prodiIds: editRole === "DOSEN" ? editProdiIds : [],
       });
 
       if (!res.success) {
         toast.error(res.error || "Gagal memperbarui akun");
       } else {
-        toast.success("Data akun berhasil diperbarui!");
+        toast.success(`Akun "${editName}" berhasil diperbarui!`);
         setIsEditOpen(false);
         await reloadUsers();
       }
@@ -226,7 +250,7 @@ export default function UserManagementClient({
     }
   }
 
-  function getRoleBadge(role: "SUPER_ADMIN" | "ADMIN" | "CDU_STAFF") {
+  function getRoleBadge(role: "SUPER_ADMIN" | "ADMIN" | "DOSEN") {
     switch (role) {
       case "SUPER_ADMIN":
         return (
@@ -239,15 +263,15 @@ export default function UserManagementClient({
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
             <Shield size={11} className="text-blue-500" />
-            <span>Administrator</span>
+            <span>Admin (CDU)</span>
           </span>
         );
-      case "CDU_STAFF":
+      case "DOSEN":
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <Users size={11} className="text-emerald-600" />
-            <span>Staff CDU</span>
+            <GraduationCap size={11} className="text-emerald-600" />
+            <span>Dosen (Kaprodi)</span>
           </span>
         );
     }
@@ -305,18 +329,18 @@ export default function UserManagementClient({
             <Shield size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Administrator</p>
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Admin (CDU)</p>
             <p className="text-base font-extrabold text-slate-900 leading-tight">{totalAdmin}</p>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-emerald-100 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
-            <User size={18} />
+            <GraduationCap size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Staff CDU</p>
-            <p className="text-base font-extrabold text-slate-900 leading-tight">{totalStaff}</p>
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Dosen (Kaprodi)</p>
+            <p className="text-base font-extrabold text-slate-900 leading-tight">{totalDosen}</p>
           </div>
         </div>
       </div>
@@ -343,8 +367,8 @@ export default function UserManagementClient({
           >
             <option value="ALL">Semua Peran ({totalUsers})</option>
             <option value="SUPER_ADMIN">Super Admin ({totalSuperAdmin})</option>
-            <option value="ADMIN">Administrator ({totalAdmin})</option>
-            <option value="CDU_STAFF">Staff CDU ({totalStaff})</option>
+            <option value="ADMIN">Admin CDU ({totalAdmin})</option>
+            <option value="DOSEN">Dosen Kaprodi ({totalDosen})</option>
           </select>
         </div>
       </div>
@@ -358,6 +382,7 @@ export default function UserManagementClient({
                 <th className="pb-2.5 font-bold">Pengguna</th>
                 <th className="pb-2.5 font-bold">Email</th>
                 <th className="pb-2.5 font-bold">Hak Akses (Role)</th>
+                <th className="pb-2.5 font-bold">Akses Prodi</th>
                 <th className="pb-2.5 font-bold">Terdaftar Sejak</th>
                 <th className="pb-2.5 text-right font-bold">Aksi</th>
               </tr>
@@ -365,7 +390,7 @@ export default function UserManagementClient({
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
                     Tidak ada data akun pengguna yang sesuai dengan pencarian atau filter.
                   </td>
                 </tr>
@@ -422,6 +447,31 @@ export default function UserManagementClient({
                       {/* Role Badge */}
                       <td className="py-3 pr-3">
                         {getRoleBadge(user.role)}
+                      </td>
+
+                      {/* Akses Prodi */}
+                      <td className="py-3 pr-3">
+                        {user.role === "SUPER_ADMIN" || user.role === "ADMIN" ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                            Semua Prodi (Global)
+                          </span>
+                        ) : user.prodis && user.prodis.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {user.prodis.map((p) => (
+                              <span
+                                key={p.id}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                title={p.nama}
+                              >
+                                {p.kode}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-amber-600 italic font-medium">
+                            Belum ada prodi
+                          </span>
+                        )}
                       </td>
 
                       {/* Tanggal Terdaftar */}
@@ -532,9 +582,9 @@ export default function UserManagementClient({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { val: "CDU_STAFF", label: "Staff CDU", desc: "Akses monitoring" },
-                    { val: "ADMIN", label: "Admin", desc: "Akses master & monitoring" },
-                    { val: "SUPER_ADMIN", label: "Super Admin", desc: "Akses penuh + kelola akun" },
+                    { val: "DOSEN", label: "Dosen (Kaprodi)", desc: "Akses prodi" },
+                    { val: "ADMIN", label: "Admin CDU", desc: "Monitoring & laporan" },
+                    { val: "SUPER_ADMIN", label: "Super Admin", desc: "Akses penuh" },
                   ].map((r) => (
                     <button
                       key={r.val}
@@ -552,6 +602,90 @@ export default function UserManagementClient({
                   ))}
                 </div>
               </div>
+
+              {/* Dynamic Multi-Prodi Checklist jika Role DOSEN */}
+              {newRole === "DOSEN" && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <GraduationCap size={14} className="text-[#a80063]" />
+                      <span>Akses Program Studi <span className="text-rose-500">*</span></span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setNewProdiIds(allProdis.map((p) => p.id))}
+                        className="text-[10px] font-semibold text-[#a80063] hover:underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300 text-[10px]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setNewProdiIds([])}
+                        className="text-[10px] font-semibold text-slate-500 hover:underline cursor-pointer"
+                      >
+                        Batal Semua
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
+                    {allProdis.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2 text-center">Belum ada data prodi di sistem</p>
+                    ) : (
+                      allProdis.map((p) => {
+                        const isChecked = newProdiIds.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className={`flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-xs ${
+                              isChecked
+                                ? "bg-emerald-50/70 text-emerald-900 font-semibold"
+                                : "hover:bg-slate-50 text-slate-700 font-medium"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewProdiIds([...newProdiIds, p.id]);
+                                  } else {
+                                    setNewProdiIds(newProdiIds.filter((id) => id !== p.id));
+                                  }
+                                }}
+                                className="rounded border-slate-300 text-[#a80063] focus:ring-[#a80063] accent-[#a80063] w-3.5 h-3.5"
+                              />
+                              <span className="truncate">{p.nama}</span>
+                            </div>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ml-2 ${
+                                isChecked
+                                  ? "bg-emerald-200/80 text-emerald-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {p.kode}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">
+                      <strong className="text-slate-800">{newProdiIds.length}</strong> dari {allProdis.length} prodi dipilih
+                    </span>
+                    {newProdiIds.length === 0 && (
+                      <span className="text-rose-500 text-[10px] font-semibold flex items-center gap-1">
+                        <AlertTriangle size={11} /> Wajib pilih minimal 1 prodi
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Password */}
               <div>
@@ -683,25 +817,110 @@ export default function UserManagementClient({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { val: "CDU_STAFF", label: "Staff CDU" },
-                    { val: "ADMIN", label: "Admin" },
-                    { val: "SUPER_ADMIN", label: "Super Admin" },
+                    { val: "DOSEN", label: "Dosen (Kaprodi)", desc: "Akses prodi" },
+                    { val: "ADMIN", label: "Admin CDU", desc: "Monitoring & laporan" },
+                    { val: "SUPER_ADMIN", label: "Super Admin", desc: "Akses penuh" },
                   ].map((r) => (
                     <button
                       key={r.val}
                       type="button"
                       onClick={() => setEditRole(r.val as any)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer text-center ${
+                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
                         editRole === r.val
                           ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/70"
                       }`}
                     >
-                      {r.label}
+                      <p className="text-[11px] font-bold leading-tight">{r.label}</p>
+                      <p className="text-[9px] text-slate-400 font-normal mt-0.5">{r.desc}</p>
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* Dynamic Multi-Prodi Checklist jika Role DOSEN */}
+              {editRole === "DOSEN" && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <GraduationCap size={14} className="text-[#a80063]" />
+                      <span>Akses Program Studi <span className="text-rose-500">*</span></span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditProdiIds(allProdis.map((p) => p.id))}
+                        className="text-[10px] font-semibold text-[#a80063] hover:underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300 text-[10px]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditProdiIds([])}
+                        className="text-[10px] font-semibold text-slate-500 hover:underline cursor-pointer"
+                      >
+                        Batal Semua
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
+                    {allProdis.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2 text-center">Belum ada data prodi di sistem</p>
+                    ) : (
+                      allProdis.map((p) => {
+                        const isChecked = editProdiIds.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className={`flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors text-xs ${
+                              isChecked
+                                ? "bg-emerald-50/70 text-emerald-900 font-semibold"
+                                : "hover:bg-slate-50 text-slate-700 font-medium"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditProdiIds([...editProdiIds, p.id]);
+                                  } else {
+                                    setEditProdiIds(editProdiIds.filter((id) => id !== p.id));
+                                  }
+                                }}
+                                className="rounded border-slate-300 text-[#a80063] focus:ring-[#a80063] accent-[#a80063] w-3.5 h-3.5"
+                              />
+                              <span className="truncate">{p.nama}</span>
+                            </div>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ml-2 ${
+                                isChecked
+                                  ? "bg-emerald-200/80 text-emerald-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {p.kode}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">
+                      <strong className="text-slate-800">{editProdiIds.length}</strong> dari {allProdis.length} prodi dipilih
+                    </span>
+                    {editProdiIds.length === 0 && (
+                      <span className="text-rose-500 text-[10px] font-semibold flex items-center gap-1">
+                        <AlertTriangle size={11} /> Wajib pilih minimal 1 prodi
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Ganti Password (Opsional) */}
               <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">

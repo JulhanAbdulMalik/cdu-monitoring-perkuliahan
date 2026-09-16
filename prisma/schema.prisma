@@ -20,17 +20,18 @@ model User {
   name      String
   email     String   @unique
   password  String   // hashed dengan bcrypt
-  role      Role     @default(CDU_STAFF)
+  role      Role     @default(ADMIN)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  prodis            Prodi[]          @relation("UserProdis")
   monitoringUpdates MonitoringSesi[]
 }
 
 enum Role {
   SUPER_ADMIN
   ADMIN
-  CDU_STAFF
+  DOSEN
 }
 
 // ─────────────────────────────────────────
@@ -87,6 +88,7 @@ model Prodi {
   fakultas   Fakultas     @relation(fields: [fakultasId], references: [id])
   dosen      Dosen[]
   mataKuliah MataKuliah[]
+  users      User[]       @relation("UserProdis")
 }
 
 model Dosen {

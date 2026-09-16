@@ -28,6 +28,24 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
 
+  // ── Route Protections Berdasarkan Role ─────────────────────────────
+  if (isLoggedIn) {
+    const userRole = (req.auth?.user as any)?.role;
+
+    // Data Master & Kelola Akun: Khusus SUPER_ADMIN
+    if (
+      (nextUrl.pathname.startsWith("/master") || nextUrl.pathname.startsWith("/kelola-akun")) &&
+      userRole !== "SUPER_ADMIN"
+    ) {
+      return NextResponse.redirect(new URL("/", nextUrl));
+    }
+
+    // Monitoring: Khusus SUPER_ADMIN & ADMIN (DOSEN dilarang)
+    if (nextUrl.pathname.startsWith("/monitoring") && userRole === "DOSEN") {
+      return NextResponse.redirect(new URL("/", nextUrl));
+    }
+  }
+
   return NextResponse.next();
 });
 

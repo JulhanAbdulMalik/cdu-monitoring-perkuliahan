@@ -2,6 +2,7 @@
 // Master Rekapitulasi Sesi Page
 
 import { Metadata } from "next";
+import { auth } from "@/lib/auth";
 import { getRekapLaporan } from "@/actions/laporan";
 import RekapClient from "./RekapClient";
 
@@ -14,10 +15,21 @@ interface RekapPageProps {
 }
 
 export default async function RekapPage({ searchParams }: RekapPageProps) {
+  const session = await auth();
+  const userRole = (session?.user as any)?.role;
+  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+  const isDosen = userRole === "DOSEN";
+
   const resolvedSearchParams = await searchParams;
+  const targetProdiId = isDosen
+    ? (resolvedSearchParams.prodiId && userProdiIds.includes(resolvedSearchParams.prodiId)
+        ? resolvedSearchParams.prodiId
+        : undefined)
+    : resolvedSearchParams.prodiId;
+
   const res = await getRekapLaporan(
     resolvedSearchParams.semesterId,
-    resolvedSearchParams.prodiId
+    targetProdiId
   );
 
   const data = res.success
@@ -29,11 +41,19 @@ export default async function RekapPage({ searchParams }: RekapPageProps) {
         activeSemesterId: "",
       };
 
+  const filteredProdiList = isDosen
+    ? data.prodiList.filter((p: any) => userProdiIds.includes(p.id))
+    : data.prodiList;
+
+  const filteredRekapList = isDosen
+    ? data.rekapList.filter((r: any) => userProdiIds.includes(r.mataKuliah?.prodi?.id))
+    : data.rekapList;
+
   return (
     <RekapClient
-      initialRekap={data.rekapList as any}
+      initialRekap={filteredRekapList as any}
       semesters={data.semesters as any}
-      prodiList={data.prodiList as any}
+      prodiList={filteredProdiList as any}
       defaultSemesterId={resolvedSearchParams.semesterId || data.activeSemesterId || ""}
     />
   );

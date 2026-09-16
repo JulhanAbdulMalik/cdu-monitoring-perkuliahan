@@ -2,6 +2,7 @@
 // Halaman Laporan Performa Program Studi per Periode Tanggal (Senin - Minggu)
 
 import { Metadata } from "next";
+import { auth } from "@/lib/auth";
 import { getLaporanProdi } from "@/actions/laporan";
 import { getWeekDates } from "@/lib/utils";
 import LaporanProdiClient from "./LaporanProdiClient";
@@ -21,6 +22,11 @@ interface LaporanProdiPageProps {
 export default async function LaporanProdiPage({
   searchParams,
 }: LaporanProdiPageProps) {
+  const session = await auth();
+  const userRole = (session?.user as any)?.role;
+  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+  const isDosen = userRole === "DOSEN";
+
   const resolvedSearchParams = await searchParams;
 
   const targetStartDate = resolvedSearchParams.startDate || "";
@@ -51,14 +57,45 @@ export default async function LaporanProdiPage({
         },
       };
 
+  const filteredProdiReports = isDosen
+    ? data.prodiReportList.filter((p) => userProdiIds.includes(p.id))
+    : data.prodiReportList;
+
+  let summary = data.globalSummary;
+  if (isDosen) {
+    const totalProdi = filteredProdiReports.length;
+    const totalKelasSemua = filteredProdiReports.reduce((s, p) => s + p.totalKelas, 0);
+    const totalDosenSemua = filteredProdiReports.reduce((s, p) => s + p.totalDosen, 0);
+    const totalSesiRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalSesiRentang, 0);
+    const avgKehadiranRentangSemua =
+      totalProdi > 0
+        ? Math.round(filteredProdiReports.reduce((s, p) => s + p.avgKehadiranRentang, 0) / totalProdi)
+        : 0;
+    const avgKontenRentangSemua =
+      totalProdi > 0
+        ? Math.round(filteredProdiReports.reduce((s, p) => s + p.avgKontenRentang, 0) / totalProdi)
+        : 0;
+    const totalConfRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalConfRentang, 0);
+
+    summary = {
+      totalProdi,
+      totalKelasSemua,
+      totalDosenSemua,
+      totalSesiRentangSemua,
+      avgKehadiranRentangSemua,
+      avgKontenRentangSemua,
+      totalConfRentangSemua,
+    };
+  }
+
   return (
     <LaporanProdiClient
-      prodiReports={data.prodiReportList}
+      prodiReports={filteredProdiReports}
       semesters={data.semesters}
       defaultSemesterId={resolvedSearchParams.semesterId || data.activeSemesterId || ""}
       initialStartDate={data.startDate}
       initialEndDate={data.endDate}
-      globalSummary={data.globalSummary}
+      globalSummary={summary}
     />
   );
 }

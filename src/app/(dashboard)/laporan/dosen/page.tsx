@@ -2,6 +2,7 @@
 // Laporan Evaluasi Dosen Page
 
 import { Metadata } from "next";
+import { auth } from "@/lib/auth";
 import { getLaporanDosen } from "@/actions/laporan";
 import LaporanDosenClient from "./LaporanDosenClient";
 
@@ -16,6 +17,11 @@ interface LaporanDosenPageProps {
 export default async function LaporanDosenPage({
   searchParams,
 }: LaporanDosenPageProps) {
+  const session = await auth();
+  const userRole = (session?.user as any)?.role;
+  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+  const isDosen = userRole === "DOSEN";
+
   const resolvedSearchParams = await searchParams;
   const res = await getLaporanDosen(resolvedSearchParams.semesterId);
 
@@ -28,9 +34,13 @@ export default async function LaporanDosenPage({
         activeSemesterId: "",
       };
 
+  const filteredDosenReports = isDosen
+    ? data.dosenReportList.filter((d: any) => userProdiIds.includes(d.prodi?.id))
+    : data.dosenReportList;
+
   return (
     <LaporanDosenClient
-      dosenReports={data.dosenReportList as any}
+      dosenReports={filteredDosenReports as any}
       semesters={data.semesters as any}
       defaultSemesterId={resolvedSearchParams.semesterId || data.activeSemesterId || ""}
     />

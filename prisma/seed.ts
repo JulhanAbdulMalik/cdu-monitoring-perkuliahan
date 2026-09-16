@@ -45,10 +45,10 @@ async function main() {
         name: "Staff CDU",
         email: "cdu@nusaputra.ac.id",
         password: hashedPassword,
-        role: "CDU_STAFF",
+        role: "ADMIN",
       },
     });
-    console.log("✅ CDU Staff dibuat: cdu@nusaputra.ac.id / cdu123");
+    console.log("✅ Admin CDU dibuat: cdu@nusaputra.ac.id / cdu123");
   } else {
     console.log("ℹ️  CDU Staff sudah ada, skip.");
   }
