@@ -34,13 +34,19 @@ function LoginForm() {
       });
 
       if (res?.error) {
-        toast.error("Email atau password salah. Silakan coba lagi.");
+        console.error("Login response error:", res);
+        if (res.status === 401 || res.error === "CredentialsSignin") {
+          toast.error("Email/Username atau password salah. Silakan periksa kembali.");
+        } else {
+          toast.error(`Gagal masuk (${res.error}). Silakan coba lagi.`);
+        }
       } else {
         toast.success("Berhasil masuk!");
         window.location.href = callbackUrl;
       }
-    } catch {
-      toast.error("Terjadi kesalahan. Silakan coba lagi.");
+    } catch (err: any) {
+      console.error("Login catch error:", err);
+      toast.error("Terjadi kesalahan sistem. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -62,7 +68,7 @@ function LoginForm() {
             CDU <span className="text-[#a80063]">PORTAL</span>
           </h1>
           <p className="text-[11px] text-slate-400 font-medium mt-1">
-            Sistem Monitoring Perkuliahan — Nusa Putra University
+            Sistem Monitoring Perkuliahan - Nusa Putra University
           </p>
         </div>
 
@@ -78,18 +84,18 @@ function LoginForm() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-3.5">
-            {/* Email Field */}
+            {/* Email / Username Field */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1" htmlFor="email">
-                Alamat Email
+                Email atau Username
               </label>
               <input
                 id="email"
-                type="email"
-                placeholder="nama@nusaputra.ac.id"
+                type="text"
+                placeholder="admin atau nama@nusaputra.ac.id"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="username"
                 disabled={loading}
                 className="w-full px-3.5 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
               />

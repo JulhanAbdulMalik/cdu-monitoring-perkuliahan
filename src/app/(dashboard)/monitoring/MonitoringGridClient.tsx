@@ -1231,7 +1231,7 @@ export default function MonitoringGridClient({
                                 }`}
                                 title="Reset / Belum Diisi"
                               >
-                                —
+                                -
                               </button>
                             </div>
                           </td>

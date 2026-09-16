@@ -763,7 +763,7 @@ export default function KelasClient({
                           )
                         ) : (
                           <span className="text-xs text-slate-300 font-medium select-none" title="Kelas Online tidak memerlukan ruang fisik">
-                            —
+                            -
                           </span>
                         )}
                       </td>

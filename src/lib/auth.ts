@@ -10,8 +10,8 @@ import { z } from "zod";
 import { authConfig } from "./auth.config";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().min(1, "Email atau username harus diisi"),
+  password: z.string().min(1, "Password harus diisi"),
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -20,17 +20,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email / Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email: rawInput, password } = parsed.data;
+        const normalized = rawInput.trim();
+        const emailWithDomain = normalized.includes("@")
+          ? normalized.toLowerCase()
+          : `${normalized.toLowerCase()}@nusaputra.ac.id`;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: { equals: emailWithDomain, mode: "insensitive" } },
+              { email: { equals: normalized, mode: "insensitive" } },
+            ],
+          },
           include: {
             prodis: {
               select: { id: true },

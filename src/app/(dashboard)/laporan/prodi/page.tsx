@@ -8,7 +8,7 @@ import { getWeekDates } from "@/lib/utils";
 import LaporanProdiClient from "./LaporanProdiClient";
 
 export const metadata: Metadata = {
-  title: "Laporan Performa Program Studi — CDU Monitoring",
+  title: "Laporan Performa Program Studi - CDU Monitoring",
 };
 
 interface LaporanProdiPageProps {
