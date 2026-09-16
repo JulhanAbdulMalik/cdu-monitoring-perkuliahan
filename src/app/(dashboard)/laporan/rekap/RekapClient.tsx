@@ -54,7 +54,25 @@ export type RekapSortKey =
   | "MK_ASC"
   | "MK_DESC"
   | "DOSEN_ASC"
-  | "DOSEN_DESC";
+  | "DOSEN_DESC"
+  | "HADIR_ASC"
+  | "HADIR_DESC"
+  | "PILAR_ASC"
+  | "PILAR_DESC"
+  | "CONF_ASC"
+  | "CONF_DESC"
+  | "STATUS_ASC"
+  | "STATUS_DESC";
+
+export type RekapSortColumn =
+  | "PRODI"
+  | "KODE"
+  | "MK"
+  | "DOSEN"
+  | "HADIR"
+  | "PILAR"
+  | "CONF"
+  | "STATUS";
 
 export default function RekapClient({
   initialRekap,
@@ -135,13 +153,63 @@ export default function RekapClient({
         if (dDiff !== 0) return dDiff;
         return a.mataKuliah.nama.localeCompare(b.mataKuliah.nama, "id", { sensitivity: "base" });
       }
+      case "HADIR_ASC": {
+        const hDiff = a.persenKehadiran - b.persenKehadiran;
+        if (hDiff !== 0) return hDiff;
+        return a.totalHadir - b.totalHadir;
+      }
+      case "HADIR_DESC": {
+        const hDiff = b.persenKehadiran - a.persenKehadiran;
+        if (hDiff !== 0) return hDiff;
+        return b.totalHadir - a.totalHadir;
+      }
+      case "PILAR_ASC": {
+        const pDiff = a.persenKonten - b.persenKonten;
+        if (pDiff !== 0) return pDiff;
+        return a.totalSkor3Pilar - b.totalSkor3Pilar;
+      }
+      case "PILAR_DESC": {
+        const pDiff = b.persenKonten - a.persenKonten;
+        if (pDiff !== 0) return pDiff;
+        return b.totalSkor3Pilar - a.totalSkor3Pilar;
+      }
+      case "CONF_ASC": {
+        const aConf = a.confPraUTS + a.confPraUAS;
+        const bConf = b.confPraUTS + b.confPraUAS;
+        return aConf - bConf;
+      }
+      case "CONF_DESC": {
+        const aConf = a.confPraUTS + a.confPraUAS;
+        const bConf = b.confPraUTS + b.confPraUAS;
+        return bConf - aConf;
+      }
+      case "STATUS_ASC": {
+        const rankMap: Record<string, number> = {
+          PERLU_PERHATIAN: 1,
+          CUKUP: 2,
+          MEMENUHI: 3,
+        };
+        const aRank = rankMap[a.statusEvaluasi] || 0;
+        const bRank = rankMap[b.statusEvaluasi] || 0;
+        return aRank - bRank;
+      }
+      case "STATUS_DESC": {
+        const rankMap: Record<string, number> = {
+          PERLU_PERHATIAN: 1,
+          CUKUP: 2,
+          MEMENUHI: 3,
+        };
+        const aRank = rankMap[a.statusEvaluasi] || 0;
+        const bRank = rankMap[b.statusEvaluasi] || 0;
+        return bRank - aRank;
+      }
       default:
         return 0;
     }
   });
 
   // Toggle column sort
-  function handleColumnSort(column: "PRODI" | "KODE" | "MK" | "DOSEN") {
+  function handleColumnSort(column: RekapSortColumn) {
     switch (column) {
       case "PRODI":
         setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
@@ -155,13 +223,25 @@ export default function RekapClient({
       case "DOSEN":
         setSortBy(sortBy === "DOSEN_ASC" ? "DOSEN_DESC" : "DOSEN_ASC");
         break;
+      case "HADIR":
+        setSortBy(sortBy === "HADIR_DESC" ? "HADIR_ASC" : "HADIR_DESC");
+        break;
+      case "PILAR":
+        setSortBy(sortBy === "PILAR_DESC" ? "PILAR_ASC" : "PILAR_DESC");
+        break;
+      case "CONF":
+        setSortBy(sortBy === "CONF_DESC" ? "CONF_ASC" : "CONF_DESC");
+        break;
+      case "STATUS":
+        setSortBy(sortBy === "STATUS_ASC" ? "STATUS_DESC" : "STATUS_ASC");
+        break;
     }
   }
 
-  // Render clickable header column with sort icon
+  // Render clickable header column with sort icon (Standard Table Header)
   function renderSortHeader(
     label: string,
-    columnKey: "PRODI" | "KODE" | "MK" | "DOSEN",
+    columnKey: RekapSortColumn,
     align: "left" | "center" = "left",
     extraClass: string = ""
   ) {
@@ -169,36 +249,44 @@ export default function RekapClient({
       (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
       (columnKey === "KODE" && (sortBy === "KODE_ASC" || sortBy === "KODE_DESC")) ||
       (columnKey === "MK" && (sortBy === "MK_ASC" || sortBy === "MK_DESC")) ||
-      (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC"));
+      (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
+      (columnKey === "HADIR" && (sortBy === "HADIR_ASC" || sortBy === "HADIR_DESC")) ||
+      (columnKey === "PILAR" && (sortBy === "PILAR_ASC" || sortBy === "PILAR_DESC")) ||
+      (columnKey === "CONF" && (sortBy === "CONF_ASC" || sortBy === "CONF_DESC")) ||
+      (columnKey === "STATUS" && (sortBy === "STATUS_ASC" || sortBy === "STATUS_DESC"));
 
     const isAsc =
       sortBy === "PRODI_ASC" ||
       sortBy === "KODE_ASC" ||
       sortBy === "MK_ASC" ||
-      sortBy === "DOSEN_ASC";
+      sortBy === "DOSEN_ASC" ||
+      sortBy === "HADIR_ASC" ||
+      sortBy === "PILAR_ASC" ||
+      sortBy === "CONF_ASC" ||
+      sortBy === "STATUS_ASC";
 
     return (
       <th
         onClick={() => handleColumnSort(columnKey)}
-        className={`py-2.5 px-2.5 cursor-pointer select-none transition-colors group hover:bg-slate-100/90 ${
+        className={`py-2.5 px-2.5 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
           align === "center" ? "text-center" : "text-left"
         } ${extraClass}`}
         title={`Klik untuk mengurutkan berdasarkan ${label}`}
       >
         <div
-          className={`inline-flex items-center gap-1.5 font-bold ${
-            isCurrent ? "text-[#a80063]" : "text-slate-500 group-hover:text-slate-700"
+          className={`inline-flex items-center gap-1 font-bold text-[11px] ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
           } ${align === "center" ? "justify-center" : ""}`}
         >
           <span>{label}</span>
           {isCurrent ? (
             isAsc ? (
-              <ArrowUp size={12} className="text-[#a80063] stroke-[2.5]" />
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
             ) : (
-              <ArrowDown size={12} className="text-[#a80063] stroke-[2.5]" />
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
             )
           ) : (
-            <ArrowUpDown size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           )}
         </div>
       </th>
@@ -352,38 +440,60 @@ export default function RekapClient({
       </div>
 
       {/* ── Master Recap Table Card ─────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5 print:shadow-none print:border-none print:p-0">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         {/* Legend Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 text-[10px] text-slate-500 font-medium print:hidden">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-bold text-slate-700">Skor 3 Pilar:</span>
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-emerald-100 text-emerald-700">3</span>
-              <span>Lengkap (3/3)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-blue-100 text-blue-700">2</span>
-              <span>Baik (2/3)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-amber-100 text-amber-800">1</span>
-              <span>Sebagian (1/3)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-rose-100 text-rose-700">0</span>
-              <span>Kosong</span>
-            </div>
-          </div>
+        <div className="p-3 sm:p-4 border-b border-slate-100 text-[10px] text-slate-500 font-medium print:hidden bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Status Kehadiran (Warna) */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-slate-700">Kehadiran (Warna):</span>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-emerald-100 text-emerald-700">H</span>
+                  <span>Hadir</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-amber-100 text-amber-800">T</span>
+                  <span>HTL</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 bg-rose-100 text-rose-700">A</span>
+                  <span>Alpa</span>
+                </div>
+              </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-bold text-slate-700">Pengajar:</span>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-purple-600 ring-1 ring-purple-200" />
-              <span>Dosen Baru</span>
+              {/* Skor 3 Pilar (Angka) */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-slate-700">Skor 3 Pilar:</span>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 border border-slate-200 bg-slate-50 text-slate-700">3</span>
+                  <span>Lengkap (3/3)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 border border-slate-200 bg-slate-50 text-slate-700">2</span>
+                  <span>Baik (2/3)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 border border-slate-200 bg-slate-50 text-slate-700">1</span>
+                  <span>Sebagian (1/3)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block w-4 h-4 rounded text-[9px] font-bold text-center leading-4 border border-slate-200 bg-slate-50 text-slate-700">0</span>
+                  <span>Kosong</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-500 ring-1 ring-amber-200" />
-              <span>Dosen Pengganti</span>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-bold text-slate-700">Pengajar:</span>
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-purple-600 ring-1 ring-purple-200" />
+                <span>Dosen Baru</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500 ring-1 ring-amber-200" />
+                <span>Dosen Pengganti</span>
+              </div>
             </div>
           </div>
         </div>
@@ -391,278 +501,311 @@ export default function RekapClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/70">
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2 text-center w-9 text-slate-700 font-bold">No</th>
                 {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[130px]")}
-                {renderSortHeader("Kode / Kelas", "KODE", "left", "min-w-[90px]")}
-                {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[150px]")}
-                {renderSortHeader("Dosen", "DOSEN", "left", "min-w-[135px]")}
+                {renderSortHeader("Kelas", "KODE", "left", "w-20 min-w-[75px]")}
+                {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[160px]")}
+                {renderSortHeader("Dosen Pengampu", "DOSEN", "left", "min-w-[200px]")}
                 {/* 16 Session Headers */}
                 {Array.from({ length: 16 }, (_, i) => i + 1).map((sesiNum) => (
                   <th
                     key={sesiNum}
-                    className={`py-2 px-1 text-center font-bold text-[9px] min-w-[28px] ${
-                      sesiNum === 8 || sesiNum === 16 ? "bg-purple-50 text-purple-800" : ""
+                    className={`py-2 px-1 text-center font-bold text-[9.5px] min-w-[28px] ${
+                      sesiNum === 8 || sesiNum === 16 ? "bg-purple-100/60 text-purple-900 border-x border-purple-200/50" : "text-slate-600"
                     }`}
                   >
                     {sesiNum === 8 ? "UTS" : sesiNum === 16 ? "UAS" : `S${sesiNum}`}
                   </th>
                 ))}
-                <th className="py-2.5 px-2 text-center font-bold">Hadir</th>
-                <th className="py-2.5 px-2 text-center font-bold">Konten (3P)</th>
-                <th className="py-2.5 px-2 text-center font-bold min-w-[90px]">Live Conf</th>
-                <th className="py-2.5 px-2.5 text-center font-bold">Status</th>
+                {renderSortHeader("Hadir", "HADIR", "center", "min-w-[65px]")}
+                {renderSortHeader("Konten (3P)", "PILAR", "center", "min-w-[85px]")}
+                {renderSortHeader("Live Conf", "CONF", "center", "min-w-[85px]")}
+                {renderSortHeader("Status", "STATUS", "center", "min-w-[85px]")}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedRekap.length === 0 ? (
                 <tr>
-                  <td colSpan={24} className="py-8 text-center text-xs text-slate-400">
-                    Tidak ada data rekapitulasi yang sesuai.
+                  <td colSpan={25} className="py-10 text-center text-xs text-slate-400">
+                    Tidak ada data rekapitulasi yang sesuai dengan kriteria filter.
                   </td>
                 </tr>
               ) : (
-                sortedRekap.map((cls) => (
-                  <tr key={cls.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* Program Studi */}
-                    <td className="py-2.5 px-2.5 font-medium">
-                      <p className="font-semibold text-xs text-slate-800 leading-tight">
-                        {cls.mataKuliah.prodi.nama}
-                      </p>
-                      <span className="text-[10px] text-slate-400">
-                        {cls.mataKuliah.prodi.kode}
-                      </span>
-                    </td>
+                sortedRekap.map((cls, idx) => {
+                  const isOdd = idx % 2 === 1;
 
-                    {/* Kode / Kelas & Mode */}
-                    <td className="py-2.5 px-2.5 font-bold">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-[#a80063]">
-                          {cls.kodeKelas}
-                        </span>
-                        <span className="text-[9px] text-slate-500 font-semibold">
-                          {cls.modePembelajaran === "BIMBINGAN" ? "Bimbingan" : cls.modePembelajaran === "LURING" ? "Offline" : "Online"}
-                        </span>
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={cls.id}
+                      className={`transition-colors border-b border-slate-100/80 ${
+                        isOdd ? "bg-slate-50" : "bg-white"
+                      } hover:bg-[#fdf2f8]/80`}
+                    >
+                      {/* No */}
+                      <td className="py-2 px-2 text-center font-medium text-slate-400 text-[11px]">
+                        {idx + 1}
+                      </td>
 
-                    {/* Mata Kuliah */}
-                    <td className="py-2.5 px-2.5">
-                      <p className="font-semibold text-xs text-slate-900 leading-tight">
-                        {cls.mataKuliah.nama}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {cls.mataKuliah.kode} • {cls.mataKuliah.sks} SKS
-                      </p>
-                    </td>
-
-                    {/* Dosen & Split Lecturer Info */}
-                    <td className="py-2.5 px-2.5 font-medium text-slate-700">
-                      <div>
-                        <p className="truncate max-w-[135px] font-bold text-slate-900 leading-tight" title={cls.dosen.nama}>
-                          {cls.dosen.nama}
+                      {/* Program Studi */}
+                      <td className="py-4 px-2.5 font-medium">
+                        <p className="font-semibold text-xs text-slate-800 leading-tight">
+                          {cls.mataKuliah.prodi.nama}
                         </p>
-                        {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1 ? (
-                          <div className="mt-1 space-y-0.5">
-                            {cls.dosenPengajarList
-                              .filter((p) => p.id !== cls.dosen.id)
-                              .map((p, pIdx) => (
-                                <div key={pIdx} className="flex items-center gap-1 text-[9px] leading-tight">
-                                  <span
-                                    className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
-                                      p.statusPengajar === "PERGANTIAN_TETAP"
-                                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                                        : "bg-amber-50 text-amber-700 border-amber-200"
-                                    }`}
-                                  >
-                                    {p.statusPengajar === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
-                                  </span>
-                                  <span className="truncate max-w-[85px] text-slate-600 font-medium" title={p.nama}>
-                                    {p.nama}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
+                        <span className="text-[10px] text-slate-400">
+                          {cls.mataKuliah.prodi.kode}
+                        </span>
+                      </td>
 
-                    {/* Sesi 1 s/d 16 Matrix Pills (3-Pillar Scores) */}
-                    {cls.sesi.map((s) => {
-                      const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
-                      const isHadir = s.kehadiran === "HADIR";
-                      const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
-                      const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
-                      const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
-                      const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
-                      const statusLabel = s.statusPengajar === "PERGANTIAN_TETAP"
-                        ? "Dosen Baru"
-                        : s.statusPengajar === "PENGGANTI_INSIDENTAL"
-                        ? "Dosen Pengganti"
-                        : "Dosen Utama";
-
-                      const tooltipText = `Sesi ${s.nomorSesi}: ${
-                        isHadir ? `Hadir (Skor 3 Pilar: ${s.contentScore ?? "Ujian"})` : isHTL ? `HTL (Skor: ${s.contentScore ?? "—"})` : isAlpha ? "Alpha / Tidak Hadir" : "Belum Diisi"
-                      } • Pengajar: ${pengajarNama}${isSub ? ` [${statusLabel}${s.catatanGantiDosen ? `: ${s.catatanGantiDosen}` : ""}]` : ""}`;
-
-                      return (
-                        <td
-                          key={s.nomorSesi}
-                          className={`py-2 px-1 text-center text-[10px] ${
-                            isExam ? "bg-purple-50/30" : ""
-                          }`}
-                        >
-                          <div className="relative inline-block">
-                            {isHadir ? (
-                              <span
-                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold transition-all ${
-                                  isExam
-                                    ? "bg-purple-100 text-purple-800"
-                                    : s.contentScore === 3
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : s.contentScore === 2
-                                    ? "bg-blue-100 text-blue-700"
-                                    : s.contentScore === 1
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-rose-100 text-rose-700"
-                                } ${
-                                  isSub
-                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
-                                      ? "ring-1.5 ring-purple-400"
-                                      : "ring-1.5 ring-amber-400"
-                                    : ""
-                                }`}
-                                title={tooltipText}
-                              >
-                                {s.contentScore !== null ? s.contentScore : "H"}
-                              </span>
-                            ) : isHTL ? (
-                              <span
-                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-amber-100 text-amber-800 ${
-                                  isSub
-                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
-                                      ? "ring-1.5 ring-purple-400"
-                                      : "ring-1.5 ring-amber-400"
-                                    : ""
-                                }`}
-                                title={tooltipText}
-                              >
-                                {s.contentScore !== null ? s.contentScore : "T"}
-                              </span>
-                            ) : isAlpha ? (
-                              <span
-                                className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold bg-rose-100 text-rose-700 ${
-                                  isSub
-                                    ? s.statusPengajar === "PERGANTIAN_TETAP"
-                                      ? "ring-1.5 ring-purple-400"
-                                      : "ring-1.5 ring-amber-400"
-                                    : ""
-                                }`}
-                                title={tooltipText}
-                              >
-                                A
-                              </span>
+                      {/* Kode / Kelas & Mode (Standard Compact Pill) */}
+                      <td className="py-2 px-2 font-bold w-20 min-w-[75px]">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex px-1.5 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10.5px] font-extrabold w-fit">
+                            {cls.kodeKelas}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold border w-fit ${
+                              cls.modePembelajaran === "BIMBINGAN"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : cls.modePembelajaran === "LURING"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}
+                          >
+                            {cls.modePembelajaran === "BIMBINGAN" ? (
+                              <>
+                                <School size={8.5} />
+                                <span>Bimbingan</span>
+                              </>
+                            ) : cls.modePembelajaran === "LURING" ? (
+                              <>
+                                <Building size={8.5} />
+                                <span>Offline</span>
+                              </>
                             ) : (
-                              <span className="text-slate-300 font-bold" title={tooltipText}>—</span>
+                              <>
+                                <Laptop size={8.5} />
+                                <span>Online</span>
+                              </>
                             )}
+                          </span>
+                        </div>
+                      </td>
 
-                            {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru */}
-                            {isSub && (
-                              <span
-                                className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-white ${
-                                  s.statusPengajar === "PERGANTIAN_TETAP" ? "bg-purple-600" : "bg-amber-500"
-                                }`}
-                                title={tooltipText}
-                              />
-                            )}
+                      {/* Mata Kuliah */}
+                      <td className="py-4 px-2.5">
+                        <p className="font-bold text-xs text-slate-900 leading-tight">
+                          {cls.mataKuliah.nama}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {cls.mataKuliah.kode} • {cls.mataKuliah.sks} SKS
+                        </p>
+                      </td>
+
+                      {/* Dosen & Split Lecturer Info */}
+                      <td className="py-4 px-2.5 font-medium text-slate-700 min-w-[200px]">
+                        <div>
+                          <p className="truncate max-w-[220px] font-semibold text-slate-900 leading-tight text-xs" title={cls.dosen.nama}>
+                            {cls.dosen.nama}
+                          </p>
+                          {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1 ? (
+                            <div className="mt-1 space-y-0.5">
+                              {cls.dosenPengajarList
+                                .filter((p) => p.id !== cls.dosen.id)
+                                .map((p, pIdx) => (
+                                  <div key={pIdx} className="flex items-center gap-1 text-[9px] leading-tight">
+                                    <span
+                                      className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
+                                        p.statusPengajar === "PERGANTIAN_TETAP"
+                                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                                          : "bg-amber-50 text-amber-700 border-amber-200"
+                                      }`}
+                                    >
+                                      {p.statusPengajar === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                    </span>
+                                    <span className="truncate max-w-[120px] text-slate-600 font-medium" title={p.nama}>
+                                      {p.nama}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+
+                      {/* Sesi 1 s/d 16 Matrix Pills (3-Pillar Scores) */}
+                      {cls.sesi.map((s) => {
+                        const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
+                        const isHadir = s.kehadiran === "HADIR";
+                        const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
+                        const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
+                        const isFilled = isHadir || isHTL || isAlpha;
+                        const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
+                        const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
+                        const statusLabel = s.statusPengajar === "PERGANTIAN_TETAP"
+                          ? "Dosen Baru"
+                          : s.statusPengajar === "PENGGANTI_INSIDENTAL"
+                          ? "Dosen Pengganti"
+                          : "Dosen Utama";
+
+                        const scoreValue = cls.modePembelajaran === "BIMBINGAN"
+                          ? 3
+                          : s.contentScore !== null
+                          ? s.contentScore
+                          : 0;
+
+                        const cellText = isExam
+                          ? (isHadir ? "H" : isHTL ? "T" : "A")
+                          : scoreValue;
+
+                        const tooltipScore = isExam
+                          ? "Ujian"
+                          : cls.modePembelajaran === "BIMBINGAN"
+                          ? "Bimbingan (Bebas Pilar)"
+                          : `${scoreValue}/3 Pilar`;
+
+                        const tooltipStatus = isHadir
+                          ? `Hadir (${tooltipScore})`
+                          : isHTL
+                          ? `HTL (${tooltipScore})`
+                          : isAlpha
+                          ? `Alpha / Tidak Hadir (${tooltipScore})`
+                          : "Belum Diisi";
+
+                        const tooltipText = `Sesi ${s.nomorSesi}: ${tooltipStatus} • Pengajar: ${pengajarNama}${
+                          isSub ? ` [${statusLabel}${s.catatanGantiDosen ? `: ${s.catatanGantiDosen}` : ""}]` : ""
+                        }`;
+
+                        const badgeColorClass = isHadir
+                          ? "bg-emerald-100 text-emerald-700"
+                          : isHTL
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-rose-100 text-rose-700";
+
+                        return (
+                          <td
+                            key={s.nomorSesi}
+                            className={`py-2 px-1 text-center text-[10px] ${
+                              isExam ? "bg-purple-50/30" : ""
+                            }`}
+                          >
+                            <div className="relative inline-block">
+                              {isFilled ? (
+                                <span
+                                  className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold transition-all ${badgeColorClass} ${
+                                    isSub
+                                      ? s.statusPengajar === "PERGANTIAN_TETAP"
+                                        ? "ring-1.5 ring-purple-400"
+                                        : "ring-1.5 ring-amber-400"
+                                      : ""
+                                  }`}
+                                  title={tooltipText}
+                                >
+                                  {cellText}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 font-bold" title={tooltipText}>—</span>
+                              )}
+
+                              {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru */}
+                              {isSub && (
+                                <span
+                                  className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-white ${
+                                    s.statusPengajar === "PERGANTIAN_TETAP" ? "bg-purple-600" : "bg-amber-500"
+                                  }`}
+                                  title={tooltipText}
+                                />
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+
+                      {/* Total Hadir */}
+                      <td className="py-2 px-2 text-center">
+                        <span className="font-bold text-slate-800 text-xs">
+                          {cls.totalHadir}/16
+                        </span>
+                        <span className="block text-[9.5px] text-slate-400 font-medium">
+                          {formatPct(cls.persenKehadiran)}
+                        </span>
+                      </td>
+
+                      {/* Skor 3 Pilar (Max 42) */}
+                      <td className="py-2 px-2 text-center">
+                        {cls.modePembelajaran === "BIMBINGAN" ? (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Bebas kewajiban 3 pilar materi">
+                            Bebas
+                          </span>
+                        ) : (
+                          <>
+                            <span className="font-bold text-[#a80063] text-xs">
+                              {cls.totalSkor3Pilar}/42
+                            </span>
+                            <span className="block text-[9.5px] text-slate-400 font-medium">
+                              {formatPct(cls.persenKonten)}
+                            </span>
+                          </>
+                        )}
+                      </td>
+
+                      {/* Live Conference Quota Compliance */}
+                      <td className="py-2 px-2 text-center">
+                        {cls.modePembelajaran === "LURING" ? (
+                          <span className="text-[9.5px] font-bold text-slate-400">
+                            Bebas Conf
+                          </span>
+                        ) : cls.modePembelajaran === "BIMBINGAN" ? (
+                          <div className="inline-flex flex-col items-center text-[9px] font-bold">
+                            <span className={cls.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                              UTS: {cls.confPraUTS}/8
+                            </span>
+                            <span className={cls.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                              UAS: {cls.confPraUAS}/8
+                            </span>
                           </div>
-                        </td>
-                      );
-                    })}
+                        ) : (
+                          <div className="inline-flex flex-col items-center text-[9px] font-bold">
+                            <span className={cls.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                              UTS: {cls.confPraUTS}/3
+                            </span>
+                            <span className={cls.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                              UAS: {cls.confPraUAS}/3
+                            </span>
+                          </div>
+                        )}
+                      </td>
 
-                    {/* Total Hadir */}
-                    <td className="py-2.5 px-2 text-center">
-                      <span className="font-bold text-slate-800">
-                        {cls.totalHadir}/16
-                      </span>
-                      <span className="block text-[9px] text-slate-400 font-medium">
-                        {formatPct(cls.persenKehadiran)}
-                      </span>
-                    </td>
-
-                    {/* Skor 3 Pilar (Max 42) */}
-                    <td className="py-2.5 px-2 text-center">
-                      {cls.modePembelajaran === "BIMBINGAN" ? (
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Bebas kewajiban 3 pilar materi">
-                          Bebas
-                        </span>
-                      ) : (
-                        <>
-                          <span className="font-bold text-[#a80063]">
-                            {cls.totalSkor3Pilar}/42
+                      {/* Status Evaluasi */}
+                      <td className="py-4 px-2.5 text-center">
+                        {cls.statusEvaluasi === "MEMENUHI" && (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            title={cls.evaluasiNote}
+                          >
+                            Memenuhi
                           </span>
-                          <span className="block text-[9px] text-slate-400 font-medium">
-                            {formatPct(cls.persenKonten)}
+                        )}
+                        {cls.statusEvaluasi === "CUKUP" && (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
+                            title={cls.evaluasiNote}
+                          >
+                            Cukup
                           </span>
-                        </>
-                      )}
-                    </td>
-
-                    {/* Live Conference Quota Compliance */}
-                    <td className="py-2.5 px-2 text-center">
-                      {cls.modePembelajaran === "LURING" ? (
-                        <span className="text-[9.5px] font-bold text-slate-400">
-                          Bebas Conf
-                        </span>
-                      ) : cls.modePembelajaran === "BIMBINGAN" ? (
-                        <div className="inline-flex flex-col items-center text-[9px] font-bold">
-                          <span className={cls.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
-                            UTS: {cls.confPraUTS}/8
+                        )}
+                        {cls.statusEvaluasi === "PERLU_PERHATIAN" && (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                            title={cls.evaluasiNote}
+                          >
+                            Perhatian
                           </span>
-                          <span className={cls.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
-                            UAS: {cls.confPraUAS}/8
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="inline-flex flex-col items-center text-[9px] font-bold">
-                          <span className={cls.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                            UTS: {cls.confPraUTS}/3
-                          </span>
-                          <span className={cls.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                            UAS: {cls.confPraUAS}/3
-                          </span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Status Evaluasi */}
-                    <td className="py-2.5 px-2.5 text-center">
-                      {cls.statusEvaluasi === "MEMENUHI" && (
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          title={cls.evaluasiNote}
-                        >
-                          Memenuhi
-                        </span>
-                      )}
-                      {cls.statusEvaluasi === "CUKUP" && (
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
-                          title={cls.evaluasiNote}
-                        >
-                          Cukup
-                        </span>
-                      )}
-                      {cls.statusEvaluasi === "PERLU_PERHATIAN" && (
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
-                          title={cls.evaluasiNote}
-                        >
-                          Perhatian
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

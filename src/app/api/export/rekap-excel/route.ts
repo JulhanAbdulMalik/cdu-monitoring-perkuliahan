@@ -62,9 +62,29 @@ export async function GET(request: NextRequest) {
     dateCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(3).height = 18;
 
-    worksheet.addRow([]); // Blank row 4
+    // ── 1.5 Legend Bar (Row 4) ──────────────────────────────────────────────
+    worksheet.mergeCells("A4:AD4");
+    const legendCell = worksheet.getCell("A4");
+    legendCell.value =
+      "KETERANGAN KEHADIRAN (WARNA): [H] Hadir (Hijau)  •  [T] HTL (Kuning)  •  [A] Alpa (Merah)   |   SKOR 3 PILAR (ANGKA): [3] Lengkap (3/3)  •  [2] Baik (2/3)  •  [1] Sebagian (1/3)  •  [0] Kosong   |   PENGAJAR: Dosen Baru (Border Ungu)  •  Dosen Pengganti (Border Amber)";
+    legendCell.font = { name: "Arial", size: 8.5, bold: false, color: { argb: "FF475569" } };
+    legendCell.alignment = { horizontal: "center", vertical: "middle" };
+    legendCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFF8FAFC" }, // Light Slate
+    };
+    legendCell.border = {
+      top: { style: "thin", color: { argb: "FFE2E8F0" } },
+      bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+      left: { style: "thin", color: { argb: "FFE2E8F0" } },
+      right: { style: "thin", color: { argb: "FFE2E8F0" } },
+    };
+    worksheet.getRow(4).height = 20;
 
-    // ── 2. Table Column Headers (Row 5) ──────────────────────────────────────
+    worksheet.addRow([]); // Blank row 5
+
+    // ── 2. Table Column Headers (Row 6) ──────────────────────────────────────
     const headers = [
       "No",
       "Kode Kelas",
@@ -119,16 +139,27 @@ export async function GET(request: NextRequest) {
 
     // ── 3. Data Rows ─────────────────────────────────────────────────────────
     rekapList.forEach((cls, idx) => {
-      // 1. Nilai Teks Tiap Sesi
+      // 1. Nilai Teks Tiap Sesi (Sama persis dengan matriks Web)
       const sesiValues = cls.sesi.map((s) => {
-        if (s.kehadiran === "HADIR") {
-          return s.contentScore !== null ? `H (${s.contentScore})` : "H (UTS/UAS)";
+        const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
+        const isHadir = s.kehadiran === "HADIR";
+        const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
+        const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
+        const isFilled = isHadir || isHTL || isAlpha;
+
+        if (!isFilled) return "—";
+
+        if (isExam) {
+          return isHadir ? "H" : isHTL ? "T" : "A";
         }
-        if (s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP") {
-          return s.contentScore !== null ? `HTL (${s.contentScore})` : "HTL";
-        }
-        if (s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA") return "A (0)";
-        return "—";
+
+        const scoreValue = cls.modePembelajaran === "BIMBINGAN"
+          ? 3
+          : s.contentScore !== null
+          ? s.contentScore
+          : 0;
+
+        return scoreValue;
       });
 
       // 2. Format Teks Dosen Pengampu (Mendukung Split Multi-line)
@@ -187,7 +218,7 @@ export async function GET(request: NextRequest) {
         ...sesiValues,
         `${cls.totalHadir}/16`,
         formatPct(cls.persenKehadiran),
-        cls.modePembelajaran === "BIMBINGAN" ? "Bebas Konten" : `${cls.totalSkor3Pilar}/42`,
+        cls.modePembelajaran === "BIMBINGAN" ? "Bebas" : `${cls.totalSkor3Pilar}/42`,
         cls.modePembelajaran === "BIMBINGAN" ? "—" : formatPct(cls.persenKonten),
         cls.modePembelajaran === "LURING"
           ? "Bebas Conf"
@@ -195,10 +226,10 @@ export async function GET(request: NextRequest) {
           ? `UTS: ${cls.confPraUTS}/8 | UAS: ${cls.confPraUAS}/8`
           : `UTS: ${cls.confPraUTS}/3 | UAS: ${cls.confPraUAS}/3`,
         cls.statusEvaluasi === "MEMENUHI"
-          ? "Memenuhi Syarat"
+          ? "Memenuhi"
           : cls.statusEvaluasi === "CUKUP"
           ? "Cukup"
-          : "Perlu Perhatian",
+          : "Perhatian",
         statusPengajarText,
       ];
 
@@ -228,64 +259,67 @@ export async function GET(request: NextRequest) {
           cell.alignment = { horizontal: "left", vertical: "middle" };
         }
 
-        // Color coding & Cell Notes untuk kolom Sesi (Col 8 s/d 23)
+        // Color coding untuk kolom Sesi (Col 8 s/d 23)
         if (colNumber >= 8 && colNumber <= 23) {
           const sesiIndex = colNumber - 8;
           const s = cls.sesi[sesiIndex];
-          const val = String(cell.value || "");
-
+          const isHadir = s.kehadiran === "HADIR";
+          const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
+          const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
           const isSub = s && s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
 
-          if (isSub) {
-            // Pasang Cell Note di Excel
-            const statusLabel =
-              s.statusPengajar === "PERGANTIAN_TETAP"
-                ? "Dosen Baru (Pergantian Tetap)"
-                : "Dosen Pengganti (Sementara)";
-            cell.note = `Pengajar Sesi ${s.nomorSesi}:\nNama: ${s.dosenPengajar!.nama}${
-              s.dosenPengajar!.nidn ? ` (NIDN: ${s.dosenPengajar!.nidn})` : ""
-            }\nStatus: ${statusLabel}\nAlasan: ${s.catatanGantiDosen || "—"}`;
-
-            // Warna pembeda sesi yang digantikan
-            if (s.statusPengajar === "PERGANTIAN_TETAP") {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFF3E8FF" }, // Soft Purple
-              };
-              cell.font = { name: "Arial", size: 8.5, color: { argb: "FF6B21A8" }, bold: true };
-            } else {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFFEF3C7" }, // Soft Amber
-              };
-              cell.font = { name: "Arial", size: 8.5, color: { argb: "FF92400E" }, bold: true };
-            }
+          // Pewarnaan Sel Presensi (Murni Berdasarkan Status Kehadiran — Tanpa Warna Biru)
+          if (isHadir) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFECFDF5" }, // Light Emerald (Hijau)
+            };
+            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
+          } else if (isHTL) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFFFFBEB" }, // Light Amber (Kuning)
+            };
+            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB45309" } };
+          } else if (isAlpha) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFFEF2F2" }, // Light Rose (Merah)
+            };
+            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB91C1C" } };
           } else {
-            // Default styling kehadiran normal
-            if (val.startsWith("H")) {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFECFDF5" }, // Light Emerald
-              };
-              cell.font = { name: "Arial", size: 8.5, color: { argb: "FF047857" }, bold: true };
-            } else if (val.startsWith("HTL")) {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFFFFBEB" }, // Light Amber
-              };
-              cell.font = { name: "Arial", size: 8.5, color: { argb: "FFB45309" }, bold: true };
-            } else if (val.startsWith("A")) {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFFEF2F2" }, // Light Rose
-              };
-              cell.font = { name: "Arial", size: 8.5, color: { argb: "FFB91C1C" }, bold: true };
-            }
+            cell.font = { name: "Arial", size: 9, bold: false, color: { argb: "FF94A3B8" } };
+          }
+
+          // Indikator Border Pengganti jika diajar Dosen Baru atau Pengganti (Persis ring/dot di Web)
+          if (isSub) {
+            const borderColor =
+              s.statusPengajar === "PERGANTIAN_TETAP"
+                ? "FF9333EA" // Purple (Dosen Baru)
+                : "FFD97706"; // Amber (Dosen Pengganti)
+            cell.border = {
+              top: { style: "medium", color: { argb: borderColor } },
+              left: { style: "medium", color: { argb: borderColor } },
+              bottom: { style: "medium", color: { argb: borderColor } },
+              right: { style: "medium", color: { argb: borderColor } },
+            };
+          }
+        }
+
+        // Styling kolom 26 (Skor 3 Pilar)
+        if (colNumber === 26) {
+          if (cls.modePembelajaran === "BIMBINGAN") {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF3E8FF" }, // Soft Purple
+            };
+            cell.font = { name: "Arial", size: 8.5, bold: true, color: { argb: "FF6B21A8" } };
+          } else {
+            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFA80063" } };
           }
         }
 

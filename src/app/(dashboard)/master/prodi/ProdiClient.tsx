@@ -16,6 +16,9 @@ import {
   Loader2,
   X,
   FileSpreadsheet,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   createFakultas,
@@ -238,6 +241,189 @@ export default function ProdiClient({
     return matchSearch && matchFak;
   });
 
+  // ── Sorting Logic: Program Studi ──────────────────────────────────────────
+  type ProdiSortColumn = "KODE" | "NAMA" | "FAKULTAS" | "DOSEN" | "MK";
+  type ProdiSortKey =
+    | "KODE_ASC"
+    | "KODE_DESC"
+    | "NAMA_ASC"
+    | "NAMA_DESC"
+    | "FAKULTAS_ASC"
+    | "FAKULTAS_DESC"
+    | "DOSEN_DESC"
+    | "DOSEN_ASC"
+    | "MK_DESC"
+    | "MK_ASC";
+
+  const [prodiSortBy, setProdiSortBy] = useState<ProdiSortKey>("NAMA_ASC");
+
+  const sortedProdi = [...filteredProdi].sort((a, b) => {
+    switch (prodiSortBy) {
+      case "NAMA_ASC":
+        return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+      case "NAMA_DESC":
+        return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "KODE_ASC":
+        return a.kode.localeCompare(b.kode, "id", { sensitivity: "base" });
+      case "KODE_DESC":
+        return b.kode.localeCompare(a.kode, "id", { sensitivity: "base" });
+      case "FAKULTAS_ASC":
+        return (a.fakultas?.nama || "").localeCompare(b.fakultas?.nama || "", "id", { sensitivity: "base" });
+      case "FAKULTAS_DESC":
+        return (b.fakultas?.nama || "").localeCompare(a.fakultas?.nama || "", "id", { sensitivity: "base" });
+      case "DOSEN_DESC":
+        return (b._count?.dosen ?? 0) - (a._count?.dosen ?? 0);
+      case "DOSEN_ASC":
+        return (a._count?.dosen ?? 0) - (b._count?.dosen ?? 0);
+      case "MK_DESC":
+        return (b._count?.mataKuliah ?? 0) - (a._count?.mataKuliah ?? 0);
+      case "MK_ASC":
+        return (a._count?.mataKuliah ?? 0) - (b._count?.mataKuliah ?? 0);
+      default:
+        return 0;
+    }
+  });
+
+  function handleProdiSort(column: ProdiSortColumn) {
+    switch (column) {
+      case "KODE":
+        setProdiSortBy(prodiSortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC");
+        break;
+      case "NAMA":
+        setProdiSortBy(prodiSortBy === "NAMA_ASC" ? "NAMA_DESC" : "NAMA_ASC");
+        break;
+      case "FAKULTAS":
+        setProdiSortBy(prodiSortBy === "FAKULTAS_ASC" ? "FAKULTAS_DESC" : "FAKULTAS_ASC");
+        break;
+      case "DOSEN":
+        setProdiSortBy(prodiSortBy === "DOSEN_DESC" ? "DOSEN_ASC" : "DOSEN_DESC");
+        break;
+      case "MK":
+        setProdiSortBy(prodiSortBy === "MK_DESC" ? "MK_ASC" : "MK_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeaderProdi(
+    label: string,
+    columnKey: ProdiSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "KODE" && (prodiSortBy === "KODE_ASC" || prodiSortBy === "KODE_DESC")) ||
+      (columnKey === "NAMA" && (prodiSortBy === "NAMA_ASC" || prodiSortBy === "NAMA_DESC")) ||
+      (columnKey === "FAKULTAS" && (prodiSortBy === "FAKULTAS_ASC" || prodiSortBy === "FAKULTAS_DESC")) ||
+      (columnKey === "DOSEN" && (prodiSortBy === "DOSEN_DESC" || prodiSortBy === "DOSEN_ASC")) ||
+      (columnKey === "MK" && (prodiSortBy === "MK_DESC" || prodiSortBy === "MK_ASC"));
+
+    const isAsc =
+      prodiSortBy === "KODE_ASC" ||
+      prodiSortBy === "NAMA_ASC" ||
+      prodiSortBy === "FAKULTAS_ASC" ||
+      prodiSortBy === "DOSEN_ASC" ||
+      prodiSortBy === "MK_ASC";
+
+    return (
+      <th
+        onClick={() => handleProdiSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
+  // ── Sorting Logic: Fakultas ───────────────────────────────────────────────
+  type FakultasSortColumn = "NAMA" | "TOTAL_PRODI";
+  type FakultasSortKey = "NAMA_ASC" | "NAMA_DESC" | "PRODI_DESC" | "PRODI_ASC";
+
+  const [fakultasSortBy, setFakultasSortBy] = useState<FakultasSortKey>("NAMA_ASC");
+
+  const sortedFakultas = [...fakultas].sort((a, b) => {
+    switch (fakultasSortBy) {
+      case "NAMA_ASC":
+        return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+      case "NAMA_DESC":
+        return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "PRODI_DESC":
+        return (b._count?.prodi ?? b.prodi?.length ?? 0) - (a._count?.prodi ?? a.prodi?.length ?? 0);
+      case "PRODI_ASC":
+        return (a._count?.prodi ?? a.prodi?.length ?? 0) - (b._count?.prodi ?? b.prodi?.length ?? 0);
+      default:
+        return 0;
+    }
+  });
+
+  function handleFakultasSort(column: FakultasSortColumn) {
+    switch (column) {
+      case "NAMA":
+        setFakultasSortBy(fakultasSortBy === "NAMA_ASC" ? "NAMA_DESC" : "NAMA_ASC");
+        break;
+      case "TOTAL_PRODI":
+        setFakultasSortBy(fakultasSortBy === "PRODI_DESC" ? "PRODI_ASC" : "PRODI_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeaderFakultas(
+    label: string,
+    columnKey: FakultasSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "NAMA" && (fakultasSortBy === "NAMA_ASC" || fakultasSortBy === "NAMA_DESC")) ||
+      (columnKey === "TOTAL_PRODI" && (fakultasSortBy === "PRODI_DESC" || fakultasSortBy === "PRODI_ASC"));
+
+    const isAsc = fakultasSortBy === "NAMA_ASC" || fakultasSortBy === "PRODI_ASC";
+
+    return (
+      <th
+        onClick={() => handleFakultasSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
@@ -324,7 +510,7 @@ export default function ProdiClient({
             <select
               value={filterFakultas}
               onChange={(e) => setFilterFakultas(e.target.value)}
-              className="px-2.5 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[160px] truncate"
+              className="px-2.5 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[160px] truncate cursor-pointer"
             >
               <option value="ALL">Semua Fakultas</option>
               {fakultas.map((f) => (
@@ -339,75 +525,100 @@ export default function ProdiClient({
 
       {/* ── Table Card: Program Studi ────────────────────────────────────────── */}
       {activeTab === "prodi" && (
-        <div className="duralux-card bg-white p-5 animate-fade-in">
+        <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none animate-fade-in">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs min-w-[750px]">
               <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="pb-2.5 font-bold">Kode</th>
-                  <th className="pb-2.5 font-bold">Nama Program Studi</th>
-                  <th className="pb-2.5 font-bold">Fakultas</th>
-                  <th className="pb-2.5 font-bold">Total Dosen</th>
-                  <th className="pb-2.5 font-bold">Total Mata Kuliah</th>
-                  <th className="pb-2.5 text-right font-bold">Aksi</th>
+                <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                  <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                  {renderSortHeaderProdi("Kode", "KODE", "left", "w-24 min-w-[85px]")}
+                  {renderSortHeaderProdi("Nama Program Studi", "NAMA", "left", "min-w-[200px]")}
+                  {renderSortHeaderProdi("Fakultas", "FAKULTAS", "left", "min-w-[180px]")}
+                  {renderSortHeaderProdi("Total Dosen", "DOSEN", "center", "w-32")}
+                  {renderSortHeaderProdi("Total Mata Kuliah", "MK", "center", "w-36")}
+                  <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredProdi.length === 0 ? (
+              <tbody className="divide-y divide-slate-100/80 text-xs">
+                {sortedProdi.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={7} className="py-12 text-center text-xs text-slate-400">
                       Tidak ada data program studi yang sesuai.
                     </td>
                   </tr>
                 ) : (
-                  filteredProdi.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 pr-3 font-bold">
-                        <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold">
-                          {p.kode}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-3 font-semibold text-slate-900">
-                        {p.nama}
-                      </td>
-                      <td className="py-3 pr-3 text-slate-600 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 size={13} className="text-slate-400" />
-                          <span>{p.fakultas?.nama || "—"}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-3">
-                        <div className="flex items-center gap-1 text-slate-600">
-                          <GraduationCap size={13} className="text-slate-400" />
-                          <span>{p._count?.dosen ?? 0} Dosen</span>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-3">
-                        <div className="flex items-center gap-1 text-slate-600">
-                          <BookOpen size={13} className="text-slate-400" />
-                          <span>{p._count?.mataKuliah ?? 0} MK</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            onClick={() => openEditProdi(p)}
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Edit Prodi"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProdi(p.id, p.nama)}
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Hapus Prodi"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  sortedProdi.map((p, idx) => {
+                    const isOdd = idx % 2 === 1;
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`transition-colors border-b border-slate-100/80 ${
+                          isOdd ? "bg-slate-50" : "bg-white"
+                        } hover:bg-[#fdf2f8]/80`}
+                      >
+                        {/* No */}
+                        <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
+                          {idx + 1}
+                        </td>
+
+                        {/* Kode */}
+                        <td className="py-2.5 px-3 font-bold w-24 min-w-[85px]">
+                          <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold">
+                            {p.kode}
+                          </span>
+                        </td>
+
+                        {/* Nama Prodi */}
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">
+                          {p.nama}
+                        </td>
+
+                        {/* Fakultas */}
+                        <td className="py-2.5 px-3 text-slate-600 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 size={13} className="text-slate-400" />
+                            <span>{p.fakultas?.nama || "—"}</span>
+                          </div>
+                        </td>
+
+                        {/* Total Dosen */}
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="inline-flex items-center gap-1 text-slate-600 font-medium">
+                            <GraduationCap size={13} className="text-slate-400" />
+                            <span>{p._count?.dosen ?? 0} Dosen</span>
+                          </div>
+                        </td>
+
+                        {/* Total MK */}
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="inline-flex items-center gap-1 text-slate-600 font-medium">
+                            <BookOpen size={13} className="text-slate-400" />
+                            <span>{p._count?.mataKuliah ?? 0} MK</span>
+                          </div>
+                        </td>
+
+                        {/* Aksi */}
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => openEditProdi(p)}
+                              className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              title="Edit Prodi"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProdi(p.id, p.nama)}
+                              className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              title="Hapus Prodi"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -417,57 +628,76 @@ export default function ProdiClient({
 
       {/* ── Table Card: Fakultas ─────────────────────────────────────────────── */}
       {activeTab === "fakultas" && (
-        <div className="duralux-card bg-white p-5 animate-fade-in">
+        <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none animate-fade-in">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs min-w-[600px]">
               <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="pb-2.5 font-bold">Nama Fakultas</th>
-                  <th className="pb-2.5 font-bold">Total Program Studi</th>
-                  <th className="pb-2.5 text-right font-bold">Aksi</th>
+                <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                  <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                  {renderSortHeaderFakultas("Nama Fakultas", "NAMA", "left", "min-w-[240px]")}
+                  {renderSortHeaderFakultas("Total Program Studi", "TOTAL_PRODI", "center", "w-44")}
+                  <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {fakultas.length === 0 ? (
+              <tbody className="divide-y divide-slate-100/80 text-xs">
+                {sortedFakultas.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={4} className="py-12 text-center text-xs text-slate-400">
                       Belum ada data fakultas. Klik tombol "Tambah Fakultas" di atas.
                     </td>
                   </tr>
                 ) : (
-                  fakultas.map((f) => (
-                    <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 pr-3 font-semibold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <Building2 size={14} className="text-[#a80063]" />
-                          <span>{f.nama}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-3">
-                        <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold">
-                          {f._count?.prodi ?? f.prodi?.length ?? 0} Program Studi
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            onClick={() => openEditFakultas(f)}
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Edit Fakultas"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteFakultas(f.id, f.nama)}
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Hapus Fakultas"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  sortedFakultas.map((f, idx) => {
+                    const isOdd = idx % 2 === 1;
+                    return (
+                      <tr
+                        key={f.id}
+                        className={`transition-colors border-b border-slate-100/80 ${
+                          isOdd ? "bg-slate-50" : "bg-white"
+                        } hover:bg-[#fdf2f8]/80`}
+                      >
+                        {/* No */}
+                        <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
+                          {idx + 1}
+                        </td>
+
+                        {/* Nama Fakultas */}
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <Building2 size={14} className="text-[#a80063]" />
+                            <span>{f.nama}</span>
+                          </div>
+                        </td>
+
+                        {/* Total Prodi */}
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold">
+                            {f._count?.prodi ?? f.prodi?.length ?? 0} Program Studi
+                          </span>
+                        </td>
+
+                        {/* Aksi */}
+                        <td className="py-2.5 px-3 text-center">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => openEditFakultas(f)}
+                              className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              title="Edit Fakultas"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFakultas(f.id, f.nama)}
+                              className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              title="Hapus Fakultas"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

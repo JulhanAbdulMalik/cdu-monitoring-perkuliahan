@@ -16,6 +16,9 @@ import {
   Loader2,
   X,
   FileSpreadsheet,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { createDosen, updateDosen, deleteDosen, getDosenList } from "@/actions/dosen";
 import MasterImportModal from "@/components/master/MasterImportModal";
@@ -175,6 +178,117 @@ export default function DosenClient({
     return matchSearch && matchProdi;
   });
 
+  // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
+  type DosenSortColumn = "NAMA" | "NIDN" | "EMAIL" | "PRODI" | "KELAS";
+  type DosenSortKey =
+    | "NAMA_ASC"
+    | "NAMA_DESC"
+    | "NIDN_ASC"
+    | "NIDN_DESC"
+    | "EMAIL_ASC"
+    | "EMAIL_DESC"
+    | "PRODI_ASC"
+    | "PRODI_DESC"
+    | "KELAS_DESC"
+    | "KELAS_ASC";
+
+  const [sortBy, setSortBy] = useState<DosenSortKey>("NAMA_ASC");
+
+  const sortedDosen = [...filteredDosen].sort((a, b) => {
+    switch (sortBy) {
+      case "NAMA_ASC":
+        return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+      case "NAMA_DESC":
+        return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "NIDN_ASC":
+        return (a.nidn || "").localeCompare(b.nidn || "", "id");
+      case "NIDN_DESC":
+        return (b.nidn || "").localeCompare(a.nidn || "", "id");
+      case "EMAIL_ASC":
+        return (a.email || "").localeCompare(b.email || "", "id");
+      case "EMAIL_DESC":
+        return (b.email || "").localeCompare(a.email || "", "id");
+      case "PRODI_ASC":
+        return a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
+      case "PRODI_DESC":
+        return b.prodi.nama.localeCompare(a.prodi.nama, "id", { sensitivity: "base" });
+      case "KELAS_DESC":
+        return b._count.kelas - a._count.kelas;
+      case "KELAS_ASC":
+        return a._count.kelas - b._count.kelas;
+      default:
+        return 0;
+    }
+  });
+
+  function handleColumnSort(column: DosenSortColumn) {
+    switch (column) {
+      case "NAMA":
+        setSortBy(sortBy === "NAMA_ASC" ? "NAMA_DESC" : "NAMA_ASC");
+        break;
+      case "NIDN":
+        setSortBy(sortBy === "NIDN_ASC" ? "NIDN_DESC" : "NIDN_ASC");
+        break;
+      case "EMAIL":
+        setSortBy(sortBy === "EMAIL_ASC" ? "EMAIL_DESC" : "EMAIL_ASC");
+        break;
+      case "PRODI":
+        setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
+        break;
+      case "KELAS":
+        setSortBy(sortBy === "KELAS_DESC" ? "KELAS_ASC" : "KELAS_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeader(
+    label: string,
+    columnKey: DosenSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "NAMA" && (sortBy === "NAMA_ASC" || sortBy === "NAMA_DESC")) ||
+      (columnKey === "NIDN" && (sortBy === "NIDN_ASC" || sortBy === "NIDN_DESC")) ||
+      (columnKey === "EMAIL" && (sortBy === "EMAIL_ASC" || sortBy === "EMAIL_DESC")) ||
+      (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
+      (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC"));
+
+    const isAsc =
+      sortBy === "NAMA_ASC" ||
+      sortBy === "NIDN_ASC" ||
+      sortBy === "EMAIL_ASC" ||
+      sortBy === "PRODI_ASC" ||
+      sortBy === "KELAS_ASC";
+
+    return (
+      <th
+        onClick={() => handleColumnSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
@@ -226,7 +340,7 @@ export default function DosenClient({
           <select
             value={filterProdi}
             onChange={(e) => setFilterProdi(e.target.value)}
-            className="px-2.5 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[200px] truncate"
+            className="px-2.5 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[200px] truncate cursor-pointer"
           >
             <option value="ALL">Semua Program Studi</option>
             {prodiList.map((p) => (
@@ -239,106 +353,120 @@ export default function DosenClient({
       </div>
 
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs min-w-[780px]">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-2.5 font-bold">Nama Dosen</th>
-                <th className="pb-2.5 font-bold">NIDN</th>
-                <th className="pb-2.5 font-bold">Email</th>
-                <th className="pb-2.5 font-bold">Homebase Prodi</th>
-                <th className="pb-2.5 font-bold">Kelas Diampu</th>
-                <th className="pb-2.5 text-right font-bold">Aksi</th>
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                {renderSortHeader("Nama Dosen", "NAMA", "left", "min-w-[200px]")}
+                {renderSortHeader("NIDN", "NIDN", "left", "w-36 min-w-[120px]")}
+                {renderSortHeader("Email", "EMAIL", "left", "min-w-[180px]")}
+                {renderSortHeader("Homebase Prodi", "PRODI", "left", "min-w-[180px]")}
+                {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-36")}
+                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              {filteredDosen.length === 0 ? (
+            <tbody className="divide-y divide-slate-100/80 text-xs">
+              {sortedDosen.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-xs text-slate-400">
                     Tidak ada data dosen yang sesuai dengan kriteria pencarian.
                   </td>
                 </tr>
               ) : (
-                filteredDosen.map((d) => (
-                  <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* Nama Dosen with Avatar */}
-                    <td className="py-3 pr-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#a80063]/15 to-[#d946ef]/20 border border-[#fbcfe8] text-[#a80063] font-bold text-xs flex items-center justify-center shrink-0">
-                          {d.nama[0]}
+                sortedDosen.map((d, idx) => {
+                  const isOdd = idx % 2 === 1;
+                  return (
+                    <tr
+                      key={d.id}
+                      className={`transition-colors border-b border-slate-100/80 ${
+                        isOdd ? "bg-slate-50" : "bg-white"
+                      } hover:bg-[#fdf2f8]/80`}
+                    >
+                      {/* No */}
+                      <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
+                        {idx + 1}
+                      </td>
+
+                      {/* Nama Dosen with Avatar */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#a80063]/15 to-[#d946ef]/20 border border-[#fbcfe8] text-[#a80063] font-bold text-xs flex items-center justify-center shrink-0">
+                            {d.nama[0]}
+                          </div>
+                          <span className="font-semibold text-xs text-slate-900 leading-tight">
+                            {d.nama}
+                          </span>
                         </div>
-                        <span className="font-semibold text-xs text-slate-900 leading-tight">
-                          {d.nama}
-                        </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* NIDN */}
-                    <td className="py-3 pr-3">
-                      {d.nidn ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium font-mono">
-                          <IdCard size={11} className="text-slate-400" />
-                          <span>{d.nidn}</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">—</span>
-                      )}
-                    </td>
+                      {/* NIDN */}
+                      <td className="py-2.5 px-3">
+                        {d.nidn ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium font-mono">
+                            <IdCard size={11} className="text-slate-400" />
+                            <span>{d.nidn}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
+                      </td>
 
-                    {/* Email */}
-                    <td className="py-3 pr-3 text-slate-600">
-                      {d.email ? (
-                        <div className="flex items-center gap-1 text-[11px]">
-                          <Mail size={11} className="text-slate-400" />
-                          <span>{d.email}</span>
+                      {/* Email */}
+                      <td className="py-2.5 px-3 text-slate-600">
+                        {d.email ? (
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <Mail size={11} className="text-slate-400" />
+                            <span>{d.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
+                      </td>
+
+                      {/* Homebase Prodi */}
+                      <td className="py-2.5 px-3">
+                        <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[11px] font-semibold">
+                          {d.prodi.kode} - {d.prodi.nama}
+                        </span>
+                      </td>
+
+                      {/* Kelas Diampu */}
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center gap-1 text-slate-600 text-xs font-medium">
+                          <School size={13} className="text-slate-400" />
+                          <span>{d._count.kelas} Kelas</span>
                         </div>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">—</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Homebase Prodi */}
-                    <td className="py-3 pr-3">
-                      <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[11px] font-semibold">
-                        {d.prodi.kode} - {d.prodi.nama}
-                      </span>
-                    </td>
-
-                    {/* Kelas Diampu */}
-                    <td className="py-3 pr-3">
-                      <div className="flex items-center gap-1 text-slate-600 text-xs font-medium">
-                        <School size={13} className="text-slate-400" />
-                        <span>{d._count.kelas} Kelas</span>
-                      </div>
-                    </td>
-
-                    {/* Aksi */}
-                    <td className="py-3 text-right">
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(d)}
-                          className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                          title="Edit Dosen"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(d.id, d.nama)}
-                          disabled={d._count.kelas > 0}
-                          className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:hover:text-slate-400 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                          title={
-                            d._count.kelas > 0
-                              ? "Tidak dapat menghapus dosen yang mengampu kelas"
-                              : "Hapus Dosen"
-                          }
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      {/* Aksi */}
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(d)}
+                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                            title="Edit Dosen"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(d.id, d.nama)}
+                            disabled={d._count.kelas > 0}
+                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:hover:text-slate-400 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                            title={
+                              d._count.kelas > 0
+                                ? "Tidak dapat menghapus dosen yang mengampu kelas"
+                                : "Hapus Dosen"
+                            }
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

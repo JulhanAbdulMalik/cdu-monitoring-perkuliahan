@@ -18,6 +18,9 @@ import {
   Palmtree,
   CalendarDays,
   Info,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   createSemester,
@@ -334,6 +337,138 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
     return { tanggal: `${sStr} - ${eStr}`, durasi: durasiStr };
   }
 
+  // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
+  type SemesterSortColumn = "TAHUN" | "PERIODE" | "MULAI" | "LIBUR" | "KELAS" | "STATUS";
+  type SemesterSortKey =
+    | "STATUS_DESC"
+    | "STATUS_ASC"
+    | "TAHUN_DESC"
+    | "TAHUN_ASC"
+    | "PERIODE_ASC"
+    | "PERIODE_DESC"
+    | "MULAI_DESC"
+    | "MULAI_ASC"
+    | "LIBUR_DESC"
+    | "LIBUR_ASC"
+    | "KELAS_DESC"
+    | "KELAS_ASC";
+
+  const [sortBy, setSortBy] = useState<SemesterSortKey>("STATUS_DESC");
+
+  const sortedSemesters = [...semesters].sort((a, b) => {
+    switch (sortBy) {
+      case "STATUS_DESC": {
+        if (a.aktif !== b.aktif) return a.aktif ? -1 : 1;
+        return b.tahunAkademik.localeCompare(a.tahunAkademik, "id", { numeric: true });
+      }
+      case "STATUS_ASC": {
+        if (a.aktif !== b.aktif) return a.aktif ? 1 : -1;
+        return a.tahunAkademik.localeCompare(b.tahunAkademik, "id", { numeric: true });
+      }
+      case "TAHUN_DESC":
+        return b.tahunAkademik.localeCompare(a.tahunAkademik, "id", { numeric: true });
+      case "TAHUN_ASC":
+        return a.tahunAkademik.localeCompare(b.tahunAkademik, "id", { numeric: true });
+      case "PERIODE_ASC":
+        return a.periode.localeCompare(b.periode);
+      case "PERIODE_DESC":
+        return b.periode.localeCompare(a.periode);
+      case "MULAI_DESC": {
+        const timeA = a.tanggalMulai ? new Date(a.tanggalMulai).getTime() : 0;
+        const timeB = b.tanggalMulai ? new Date(b.tanggalMulai).getTime() : 0;
+        return timeB - timeA;
+      }
+      case "MULAI_ASC": {
+        const timeA = a.tanggalMulai ? new Date(a.tanggalMulai).getTime() : 0;
+        const timeB = b.tanggalMulai ? new Date(b.tanggalMulai).getTime() : 0;
+        return timeA - timeB;
+      }
+      case "LIBUR_DESC":
+        return (b.hariLibur?.length || 0) - (a.hariLibur?.length || 0);
+      case "LIBUR_ASC":
+        return (a.hariLibur?.length || 0) - (b.hariLibur?.length || 0);
+      case "KELAS_DESC":
+        return b._count.kelas - a._count.kelas;
+      case "KELAS_ASC":
+        return a._count.kelas - b._count.kelas;
+      default:
+        return 0;
+    }
+  });
+
+  function handleColumnSort(column: SemesterSortColumn) {
+    switch (column) {
+      case "STATUS":
+        setSortBy(sortBy === "STATUS_DESC" ? "STATUS_ASC" : "STATUS_DESC");
+        break;
+      case "TAHUN":
+        setSortBy(sortBy === "TAHUN_DESC" ? "TAHUN_ASC" : "TAHUN_DESC");
+        break;
+      case "PERIODE":
+        setSortBy(sortBy === "PERIODE_ASC" ? "PERIODE_DESC" : "PERIODE_ASC");
+        break;
+      case "MULAI":
+        setSortBy(sortBy === "MULAI_DESC" ? "MULAI_ASC" : "MULAI_DESC");
+        break;
+      case "LIBUR":
+        setSortBy(sortBy === "LIBUR_DESC" ? "LIBUR_ASC" : "LIBUR_DESC");
+        break;
+      case "KELAS":
+        setSortBy(sortBy === "KELAS_DESC" ? "KELAS_ASC" : "KELAS_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeader(
+    label: string,
+    columnKey: SemesterSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "STATUS" && (sortBy === "STATUS_DESC" || sortBy === "STATUS_ASC")) ||
+      (columnKey === "TAHUN" && (sortBy === "TAHUN_DESC" || sortBy === "TAHUN_ASC")) ||
+      (columnKey === "PERIODE" && (sortBy === "PERIODE_ASC" || sortBy === "PERIODE_DESC")) ||
+      (columnKey === "MULAI" && (sortBy === "MULAI_DESC" || sortBy === "MULAI_ASC")) ||
+      (columnKey === "LIBUR" && (sortBy === "LIBUR_DESC" || sortBy === "LIBUR_ASC")) ||
+      (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC"));
+
+    const isAsc =
+      sortBy === "STATUS_ASC" ||
+      sortBy === "TAHUN_ASC" ||
+      sortBy === "PERIODE_ASC" ||
+      sortBy === "MULAI_ASC" ||
+      sortBy === "LIBUR_ASC" ||
+      sortBy === "KELAS_ASC";
+
+    return (
+      <th
+        onClick={() => handleColumnSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
@@ -368,129 +503,141 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
       </div>
 
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs min-w-[780px]">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-2.5 font-bold">Tahun Akademik</th>
-                <th className="pb-2.5 font-bold">Periode</th>
-                <th className="pb-2.5 font-bold">Mulai Kuliah (Sesi 1)</th>
-                <th className="pb-2.5 font-bold">Libur Perkuliahan</th>
-                <th className="pb-2.5 font-bold">Total Kelas Terdaftar</th>
-                <th className="pb-2.5 font-bold">Status Sistem</th>
-                <th className="pb-2.5 text-right font-bold">Aksi</th>
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                {renderSortHeader("Tahun Akademik", "TAHUN", "left", "min-w-[140px]")}
+                {renderSortHeader("Periode", "PERIODE", "left", "w-28")}
+                {renderSortHeader("Mulai Kuliah (Sesi 1)", "MULAI", "left", "min-w-[180px]")}
+                {renderSortHeader("Libur Perkuliahan", "LIBUR", "left", "min-w-[170px]")}
+                {renderSortHeader("Total Kelas", "KELAS", "center", "w-32")}
+                {renderSortHeader("Status Sistem", "STATUS", "center", "w-50")}
+                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              {semesters.length === 0 ? (
+            <tbody className="divide-y divide-slate-100/80 text-xs">
+              {sortedSemesters.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
                     Belum ada data semester. Silakan klik tombol "Tambah Semester" di atas.
                   </td>
                 </tr>
               ) : (
-                semesters.map((sem) => {
+                sortedSemesters.map((sem, idx) => {
                   const jumlahLibur = sem.hariLibur?.length || 0;
+                  const isOdd = idx % 2 === 1;
                   return (
-                  <tr key={sem.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* Tahun Akademik */}
-                    <td className="py-3 pr-3 font-semibold text-slate-900">
-                      <span className="text-xs">{sem.tahunAkademik}</span>
-                    </td>
+                    <tr
+                      key={sem.id}
+                      className={`transition-colors border-b border-slate-100/80 ${
+                        isOdd ? "bg-slate-50" : "bg-white"
+                      } hover:bg-[#fdf2f8]/80`}
+                    >
+                      {/* No */}
+                      <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
+                        {idx + 1}
+                      </td>
 
-                    {/* Periode */}
-                    <td className="py-3 pr-3">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          sem.periode === "GANJIL"
-                            ? "bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]"
-                            : "bg-blue-50 text-blue-600 border border-blue-200"
-                        }`}
-                      >
-                        {sem.periode}
-                      </span>
-                    </td>
+                      {/* Tahun Akademik */}
+                      <td className="py-2.5 px-3 font-semibold text-slate-900">
+                        <span className="text-xs">{sem.tahunAkademik}</span>
+                      </td>
 
-                    {/* Mulai Kuliah Sesi 1 */}
-                    <td className="py-3 pr-3">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200">
-                        <Calendar size={12} className="text-[#a80063]" />
-                        <span>{formatTglDisplay(sem.tanggalMulai)}</span>
-                      </div>
-                    </td>
-
-                    {/* Libur Perkuliahan */}
-                    <td className="py-3 pr-3">
-                      <button
-                        onClick={() => openLiburModal(sem)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                          jumlahLibur > 0
-                            ? "bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100 hover:border-amber-300 font-semibold shadow-xs"
-                            : "bg-slate-50 text-slate-500 border border-dashed border-slate-300 hover:text-[#a80063] hover:border-[#a80063]/40 hover:bg-[#fdf2f8]"
-                        }`}
-                        title="Klik untuk melihat dan mengatur hari libur perkuliahan"
-                      >
-                        <span>{jumlahLibur > 0 ? `${jumlahLibur} Hari/Periode Libur` : "+ Atur Libur (0)"}</span>
-                      </button>
-                    </td>
-
-                    {/* Total Kelas */}
-                    <td className="py-3 pr-3">
-                      <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
-                        <School size={13} className="text-slate-400" />
-                        <span>{sem._count.kelas} Kelas</span>
-                      </div>
-                    </td>
-
-                    {/* Status Aktif */}
-                    <td className="py-3 pr-3">
-                      {sem.aktif ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                          <CheckCircle2 size={11} />
-                          <span>Semester Aktif</span>
+                      {/* Periode */}
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            sem.periode === "GANJIL"
+                              ? "bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]"
+                              : "bg-blue-50 text-blue-600 border border-blue-200"
+                          }`}
+                        >
+                          {sem.periode}
                         </span>
-                      ) : (
-                        <button
-                          onClick={() => handleToggleAktif(sem.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-slate-500 hover:text-[#a80063] hover:bg-[#fdf2f8] border border-slate-200/80 hover:border-[#fbcfe8] transition-all cursor-pointer"
-                        >
-                          <Sparkles size={10} />
-                          <span>Jadikan Aktif</span>
-                        </button>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Aksi */}
-                    <td className="py-3 text-right">
-                      <div className="inline-flex items-center gap-1.5">
+                      {/* Mulai Kuliah Sesi 1 */}
+                      <td className="py-2.5 px-3">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200">
+                          <Calendar size={12} className="text-[#a80063]" />
+                          <span>{formatTglDisplay(sem.tanggalMulai)}</span>
+                        </div>
+                      </td>
+
+                      {/* Libur Perkuliahan */}
+                      <td className="py-2.5 px-3">
                         <button
-                          onClick={() => openEditModal(sem)}
-                          className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                          title="Edit Semester"
+                          onClick={() => openLiburModal(sem)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                            jumlahLibur > 0
+                              ? "bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100 hover:border-amber-300 font-semibold shadow-xs"
+                              : "bg-slate-50 text-slate-500 border border-dashed border-slate-300 hover:text-[#a80063] hover:border-[#a80063]/40 hover:bg-[#fdf2f8]"
+                          }`}
+                          title="Klik untuk melihat dan mengatur hari libur perkuliahan"
                         >
-                          <Edit2 size={12} />
+                          <span>{jumlahLibur > 0 ? `${jumlahLibur} Hari/Periode Libur` : "+ Atur Libur (0)"}</span>
                         </button>
-                        <button
-                          onClick={() => handleDelete(sem.id)}
-                          disabled={sem.aktif || sem._count.kelas > 0}
-                          className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:hover:text-slate-400 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                          title={
-                            sem.aktif
-                              ? "Tidak dapat menghapus semester aktif"
-                              : sem._count.kelas > 0
-                              ? "Ada kelas terdaftar di semester ini"
-                              : "Hapus Semester"
-                          }
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                      </td>
+
+                      {/* Total Kelas */}
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center gap-1.5 text-slate-600 text-xs font-medium">
+                          <School size={13} className="text-slate-400" />
+                          <span>{sem._count.kelas} Kelas</span>
+                        </div>
+                      </td>
+
+                      {/* Status Aktif */}
+                      <td className="py-2.5 px-3 text-center">
+                        {sem.aktif ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                            <CheckCircle2 size={11} />
+                            <span>Semester Aktif</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleAktif(sem.id)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-slate-500 hover:text-[#a80063] hover:bg-[#fdf2f8] border border-slate-200/80 hover:border-[#fbcfe8] transition-all cursor-pointer"
+                          >
+                            <Sparkles size={10} />
+                            <span>Jadikan Aktif</span>
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Aksi */}
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(sem)}
+                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                            title="Edit Semester"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sem.id)}
+                            disabled={sem.aktif || sem._count.kelas > 0}
+                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:hover:text-slate-400 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                            title={
+                              sem.aktif
+                                ? "Tidak dapat menghapus semester aktif"
+                                : sem._count.kelas > 0
+                                ? "Ada kelas terdaftar di semester ini"
+                                : "Hapus Semester"
+                            }
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

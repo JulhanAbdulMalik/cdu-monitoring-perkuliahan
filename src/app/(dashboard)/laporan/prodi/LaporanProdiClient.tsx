@@ -25,6 +25,8 @@ import {
   Video,
   BookOpen,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Filter,
   X,
   RotateCcw,
@@ -78,11 +80,28 @@ export default function LaporanProdiClient({
   const [endDate, setEndDate] = useState(initialEndDate);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemesterId);
 
-  // View & Filter States
-  const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("GRID");
+  // View & Filter States (Default: TABLE Komparasi)
+  const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
-  const [sortBy, setSortBy] = useState<"kehadiran_desc" | "konten_desc" | "sesi_desc" | "nama_asc">("kehadiran_desc");
+  const [sortBy, setSortBy] = useState<
+    | "kehadiran_desc"
+    | "kehadiran_asc"
+    | "konten_desc"
+    | "konten_asc"
+    | "sesi_desc"
+    | "sesi_asc"
+    | "nama_asc"
+    | "nama_desc"
+    | "kode_asc"
+    | "kode_desc"
+    | "dosen_desc"
+    | "dosen_asc"
+    | "kelas_desc"
+    | "kelas_asc"
+    | "status_asc"
+    | "status_desc"
+  >("nama_asc");
   const [expandedProdiIds, setExpandedProdiIds] = useState<Record<string, boolean>>({});
 
   function toggleExpandProdi(prodiId: string) {
@@ -142,12 +161,148 @@ export default function LaporanProdiClient({
   });
 
   const sortedList = [...filteredList].sort((a, b) => {
-    if (sortBy === "kehadiran_desc") return b.avgKehadiranRentang - a.avgKehadiranRentang;
-    if (sortBy === "konten_desc") return b.avgKontenRentang - a.avgKontenRentang;
-    if (sortBy === "sesi_desc") return b.totalSesiRentang - a.totalSesiRentang;
-    if (sortBy === "nama_asc") return a.nama.localeCompare(b.nama);
-    return 0;
+    switch (sortBy) {
+      case "nama_asc":
+        return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+      case "nama_desc":
+        return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "kode_asc":
+        return a.kode.localeCompare(b.kode, "id", { sensitivity: "base" });
+      case "kode_desc":
+        return b.kode.localeCompare(a.kode, "id", { sensitivity: "base" });
+      case "dosen_desc":
+        return b.totalDosenAktifRentang - a.totalDosenAktifRentang;
+      case "dosen_asc":
+        return a.totalDosenAktifRentang - b.totalDosenAktifRentang;
+      case "kelas_desc":
+        return b.totalKelasAktifRentang - a.totalKelasAktifRentang;
+      case "kelas_asc":
+        return a.totalKelasAktifRentang - b.totalKelasAktifRentang;
+      case "sesi_desc":
+        return b.totalSesiRentang - a.totalSesiRentang;
+      case "sesi_asc":
+        return a.totalSesiRentang - b.totalSesiRentang;
+      case "kehadiran_desc":
+        return b.avgKehadiranRentang - a.avgKehadiranRentang;
+      case "kehadiran_asc":
+        return a.avgKehadiranRentang - b.avgKehadiranRentang;
+      case "konten_desc":
+        return b.avgKontenRentang - a.avgKontenRentang;
+      case "konten_asc":
+        return a.avgKontenRentang - b.avgKontenRentang;
+      case "status_asc": {
+        const rank: Record<string, number> = {
+          PERLU_PEMBINAAN: 1,
+          BAIK: 2,
+          SANGAT_BAIK: 3,
+        };
+        return (rank[a.statusKinerjaRentang] || 0) - (rank[b.statusKinerjaRentang] || 0);
+      }
+      case "status_desc": {
+        const rank: Record<string, number> = {
+          PERLU_PEMBINAAN: 1,
+          BAIK: 2,
+          SANGAT_BAIK: 3,
+        };
+        return (rank[b.statusKinerjaRentang] || 0) - (rank[a.statusKinerjaRentang] || 0);
+      }
+      default:
+        return 0;
+    }
   });
+
+  type ProdiSortColumn =
+    | "KODE"
+    | "PRODI"
+    | "DOSEN"
+    | "KELAS"
+    | "SESI"
+    | "HADIR"
+    | "KONTEN"
+    | "STATUS";
+
+  function handleColumnSort(column: ProdiSortColumn) {
+    switch (column) {
+      case "KODE":
+        setSortBy(sortBy === "kode_asc" ? "kode_desc" : "kode_asc");
+        break;
+      case "PRODI":
+        setSortBy(sortBy === "nama_asc" ? "nama_desc" : "nama_asc");
+        break;
+      case "DOSEN":
+        setSortBy(sortBy === "dosen_desc" ? "dosen_asc" : "dosen_desc");
+        break;
+      case "KELAS":
+        setSortBy(sortBy === "kelas_desc" ? "kelas_asc" : "kelas_desc");
+        break;
+      case "SESI":
+        setSortBy(sortBy === "sesi_desc" ? "sesi_asc" : "sesi_desc");
+        break;
+      case "HADIR":
+        setSortBy(sortBy === "kehadiran_desc" ? "kehadiran_asc" : "kehadiran_desc");
+        break;
+      case "KONTEN":
+        setSortBy(sortBy === "konten_desc" ? "konten_asc" : "konten_desc");
+        break;
+      case "STATUS":
+        setSortBy(sortBy === "status_asc" ? "status_desc" : "status_asc");
+        break;
+    }
+  }
+
+  function renderSortHeader(
+    label: string,
+    columnKey: ProdiSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "KODE" && (sortBy === "kode_asc" || sortBy === "kode_desc")) ||
+      (columnKey === "PRODI" && (sortBy === "nama_asc" || sortBy === "nama_desc")) ||
+      (columnKey === "DOSEN" && (sortBy === "dosen_desc" || sortBy === "dosen_asc")) ||
+      (columnKey === "KELAS" && (sortBy === "kelas_desc" || sortBy === "kelas_asc")) ||
+      (columnKey === "SESI" && (sortBy === "sesi_desc" || sortBy === "sesi_asc")) ||
+      (columnKey === "HADIR" && (sortBy === "kehadiran_desc" || sortBy === "kehadiran_asc")) ||
+      (columnKey === "KONTEN" && (sortBy === "konten_desc" || sortBy === "konten_asc")) ||
+      (columnKey === "STATUS" && (sortBy === "status_asc" || sortBy === "status_desc"));
+
+    const isAsc =
+      sortBy === "kode_asc" ||
+      sortBy === "nama_asc" ||
+      sortBy === "dosen_asc" ||
+      sortBy === "kelas_asc" ||
+      sortBy === "sesi_asc" ||
+      sortBy === "kehadiran_asc" ||
+      sortBy === "konten_asc" ||
+      sortBy === "status_asc";
+
+    return (
+      <th
+        onClick={() => handleColumnSort(columnKey)}
+        className={`py-2.5 px-2.5 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span className="whitespace-nowrap">{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
 
   const currentSem =
     semesters.find((s) => s.id === selectedSemester) || semesters[0];
@@ -174,7 +329,7 @@ export default function LaporanProdiClient({
   const isCustomDate = !isAllTime && !isThisWeek && !isLastWeek;
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveStatus = filterStatus !== "ALL";
-  const hasActiveSort = sortBy !== "kehadiran_desc";
+  const hasActiveSort = sortBy !== "nama_asc";
   const hasAnyFilterActive = hasActiveSearch || hasActiveStatus || hasActiveSort || !isAllTime;
 
   return (
@@ -437,25 +592,6 @@ export default function LaporanProdiClient({
               </select>
             </div>
 
-            {/* Sort Dropdown with Subtle Transparent Maroon Active Style */}
-            <div className="flex items-center">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
-                  hasActiveSort
-                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                }`}
-                title="Urutan Tampilan"
-              >
-                <option value="kehadiran_desc">Kehadiran (Tertinggi)</option>
-                <option value="konten_desc">Konten 3P (Tertinggi)</option>
-                <option value="sesi_desc">Sesi Terbanyak</option>
-                <option value="nama_asc">Nama Prodi (A-Z)</option>
-              </select>
-            </div>
-
             {/* Reset All Filters Button (in 1st row) */}
             {hasAnyFilterActive && (
               <button
@@ -463,7 +599,7 @@ export default function LaporanProdiClient({
                 onClick={() => {
                   setSearchQuery("");
                   setFilterStatus("ALL");
-                  setSortBy("kehadiran_desc");
+                  setSortBy("nama_asc");
                   applyPreset("all_time");
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
@@ -652,53 +788,54 @@ export default function LaporanProdiClient({
         </div>
       ) : (
         /* ── TABLE VIEW ─────────────────────────────────────────────────────── */
-        <div className="duralux-card bg-white p-5">
+        <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs min-w-[1050px]">
               <thead>
-                <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-                  <th className="py-2.5 px-3 w-10 text-center">No</th>
-                  <th className="py-2.5 px-3 w-20">Kode</th>
-                  <th className="py-2.5 px-3">Program Studi</th>
-                  <th className="py-2.5 px-3 text-center">Dosen Aktif</th>
-                  <th className="py-2.5 px-3 text-center">Kelas Aktif</th>
-                  <th className="py-2.5 px-3 text-center">Sesi di Periode</th>
-                  <th className="py-2.5 px-3 text-center">% Hadir (Periode)</th>
-                  <th className="py-2.5 px-3 text-center">% Konten (Periode)</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-center">Detail</th>
+                <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                  <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                  {renderSortHeader("Kode", "KODE", "left", "w-20 min-w-[75px]")}
+                  {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[180px]")}
+                  {renderSortHeader("Dosen Aktif", "DOSEN", "center", "w-36 min-w-[140px]")}
+                  {renderSortHeader("Kelas Aktif", "KELAS", "center", "w-36 min-w-[140px]")}
+                  {renderSortHeader("Sesi di Periode", "SESI", "center", "w-36 min-w-[140px]")}
+                  {renderSortHeader("% Hadir (Periode)", "HADIR", "center", "min-w-[140px]")}
+                  {renderSortHeader("% Konten (Periode)", "KONTEN", "center", "min-w-[140px]")}
+                  {renderSortHeader("Status", "STATUS", "center", "w-32")}
+                  <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-28 print:hidden">Detail</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100/80 text-xs">
                 {sortedList.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
-                      Tidak ada data program studi yang sesuai.
+                    <td colSpan={10} className="py-12 text-center text-xs text-slate-400">
+                      Tidak ada data program studi yang sesuai dengan kriteria filter.
                     </td>
                   </tr>
                 ) : (
                   sortedList.map((p, idx) => {
                     const isExpanded = !!expandedProdiIds[p.id];
+                    const isOdd = idx % 2 === 1;
                     const kendalaCount = p.kendalaList?.length || 0;
 
                     return (
                       <Fragment key={p.id}>
                         <tr
-                          className={`transition-colors cursor-pointer ${
-                            isExpanded ? "bg-[#fdf2f8]/30 font-medium" : "hover:bg-slate-50/70"
-                          }`}
+                          className={`transition-colors cursor-pointer border-b border-slate-100/80 ${
+                            isExpanded ? "bg-[#fdf2f8]/40 font-medium" : isOdd ? "bg-slate-50" : "bg-white"
+                          } hover:bg-[#fdf2f8]/80`}
                           onClick={() => toggleExpandProdi(p.id)}
                         >
-                          <td className="py-2.5 px-3 text-center text-slate-400 font-medium">
+                          <td className="py-3 px-2.5 text-center text-slate-400 font-medium text-xs">
                             {idx + 1}
                           </td>
-                          <td className="py-2.5 px-3 font-bold">
-                            <span className="inline-flex px-2 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10px] font-extrabold">
+                          <td className="py-3 px-2.5 font-bold w-20 min-w-[75px]">
+                            <span className="inline-flex px-1.5 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10.5px] font-extrabold w-fit">
                               {p.kode}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3">
-                            <p className="font-semibold text-slate-900 leading-tight">
+                          <td className="py-3 px-2.5">
+                            <p className="font-semibold text-slate-900 leading-tight text-xs">
                               {p.nama}
                             </p>
                             {p.fakultasNama && (
@@ -707,32 +844,32 @@ export default function LaporanProdiClient({
                               </p>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-medium text-slate-700">
+                          <td className="py-3 px-2.5 text-center font-medium text-slate-700 text-xs w-36 min-w-[140px]">
                             {p.totalDosenAktifRentang} / {p.totalDosen}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-medium text-slate-700">
+                          <td className="py-3 px-2.5 text-center font-medium text-slate-700 text-xs w-36 min-w-[140px]">
                             {p.totalKelasAktifRentang} / {p.totalKelas}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-800">
+                          <td className="py-3 px-2.5 text-center font-bold text-slate-800 text-xs w-36 min-w-[140px]">
                             {p.totalSesiRentang} Sesi
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-3 px-2.5 text-center">
                             <span className="font-bold text-emerald-600 text-xs">
                               {formatPct(p.avgKehadiranRentang)}
                             </span>
-                            <span className="block text-[9px] text-slate-400">
+                            <span className="block text-[9.5px] text-slate-400">
                               H:{p.totalHadirRentang} A:{p.totalAlphaRentang}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-3 px-2.5 text-center">
                             <span className="font-bold text-[#a80063] text-xs">
                               {formatPct(p.avgKontenRentang)}
                             </span>
-                            <span className="block text-[9px] text-slate-400">
+                            <span className="block text-[9.5px] text-slate-400">
                               {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-3 px-2.5 text-center">
                             {p.statusKinerjaRentang === "SANGAT_BAIK" && (
                               <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <CheckCircle2 size={10} />
@@ -752,7 +889,7 @@ export default function LaporanProdiClient({
                             )}
                           </td>
                           {/* Tombol Kendala di Kolom Paling Kanan */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-3 px-2.5 text-center print:hidden">
                             <button
                               type="button"
                               onClick={(e) => {

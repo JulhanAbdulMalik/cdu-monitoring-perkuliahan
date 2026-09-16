@@ -378,25 +378,25 @@ export default function MonitoringListClient({
     return (
       <th
         onClick={() => handleColumnSort(columnKey)}
-        className={`py-3 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-100/90 ${
+        className={`py-2.5 px-2.5 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
           align === "center" ? "text-center" : "text-left"
         } ${extraClass}`}
         title={`Klik untuk mengurutkan berdasarkan ${label}`}
       >
         <div
-          className={`inline-flex items-center gap-1.5 font-bold ${
-            isCurrent ? "text-[#a80063]" : "text-slate-400 group-hover:text-slate-700"
+          className={`inline-flex items-center gap-1 font-bold text-[11px] ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
           } ${align === "center" ? "justify-center" : ""}`}
         >
           <span>{label}</span>
           {isCurrent ? (
             isAsc ? (
-              <ArrowUp size={12} className="text-[#a80063] stroke-[2.5]" />
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
             ) : (
-              <ArrowDown size={12} className="text-[#a80063] stroke-[2.5]" />
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
             )
           ) : (
-            <ArrowUpDown size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           )}
         </div>
       </th>
@@ -610,20 +610,20 @@ export default function MonitoringListClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/60">
-                <th className="py-3 px-3 text-center w-10">No</th>
-                {renderSortHeader("Kode / Kelas", "KODE")}
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2.5 text-center w-10">No</th>
+                {renderSortHeader("Kelas", "KODE", "left", "w-28 min-w-[110px]")}
                 {renderSortHeader("Mata Kuliah", "MK")}
-                {renderSortHeader("Dosen Pengampu", "DOSEN")}
+                {renderSortHeader("Dosen Pengampu", "DOSEN", "left", "min-w-[250px]")}
                 {renderSortHeader("Jadwal Kuliah", "JADWAL")}
                 {renderSortHeader("Kehadiran", "KEHADIRAN", "center")}
                 {renderSortHeader("Skor 3 Pilar", "PILAR", "center")}
-                <th className="py-3 px-3 text-center">Live Conf</th>
+                <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold">Live Conf</th>
                 {renderSortHeader("Terakhir Update", "UPDATE", "center")}
-                <th className="py-3 px-3 text-center">Aksi</th>
+                <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedList.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-slate-400">
@@ -645,233 +645,242 @@ export default function MonitoringListClient({
                   </td>
                 </tr>
               ) : (
-                sortedList.map((cls, idx) => (
-                  <tr key={cls.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* No */}
-                    <td className="py-3 px-3 text-center font-medium text-slate-400">
-                      {idx + 1}
-                    </td>
+                sortedList.map((cls, idx) => {
+                  const isOdd = idx % 2 === 1;
 
-                    {/* Kode Kelas & Mode */}
-                    <td className="py-3 px-3 font-bold">
-                      <div className="flex flex-col gap-1">
-                        <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[11px] font-extrabold w-fit">
-                          {cls.kodeKelas}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border w-fit ${
-                            cls.modePembelajaran === "BIMBINGAN"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : cls.modePembelajaran === "LURING"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-blue-50 text-blue-700 border-blue-200"
-                          }`}
-                        >
-                          {cls.modePembelajaran === "BIMBINGAN" ? (
-                            <>
-                              <GraduationCap size={9} />
-                              <span>Bimbingan</span>
-                            </>
-                          ) : cls.modePembelajaran === "LURING" ? (
-                            <>
-                              <Building size={9} />
-                              <span>Offline</span>
-                            </>
-                          ) : (
-                            <>
-                              <Laptop size={9} />
-                              <span>Online</span>
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={cls.id}
+                      className={`transition-colors border-b border-slate-100/80 ${
+                        isOdd ? "bg-slate-50" : "bg-white"
+                      } hover:bg-[#fdf2f8]/80`}
+                    >
+                      {/* No */}
+                      <td className="py-2 px-2 text-center font-medium text-slate-400 text-xs">
+                        {idx + 1}
+                      </td>
 
-                    {/* Mata Kuliah */}
-                    <td className="py-3 px-3">
-                      <p className="font-bold text-xs text-slate-900 leading-tight">
-                        {cls.mataKuliah.nama}
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                        <span>{cls.mataKuliah.kode}</span>
-                        <span>•</span>
-                        <span>{cls.mataKuliah.sks} SKS</span>
-                        <span>•</span>
-                        <span className="font-semibold text-slate-600">{cls.mataKuliah.prodi.nama}</span>
-                      </div>
-                    </td>
-
-                    {/* Dosen */}
-                    <td className="py-3 px-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                          <User size={13} className="text-[#a80063] shrink-0" />
-                          <span className="font-semibold truncate max-w-[150px]" title={cls.dosen.nama}>
-                            {cls.dosen.nama}
+                      {/* Kode Kelas & Mode (Diperkecil & Compact) */}
+                      <td className="py-3 px-2.5 font-bold w-28 min-w-[110px]">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex px-1.5 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10.5px] font-extrabold w-fit">
+                            {cls.kodeKelas}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold border w-fit ${
+                              cls.modePembelajaran === "BIMBINGAN"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : cls.modePembelajaran === "LURING"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}
+                          >
+                            {cls.modePembelajaran === "BIMBINGAN" ? (
+                              <>
+                                <GraduationCap size={8.5} />
+                                <span>Bimbingan</span>
+                              </>
+                            ) : cls.modePembelajaran === "LURING" ? (
+                              <>
+                                <Building size={8.5} />
+                                <span>Offline</span>
+                              </>
+                            ) : (
+                              <>
+                                <Laptop size={8.5} />
+                                <span>Online</span>
+                              </>
+                            )}
                           </span>
                         </div>
-                        {cls.dosen.nidn && (
-                          <p className="text-[10px] text-slate-400 mt-0.5 ml-4">
-                            NIDN: {cls.dosen.nidn}
-                          </p>
-                        )}
-                        {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 0 && (
-                          <div className="mt-1 ml-4 space-y-0.5">
-                            {cls.dosenPengajarList.map((p, pIdx) => (
-                              <div key={pIdx} className="flex items-center gap-1 text-[9.5px]">
-                                <span
-                                  className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
-                                    p.status === "PERGANTIAN_TETAP"
-                                      ? "bg-purple-50 text-purple-700 border-purple-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
-                                >
-                                  {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
-                                </span>
-                                <span className="truncate max-w-[110px] text-slate-600 font-medium" title={p.nama}>
-                                  {p.nama}
-                                </span>
-                              </div>
-                            ))}
+                      </td>
+
+                      {/* Mata Kuliah */}
+                      <td className="py-3 px-2.5">
+                        <p className="font-bold text-xs text-slate-900 leading-tight">
+                          {cls.mataKuliah.nama}
+                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                          <span>{cls.mataKuliah.kode}</span>
+                          <span>•</span>
+                          <span>{cls.mataKuliah.sks} SKS</span>
+                          <span>•</span>
+                          <span className="font-semibold text-slate-600">{cls.mataKuliah.prodi.nama}</span>
+                        </div>
+                      </td>
+
+                      {/* Dosen */}
+                      <td className="py-3 px-2.5">
+                        <div>
+                          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                            <User size={12} className="text-[#a80063] shrink-0" />
+                            <span className="font-semibold truncate max-w-[250px] text-xs leading-tight" title={cls.dosen.nama}>
+                              {cls.dosen.nama}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Jadwal Kuliah */}
-                    <td className="py-3 px-3">
-                      <p className="font-medium text-slate-700 text-xs">
-                        {cls.jadwalHari || "—"}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {cls.jadwalJam || "—"}
-                      </p>
-                    </td>
-
-                    {/* Kehadiran */}
-                    <td className="py-3 px-3 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="font-bold text-xs text-slate-800">
-                          {cls.summary.totalHadir}/16 Sesi
-                        </span>
-                        <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${cls.summary.persenKehadiran}%` }}
-                          />
-                        </div>
-                        <span className="text-[9px] text-emerald-600 font-bold">
-                          {formatPct(cls.summary.persenKehadiran)}
-                        </span>
-
-                        {/* Status Monitoring Sesi Terpilih */}
-                        <div className="mt-0.5">
-                          {cls.isMonitored ? (
-                            <span
-                              className={`inline-flex items-center gap-1 text-[8.5px] font-bold px-1.5 py-0.2 rounded border ${cls.targetSesiKehadiranColor}`}
-                              title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
-                            >
-                              <CheckCircle2 size={9} className="shrink-0" />
-                              <span>S{selectedSesi}: {cls.targetSesiKehadiranLabel}</span>
-                            </span>
-                          ) : (
-                            <span
-                              className="inline-flex items-center gap-1 text-[8.5px] font-bold px-1.5 py-0.2 rounded border bg-rose-50 text-rose-700 border-rose-200"
-                              title={`Presensi Sesi ${selectedSesi} belum diisi oleh staf CDU`}
-                            >
-                              <AlertCircle size={9} className="shrink-0 text-rose-500" />
-                              <span>S{selectedSesi}: Belum Dicek</span>
-                            </span>
+                          {cls.dosen.nidn && (
+                            <p className="text-[9.5px] text-slate-400 mt-0.5 ml-3.5">
+                              NIDN: {cls.dosen.nidn}
+                            </p>
+                          )}
+                          {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 0 && (
+                            <div className="mt-0.5 ml-3.5 space-y-0.5">
+                              {cls.dosenPengajarList.map((p, pIdx) => (
+                                <div key={pIdx} className="flex items-center gap-1 text-[9px]">
+                                  <span
+                                    className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
+                                      p.status === "PERGANTIAN_TETAP"
+                                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}
+                                  >
+                                    {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                  </span>
+                                  <span className="truncate max-w-[110px] text-slate-600 font-medium" title={p.nama}>
+                                    {p.nama}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Skor 3 Pilar */}
-                    <td className="py-3 px-3 text-center">
-                      {cls.modePembelajaran === "BIMBINGAN" ? (
-                        <div className="inline-flex flex-col items-center justify-center">
-                          <span className="text-[9.5px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-purple-200" title="Kelas Bimbingan bebas dari kewajiban 3 pilar konten LMS">
-                            Bebas Konten
+                      {/* Jadwal Kuliah */}
+                      <td className="py-3 px-2.5">
+                        <p className="font-medium text-slate-700 text-xs leading-tight">
+                          {cls.jadwalHari || "—"}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                          {cls.jadwalJam || "—"}
+                        </p>
+                      </td>
+
+                      {/* Kehadiran */}
+                      <td className="py-3 px-2.5 text-center">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="font-bold text-xs text-slate-800 leading-tight">
+                            {cls.summary.totalHadir}/16 Sesi
                           </span>
-                          <span className="text-[8.5px] text-slate-400 mt-0.5">SCP / Skripsi</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="font-bold text-xs text-[#a80063]">
-                            {cls.summary.totalSkor3Pilar} / 42 Poin
-                          </span>
-                          <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                             <div
-                              className="h-full bg-[#a80063] rounded-full transition-all"
-                              style={{ width: `${cls.summary.persenKonten}%` }}
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${cls.summary.persenKehadiran}%` }}
                             />
                           </div>
-                          <span className="text-[9px] text-slate-400 font-semibold">
-                            {formatPct(cls.summary.persenKonten)} Lengkap
+                          <span className="text-[9px] text-emerald-600 font-bold leading-tight">
+                            {formatPct(cls.summary.persenKehadiran)}
                           </span>
-                        </div>
-                      )}
-                    </td>
 
-                    {/* Live Conference Quota */}
-                    <td className="py-3 px-3 text-center">
-                      {cls.modePembelajaran === "LURING" ? (
-                        <div className="inline-flex flex-col items-center justify-center">
-                          <span className="text-[9.5px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/80" title="Kelas Tatap Muka (Offline) tidak memiliki kewajiban kuota Live Conference">
-                            Bebas Conf
-                          </span>
-                          <span className="text-[8.5px] text-slate-400 mt-0.5">Tatap Muka</span>
+                          {/* Status Monitoring Sesi Terpilih */}
+                          <div className="mt-0.5">
+                            {cls.isMonitored ? (
+                              <span
+                                className={`inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border ${cls.targetSesiKehadiranColor}`}
+                                title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
+                              >
+                                <CheckCircle2 size={8.5} className="shrink-0" />
+                                <span>S{selectedSesi}: {cls.targetSesiKehadiranLabel}</span>
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border bg-rose-50 text-rose-700 border-rose-200"
+                                title={`Presensi Sesi ${selectedSesi} belum diisi oleh staf CDU`}
+                              >
+                                <AlertCircle size={8.5} className="shrink-0 text-rose-500" />
+                                <span>S{selectedSesi}: Belum Dicek</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      ) : cls.modePembelajaran === "BIMBINGAN" ? (
-                        <div className="inline-flex flex-col items-center text-[9.5px] font-bold">
-                          <span className={cls.summary.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
-                            UTS: {cls.summary.confPraUTS}/8 {cls.summary.confPraUTS >= 8 ? "✓" : "⚠️"}
-                          </span>
-                          <span className={cls.summary.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
-                            UAS: {cls.summary.confPraUAS}/8 {cls.summary.confPraUAS >= 8 ? "✓" : "⚠️"}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="inline-flex flex-col items-center text-[9.5px] font-bold">
-                          <span className={cls.summary.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                            UTS: {cls.summary.confPraUTS}/3 {cls.summary.confPraUTS >= 3 ? "✓" : "⚠️"}
-                          </span>
-                          <span className={cls.summary.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
-                            UAS: {cls.summary.confPraUAS}/3 {cls.summary.confPraUAS >= 3 ? "✓" : "⚠️"}
-                          </span>
-                        </div>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Terakhir Update (2 Baris: Jam & Tanggal) */}
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <div className="inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/70">
-                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-800 leading-tight">
-                          <Clock size={11} className="text-[#a80063] shrink-0" />
-                          <span>{cls.updateParts.waktu}</span>
-                        </div>
-                        <span className="text-[10px] font-medium text-slate-500 mt-0.5 leading-tight">
-                          {cls.updateParts.tanggal}
-                        </span>
-                      </div>
-                    </td>
+                      {/* Skor 3 Pilar */}
+                      <td className="py-3 px-2.5 text-center">
+                        {cls.modePembelajaran === "BIMBINGAN" ? (
+                          <div className="inline-flex flex-col items-center justify-center">
+                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-purple-200" title="Kelas Bimbingan bebas dari kewajiban 3 pilar konten LMS">
+                              Bebas Konten
+                            </span>
+                            <span className="text-[8px] text-slate-400 mt-0.5">SCP / Skripsi</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="font-bold text-xs text-[#a80063] leading-tight">
+                              {cls.summary.totalSkor3Pilar} / 42 Poin
+                            </span>
+                            <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full bg-[#a80063] rounded-full transition-all"
+                                style={{ width: `${cls.summary.persenKonten}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-semibold leading-tight">
+                              {formatPct(cls.summary.persenKonten)} Lengkap
+                            </span>
+                          </div>
+                        )}
+                      </td>
 
-                    {/* Aksi Button (Buka di Tab Baru) */}
-                    <td className="py-3 px-3 text-right whitespace-nowrap">
-                      <Link
-                        href={`/monitoring/${cls.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-brand inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-xs cursor-pointer hover:shadow-sm"
-                        title={`Buka monitoring kelas [${cls.kodeKelas}] di tab baru`}
-                      >
-                        <span>Monitor</span>
-                        <ArrowRight size={12} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
+                      {/* Live Conference Quota */}
+                      <td className="py-3 px-2.5 text-center">
+                        {cls.modePembelajaran === "LURING" ? (
+                          <div className="inline-flex flex-col items-center justify-center">
+                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80" title="Kelas Tatap Muka (Offline) tidak memiliki kewajiban kuota Live Conference">
+                              Bebas Conf
+                            </span>
+                            <span className="text-[8px] text-slate-400 mt-0.5">Tatap Muka</span>
+                          </div>
+                        ) : cls.modePembelajaran === "BIMBINGAN" ? (
+                          <div className="inline-flex flex-col items-center text-[9px] font-bold leading-tight">
+                            <span className={cls.summary.confPraUTS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                              UTS: {cls.summary.confPraUTS}/8 {cls.summary.confPraUTS >= 8 ? "✓" : "⚠️"}
+                            </span>
+                            <span className={cls.summary.confPraUAS >= 8 ? "text-emerald-700" : "text-amber-700"}>
+                              UAS: {cls.summary.confPraUAS}/8 {cls.summary.confPraUAS >= 8 ? "✓" : "⚠️"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex flex-col items-center text-[9px] font-bold leading-tight">
+                            <span className={cls.summary.confPraUTS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                              UTS: {cls.summary.confPraUTS}/3 {cls.summary.confPraUTS >= 3 ? "✓" : "⚠️"}
+                            </span>
+                            <span className={cls.summary.confPraUAS >= 3 ? "text-emerald-700" : "text-amber-700"}>
+                              UAS: {cls.summary.confPraUAS}/3 {cls.summary.confPraUAS >= 3 ? "✓" : "⚠️"}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Terakhir Update (2 Baris: Jam & Tanggal) */}
+                      <td className="py-3 px-2.5 text-center whitespace-nowrap">
+                        <div className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded-md bg-white border border-slate-200/80 shadow-2xs">
+                          <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-800 leading-tight">
+                            <Clock size={10} className="text-[#a80063] shrink-0" />
+                            <span>{cls.updateParts.waktu}</span>
+                          </div>
+                          <span className="text-[9px] font-medium text-slate-500 mt-0.5 leading-tight">
+                            {cls.updateParts.tanggal}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Aksi Button (Buka di Tab Baru) */}
+                      <td className="py-3 px-2.5 text-right whitespace-nowrap">
+                        <Link
+                          href={`/monitoring/${cls.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-brand inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md shadow-xs cursor-pointer hover:shadow-sm"
+                          title={`Buka monitoring kelas [${cls.kodeKelas}] di tab baru`}
+                        >
+                          <span>Monitor</span>
+                          <ArrowRight size={11} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

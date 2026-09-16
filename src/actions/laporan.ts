@@ -387,7 +387,7 @@ export async function getLaporanDosen(semesterId?: string) {
           (acc, s) => acc + (s.contentScore || 0),
           0
         );
-        const persenKonten = isBimbingan ? 100 :
+        const persenKonten = isBimbingan ? null :
           maxSkorKonten > 0 ? Math.round((skorKonten / maxSkorKonten) * 1000) / 10 : 0;
 
         const confCount = data.sesiList.filter((s) => s.conference).length;
@@ -402,9 +402,9 @@ export async function getLaporanDosen(semesterId?: string) {
           } else {
             classEvaluasi = "PERLU_PERHATIAN";
           }
-        } else if (persenKehadiran >= 85 && persenKonten >= 75) {
+        } else if (persenKehadiran >= 85 && (persenKonten ?? 0) >= 75) {
           classEvaluasi = "MEMENUHI";
-        } else if (persenKehadiran >= 75 && persenKonten >= 60) {
+        } else if (persenKehadiran >= 75 && (persenKonten ?? 0) >= 60) {
           classEvaluasi = "CUKUP";
         } else {
           classEvaluasi = "PERLU_PERHATIAN";
@@ -443,7 +443,7 @@ export async function getLaporanDosen(semesterId?: string) {
           persenKehadiran,
           totalSkorKonten: skorKonten,
           maxSkorKonten,
-          persenKonten,
+          persenKonten: persenKonten ?? 0,
           statusEvaluasi: classEvaluasi,
         });
 
@@ -471,16 +471,19 @@ export async function getLaporanDosen(semesterId?: string) {
       const avgKonten =
         d.maxSkor3PilarSemua > 0
           ? Math.round((d.totalSkor3PilarSemua / d.maxSkor3PilarSemua) * 1000) / 10
-          : 100;
+          : null;
 
       let status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
       if (
         avgKehadiran < 75 ||
-        (d.maxSkor3PilarSemua > 0 && avgKonten < 60) ||
+        (d.maxSkor3PilarSemua > 0 && avgKonten !== null && avgKonten < 60) ||
         d.totalAlphaSemua >= 4
       ) {
         status = "PERLU_PEMBINAAN";
-      } else if (avgKehadiran < 90 || (d.maxSkor3PilarSemua > 0 && avgKonten < 80)) {
+      } else if (
+        avgKehadiran < 90 ||
+        (d.maxSkor3PilarSemua > 0 && avgKonten !== null && avgKonten < 80)
+      ) {
         status = "BAIK";
       }
 

@@ -28,6 +28,9 @@ import {
   GraduationCap,
   Layers,
   DoorClosed,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/kelas";
 import MasterImportModal from "@/components/master/MasterImportModal";
@@ -315,6 +318,185 @@ export default function KelasClient({
     (d) => !prodiId || !d.prodi?.id || d.prodi?.id === prodiId
   );
 
+  // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
+  type KelasSortColumn =
+    | "KODEMK"
+    | "MK"
+    | "PRODI"
+    | "KELAS"
+    | "DOSEN"
+    | "HARI"
+    | "RUANG"
+    | "MODE"
+    | "MONITORING";
+
+  type KelasSortKey =
+    | "KODEMK_ASC"
+    | "KODEMK_DESC"
+    | "MK_ASC"
+    | "MK_DESC"
+    | "PRODI_ASC"
+    | "PRODI_DESC"
+    | "KELAS_ASC"
+    | "KELAS_DESC"
+    | "DOSEN_ASC"
+    | "DOSEN_DESC"
+    | "HARI_ASC"
+    | "HARI_DESC"
+    | "RUANG_ASC"
+    | "RUANG_DESC"
+    | "MODE_ASC"
+    | "MODE_DESC"
+    | "MONITORING_DESC"
+    | "MONITORING_ASC";
+
+  const [sortBy, setSortBy] = useState<KelasSortKey>("MK_ASC");
+
+  const sortedKelas = [...filteredKelas].sort((a, b) => {
+    switch (sortBy) {
+      case "MK_ASC":
+        return a.mataKuliah.nama.localeCompare(b.mataKuliah.nama, "id", { sensitivity: "base" });
+      case "MK_DESC":
+        return b.mataKuliah.nama.localeCompare(a.mataKuliah.nama, "id", { sensitivity: "base" });
+      case "KODEMK_ASC":
+        return a.mataKuliah.kode.localeCompare(b.mataKuliah.kode, "id", { sensitivity: "base" });
+      case "KODEMK_DESC":
+        return b.mataKuliah.kode.localeCompare(a.mataKuliah.kode, "id", { sensitivity: "base" });
+      case "PRODI_ASC":
+        return a.mataKuliah.prodi.nama.localeCompare(b.mataKuliah.prodi.nama, "id", { sensitivity: "base" });
+      case "PRODI_DESC":
+        return b.mataKuliah.prodi.nama.localeCompare(a.mataKuliah.prodi.nama, "id", { sensitivity: "base" });
+      case "KELAS_ASC":
+        return a.kodeKelas.localeCompare(b.kodeKelas, "id", { sensitivity: "base" });
+      case "KELAS_DESC":
+        return b.kodeKelas.localeCompare(a.kodeKelas, "id", { sensitivity: "base" });
+      case "DOSEN_ASC":
+        return a.dosen.nama.localeCompare(b.dosen.nama, "id", { sensitivity: "base" });
+      case "DOSEN_DESC":
+        return b.dosen.nama.localeCompare(a.dosen.nama, "id", { sensitivity: "base" });
+      case "HARI_ASC": {
+        const orderHari = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+        const idxA = orderHari.indexOf(a.jadwalHari);
+        const idxB = orderHari.indexOf(b.jadwalHari);
+        return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+      }
+      case "HARI_DESC": {
+        const orderHari = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+        const idxA = orderHari.indexOf(a.jadwalHari);
+        const idxB = orderHari.indexOf(b.jadwalHari);
+        return (idxB === -1 ? 99 : idxB) - (idxA === -1 ? 99 : idxA);
+      }
+      case "RUANG_ASC":
+        return (a.ruangan || "").localeCompare(b.ruangan || "", "id");
+      case "RUANG_DESC":
+        return (b.ruangan || "").localeCompare(a.ruangan || "", "id");
+      case "MODE_ASC":
+        return a.modePembelajaran.localeCompare(b.modePembelajaran);
+      case "MODE_DESC":
+        return b.modePembelajaran.localeCompare(a.modePembelajaran);
+      case "MONITORING_DESC": {
+        const filledA = a.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
+        const filledB = b.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
+        return filledB - filledA;
+      }
+      case "MONITORING_ASC": {
+        const filledA = a.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
+        const filledB = b.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
+        return filledA - filledB;
+      }
+      default:
+        return 0;
+    }
+  });
+
+  function handleColumnSort(column: KelasSortColumn) {
+    switch (column) {
+      case "KODEMK":
+        setSortBy(sortBy === "KODEMK_ASC" ? "KODEMK_DESC" : "KODEMK_ASC");
+        break;
+      case "MK":
+        setSortBy(sortBy === "MK_ASC" ? "MK_DESC" : "MK_ASC");
+        break;
+      case "PRODI":
+        setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
+        break;
+      case "KELAS":
+        setSortBy(sortBy === "KELAS_ASC" ? "KELAS_DESC" : "KELAS_ASC");
+        break;
+      case "DOSEN":
+        setSortBy(sortBy === "DOSEN_ASC" ? "DOSEN_DESC" : "DOSEN_ASC");
+        break;
+      case "HARI":
+        setSortBy(sortBy === "HARI_ASC" ? "HARI_DESC" : "HARI_ASC");
+        break;
+      case "RUANG":
+        setSortBy(sortBy === "RUANG_ASC" ? "RUANG_DESC" : "RUANG_ASC");
+        break;
+      case "MODE":
+        setSortBy(sortBy === "MODE_ASC" ? "MODE_DESC" : "MODE_ASC");
+        break;
+      case "MONITORING":
+        setSortBy(sortBy === "MONITORING_DESC" ? "MONITORING_ASC" : "MONITORING_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeader(
+    label: string,
+    columnKey: KelasSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "KODEMK" && (sortBy === "KODEMK_ASC" || sortBy === "KODEMK_DESC")) ||
+      (columnKey === "MK" && (sortBy === "MK_ASC" || sortBy === "MK_DESC")) ||
+      (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
+      (columnKey === "KELAS" && (sortBy === "KELAS_ASC" || sortBy === "KELAS_DESC")) ||
+      (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
+      (columnKey === "HARI" && (sortBy === "HARI_ASC" || sortBy === "HARI_DESC")) ||
+      (columnKey === "RUANG" && (sortBy === "RUANG_ASC" || sortBy === "RUANG_DESC")) ||
+      (columnKey === "MODE" && (sortBy === "MODE_ASC" || sortBy === "MODE_DESC")) ||
+      (columnKey === "MONITORING" && (sortBy === "MONITORING_DESC" || sortBy === "MONITORING_ASC"));
+
+    const isAsc =
+      sortBy === "KODEMK_ASC" ||
+      sortBy === "MK_ASC" ||
+      sortBy === "PRODI_ASC" ||
+      sortBy === "KELAS_ASC" ||
+      sortBy === "DOSEN_ASC" ||
+      sortBy === "HARI_ASC" ||
+      sortBy === "RUANG_ASC" ||
+      sortBy === "MODE_ASC" ||
+      sortBy === "MONITORING_ASC";
+
+    return (
+      <th
+        onClick={() => handleColumnSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
@@ -330,15 +512,6 @@ export default function KelasClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          {/* <button
-            onClick={() => generateTemplate("kelas")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold transition-all cursor-pointer"
-            title="Download Template Format Kurikulum (.xlsx)"
-          >
-            <Download size={13} />
-            <span>Unduh Format Excel</span>
-          </button> */}
-
           <button
             onClick={() => setIsImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer"
@@ -382,7 +555,7 @@ export default function KelasClient({
                 setSelectedSemester(e.target.value);
                 handleReloadData(e.target.value);
               }}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[155px] truncate"
+              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[155px] truncate cursor-pointer"
             >
               <option value="ALL">Semua Semester</option>
               {semesters.map((s) => (
@@ -399,7 +572,7 @@ export default function KelasClient({
             <select
               value={filterProdi}
               onChange={(e) => setFilterProdi(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[150px] truncate"
+              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none max-w-[150px] truncate cursor-pointer"
             >
               <option value="ALL">Semua Prodi</option>
               {prodiList.map((p) => (
@@ -416,7 +589,7 @@ export default function KelasClient({
             <select
               value={filterHari}
               onChange={(e) => setFilterHari(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none cursor-pointer"
             >
               <option value="ALL">Semua Hari</option>
               {HARI_OPTIONS.map((h) => (
@@ -433,7 +606,7 @@ export default function KelasClient({
             <select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value)}
-              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+              className="px-2 py-1 bg-slate-50 text-xs text-slate-700 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none cursor-pointer"
             >
               <option value="ALL">Semua Mode</option>
               <option value="DARING">Online (Daring)</option>
@@ -445,47 +618,59 @@ export default function KelasClient({
       </div>
 
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs min-w-[1050px]">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-2.5 font-bold">Kode MK</th>
-                <th className="pb-2.5 font-bold">Mata Kuliah</th>
-                <th className="pb-2.5 font-bold">Program Studi</th>
-                <th className="pb-2.5 font-bold">Kelas</th>
-                <th className="pb-2.5 font-bold">Pengajar (Dosen)</th>
-                <th className="pb-2.5 font-bold">Jadwal</th>
-                <th className="pb-2.5 font-bold">Ruang Kelas</th>
-                <th className="pb-2.5 font-bold">Mode</th>
-                <th className="pb-2.5 font-bold">Monitoring</th>
-                <th className="pb-2.5 text-right font-bold">Aksi</th>
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
+                {renderSortHeader("Kode MK", "KODEMK", "left", "w-24 min-w-[85px]")}
+                {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[180px]")}
+                {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[160px]")}
+                {renderSortHeader("Kelas", "KELAS", "left", "w-24 min-w-[80px]")}
+                {renderSortHeader("Pengajar (Dosen)", "DOSEN", "left", "min-w-[180px]")}
+                {renderSortHeader("Jadwal", "HARI", "left", "min-w-[150px]")}
+                {renderSortHeader("Ruang Kelas", "RUANG", "left", "w-28 min-w-[100px]")}
+                {renderSortHeader("Mode", "MODE", "center", "w-28")}
+                {renderSortHeader("Monitoring", "MONITORING", "center", "w-36 min-w-[130px]")}
+                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-28">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              {filteredKelas.length === 0 ? (
+            <tbody className="divide-y divide-slate-100/80 text-xs">
+              {sortedKelas.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-xs text-slate-400">
                     Belum ada data perkuliahan yang sesuai dengan filter. Klik "Tambah Perkuliahan" atau "Import Excel" untuk menambahkan data.
                   </td>
                 </tr>
               ) : (
-                filteredKelas.map((k) => {
+                sortedKelas.map((k, idx) => {
                   const filledSessions = k.monitoringSesi?.filter(
                     (s) => s.kehadiran !== "BELUM_DIISI"
                   ).length || 0;
+                  const isOdd = idx % 2 === 1;
 
                   return (
-                    <tr key={k.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr
+                      key={k.id}
+                      className={`transition-colors border-b border-slate-100/80 ${
+                        isOdd ? "bg-slate-50" : "bg-white"
+                      } hover:bg-[#fdf2f8]/80`}
+                    >
+                      {/* No */}
+                      <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
+                        {idx + 1}
+                      </td>
+
                       {/* Kode MK */}
-                      <td className="py-3 pr-3 font-mono font-bold text-xs">
+                      <td className="py-2.5 px-3 font-mono font-bold text-xs w-24 min-w-[85px]">
                         <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
                           {k.mataKuliah.kode}
                         </span>
                       </td>
 
                       {/* Mata Kuliah & SKS */}
-                      <td className="py-3 pr-3">
+                      <td className="py-2.5 px-3">
                         <p className="font-bold text-xs text-slate-900 leading-tight">
                           {k.mataKuliah.nama}
                         </p>
@@ -497,7 +682,7 @@ export default function KelasClient({
                       </td>
 
                       {/* Program Studi */}
-                      <td className="py-3 pr-3">
+                      <td className="py-2.5 px-3">
                         <span className="font-semibold text-xs text-slate-800">
                           {k.mataKuliah.prodi.nama}
                         </span>
@@ -507,14 +692,14 @@ export default function KelasClient({
                       </td>
 
                       {/* Nama Kelas */}
-                      <td className="py-3 pr-3 font-bold">
+                      <td className="py-2.5 px-3 font-bold w-24 min-w-[80px]">
                         <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold shadow-2xs">
                           {k.kodeKelas}
                         </span>
                       </td>
 
                       {/* Dosen Pengampu */}
-                      <td className="py-3 pr-3">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-[10px] shrink-0">
                             {k.dosen.nama[0]}
@@ -526,7 +711,7 @@ export default function KelasClient({
                       </td>
 
                       {/* Jadwal Hari & Jam */}
-                      <td className="py-3 pr-3">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                           <Clock size={12} className="text-slate-400 shrink-0" />
                           <span>
@@ -535,8 +720,8 @@ export default function KelasClient({
                         </div>
                       </td>
 
-                      {/* Ruang Kelas (Opsional untuk Offline/Luring) */}
-                      <td className="py-3 pr-3">
+                      {/* Ruang Kelas */}
+                      <td className="py-2.5 px-3">
                         {k.modePembelajaran === "LURING" ? (
                           k.ruangan ? (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs">
@@ -556,7 +741,7 @@ export default function KelasClient({
                       </td>
 
                       {/* Mode Pembelajaran */}
-                      <td className="py-3 pr-3">
+                      <td className="py-2.5 px-3 text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
                             k.modePembelajaran === "BIMBINGAN"
@@ -586,7 +771,7 @@ export default function KelasClient({
                       </td>
 
                       {/* Progress Sesi Monitoring */}
-                      <td className="py-3 pr-3 min-w-[120px]">
+                      <td className="py-2.5 px-3 min-w-[130px]">
                         <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-0.5">
                           <span>{filledSessions}/16 Sesi</span>
                           <span>{Math.round((filledSessions / 16) * 100)}%</span>
@@ -600,8 +785,8 @@ export default function KelasClient({
                       </td>
 
                       {/* Aksi */}
-                      <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5">
                           <Link
                             href="/monitoring"
                             className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all"
