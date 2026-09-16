@@ -144,7 +144,7 @@ function LoginForm() {
 
         {/* Footer info */}
         <p className="text-center text-[10px] text-slate-400 font-medium mt-5">
-          Curriculum Development Unit © {new Date().getFullYear()} Nusa Putra University
+          Julhan A Malik - CDU © {new Date().getFullYear()} Nusa Putra University
         </p>
       </div>
     </div>
