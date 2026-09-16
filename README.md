@@ -7,7 +7,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon.tech-336791?style=for-the-badge&logo=postgresql)](https://neon.tech/)
 
-**CDU Monitoring** adalah sistem informasi manajemen dan monitoring perkuliahan berbasis web terpadu yang dirancang khusus untuk **Curriculum Development Unit (CDU) Universitas Nusa Putra**. 
+**CDU Monitoring** adalah sistem informasi manajemen dan monitoring perkuliahan berbasis web terpadu yang dirancang khusus untuk **Curriculum Development Unit (CDU) Universitas Nusa Putra**.
 
 Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, standardisasi kelengkapan **3 Pilar Pembelajaran**, validasi kuota **Temu Virtual (Live Conference)**, otomasi import laporan LMS (Edlink/Sevima), penanganan pergantian dosen, pusat pengaduan/sanggahan (**Lapor CDU**), hingga rekapitulasi serta ekspor laporan eksekutif berformat Excel dan cetak PDF.
 
@@ -46,20 +46,24 @@ Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, s
 ## ✨ Fitur Utama
 
 ### 1. 📊 Executive Dashboard & Real-Time Analytics
-- **KPI Cards Interaktif**: Total kelas, rata-rata kehadiran dosen, rata-rata kelengkapan 3 pilar, tingkat kepatuhan temu virtual, dan distribusi status evaluasi (*Memenuhi*, *Cukup*, *Perlu Perhatian*).
+
+- **KPI Cards Interaktif**: Total kelas, rata-rata kehadiran dosen, rata-rata kelengkapan 3 pilar, tingkat kepatuhan temu virtual, dan distribusi status evaluasi (_Memenuhi_, _Cukup_, _Perlu Perhatian_).
 - **Filter Fleksibel**: Pemfilteran global instan berdasarkan **Semester Aktif**, **Fakultas**, dan **Program Studi**.
 - **Grafik Interaktif**: Analisis visual progres perkuliahan menggunakan Recharts.
 
 ### 2. 📋 Grid & List View Monitoring Perkuliahan
+
 - **Interactive Session Matrix**: Memantau matriks 16 sesi perkuliahan per kelas secara visual dan responsif.
 - **Quick Status Popover**: Modal interaktif untuk mengubah presensi dosen, mencentang materi 3 pilar, menetapkan dosen pengganti, dan menambah catatan verifikasi CDU.
 - **Auto Date Generation**: Kalkulasi otomatis tanggal pelaksanaan sesi berdasarkan hari jadwal kelas, tanggal mulai semester, serta kalender libur/minggu tenang.
 
 ### 3. 📥 Otomasi Import Excel Edlink LMS
+
 - **Smart Column Detection**: Parser cerdas untuk membaca file laporan aktivitas dari Edlink.id / Sevima.
 - **Otomatisasi Komponen**: Otomatis mendeteksi dan menandai ketersediaan Slide/PPT, Modul/LN, Video Pembelajaran, Live Conference, Kuis, dan Tugas per sesi.
 
 ### 4. 🗂️ Manajemen Data Master Terpadu & Bulk Import
+
 - **Semester & Kalender Libur**: Pengaturan semester aktif, tanggal mulai perkuliahan, serta daftar hari libur/minggu tenang per semester.
 - **Fakultas & Program Studi**: Struktur akademik lengkap Universitas Nusa Putra.
 - **Dosen & Mata Kuliah**: Manajemen database dosen (NIDN, email) dan katalog mata kuliah (SKS, kode MK).
@@ -67,11 +71,13 @@ Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, s
 - **Bulk Import Excel dengan Preview**: Import massal master Dosen, Mata Kuliah, Kelas, dan Prodi dengan validasi baris, deteksi duplikasi, dan pratinjau sebelum disimpan ke database.
 
 ### 5. 🛡️ Pusat Pengaduan & Sanggahan (Lapor CDU)
+
 - **Sistem Tiket Transparan**: Dosen dan staf dapat mengajukan sanggahan data monitoring (misal: presensi alpa karena kendala teknis, sesi Zoom di luar Edlink, revisi dosen pengganti).
 - **Bukti Pendukung**: Lampiran tautan rekaman, Google Drive, atau bukti pendukung lainnya.
-- **Alur Verifikasi CDU**: Status pengajuan (*Pending*, *Disetujui*, *Ditolak*) dengan catatan resmi staf CDU. Jika disetujui, data monitoring sesi akan terupdate secara otomatis.
+- **Alur Verifikasi CDU**: Status pengajuan (_Pending_, _Disetujui_, _Ditolak_) dengan catatan resmi staf CDU. Jika disetujui, data monitoring sesi akan terupdate secara otomatis.
 
 ### 6. 📈 Pelaporan & Rekapitulasi Eksekutif
+
 - **Rekapitulasi Sesi**: Rangkuman seluruh kelas dalam satu semester dengan kalkulasi statistik lengkap.
 - **Laporan per Dosen**: Evaluasi performa dan beban mengajar tiap dosen.
 - **Laporan per Prodi**: Tingkat kepatuhan perkuliahan di setiap program studi.
@@ -79,6 +85,7 @@ Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, s
 - **Cetak / Print PDF Ready**: Tampilan bersih siap cetak langsung dari browser.
 
 ### 7. 👥 Manajemen Pengguna & Keamanan (RBAC)
+
 - Autentikasi aman berbasis session menggunakan **NextAuth.js v5 (Auth.js)** dan enkripsi password **Bcrypt**.
 - **Role-Based Access Control** yang ditegakkan di level Edge Middleware dan Server Actions.
 - Menu manajemen akun untuk Super Admin (tambah pengguna, ubah role, reset password).
@@ -90,39 +97,47 @@ Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, s
 Aplikasi ini mengimplementasikan regulasi baku pemantauan perkuliahan Universitas Nusa Putra:
 
 ### 1. Presensi & Sesi Perkuliahan (16 Sesi)
+
 Setiap kelas memiliki tepat 16 sesi perkuliahan:
+
 - **Sesi 1 – 7**: Perkuliahan Reguler Pra-UTS
 - **Sesi 8**: Ujian Tengah Semester (UTS)
 - **Sesi 9 – 15**: Perkuliahan Reguler Pra-UAS
 - **Sesi 16**: Ujian Akhir Semester (UAS)
 
 Status Kehadiran Dosen per sesi:
+
 - `HADIR`: Dosen hadir penuh sesuai jadwal.
 - `HADIR_TIDAK_LENGKAP`: Dosen hadir namun tidak memenuhi standar waktu/aktivitas penuh.
 - `TIDAK_HADIR`: Alpa / Dosen tidak hadir tanpa pengganti.
 - `BELUM_DIISI`: Default sesi yang belum diverifikasi oleh tim CDU.
 
 ### 2. Evaluasi 3 Pilar Pembelajaran Berpasangan
+
 Khusus untuk sesi perkuliahan reguler (Sesi 1–7 dan Sesi 9–15), materi dievaluasi berdasarkan **3 Pilar Berpasangan**:
 
-| Pilar | Komponen Berpasangan | Syarat Terpenuhi | Poin Maksimal |
-| :--- | :--- | :--- | :---: |
-| **Pilar 1: Materi Tekstual** | Slide / PPT **ATAU** Lecture Note / Modul | Minimal salah satu tersedia | 1 Poin |
-| **Pilar 2: Evaluasi Mandiri** | Kuis **ATAU** Tugas / Assignment | Minimal salah satu tersedia | 1 Poin |
-| **Pilar 3: Interaksi Audio-Visual** | Live Conference (Zoom) **ATAU** Video Pembelajaran | Minimal salah satu tersedia | 1 Poin |
+| Pilar                               | Komponen Berpasangan                               | Syarat Terpenuhi            | Poin Maksimal |
+| :---------------------------------- | :------------------------------------------------- | :-------------------------- | :-----------: |
+| **Pilar 1: Materi Tekstual**        | Slide / PPT **ATAU** Lecture Note / Modul          | Minimal salah satu tersedia |    1 Poin     |
+| **Pilar 2: Evaluasi Mandiri**       | Kuis **ATAU** Tugas / Assignment                   | Minimal salah satu tersedia |    1 Poin     |
+| **Pilar 3: Interaksi Audio-Visual** | Live Conference (Zoom) **ATAU** Video Pembelajaran | Minimal salah satu tersedia |    1 Poin     |
 
 - **Skor per Sesi Reguler**: Skala 0 s.d. 3 poin (0/3 Kosong, 1/3 Sebagian, 2/3 Baik, 3/3 Sempurna).
 - **Total Skor Maksimal Semester**: 14 sesi reguler × 3 = **42 Poin**.
 - **Sesi 8 (UTS) & Sesi 16 (UAS)**: Tidak dikenakan penilaian 3 pilar (konten otomatis `null`, hanya dinilai dari presensi kehadiran).
 
 ### 3. Aturan Temu Virtual (Live Conference)
+
 Untuk kelas dengan mode pembelajaran **DARING**:
+
 - Wajib menyelenggarakan Live Conference minimal **3 kali** pada Sesi 1 s.d. 7 (Pra-UTS).
 - Wajib menyelenggarakan Live Conference minimal **3 kali** pada Sesi 9 s.d. 15 (Pra-UAS).
 - Total minimal selama satu semester adalah **6 kali** temu virtual.
 
 ### 4. Diferensiasi Mode Pembelajaran
+
 Sistem menyesuaikan kriteria evaluasi berdasarkan mode kelas:
+
 1. **DARING (Online)**:
    - Wajib memenuhi standar 3 Pilar Pembelajaran.
    - Wajib memenuhi kuota Live Conference (minimal 3x pra-UTS & 3x pra-UAS).
@@ -134,7 +149,9 @@ Sistem menyesuaikan kriteria evaluasi berdasarkan mode kelas:
    - Evaluasi murni dihitung dari 16 sesi presensi pembimbingan dosen dengan mahasiswa.
 
 ### 5. Status Pergantian Dosen
+
 Jika dosen utama berhalangan mengajar, sistem mencatat status pengajar per sesi:
+
 - **Dosen Utama (`UTAMA`)**: Diajar oleh dosen tetap kelas tersebut.
 - **Pengganti Insidental (`PENGGANTI_INSIDENTAL`)**: Menggantikan hanya pada sesi tertentu saja.
 - **Pergantian Tetap (`PERGANTIAN_TETAP`)**: Pergantian resmi dosen pengampu yang berlaku mulai sesi tersebut hingga sesi-sesi berikutnya.
@@ -143,16 +160,16 @@ Jika dosen utama berhalangan mengajar, sistem mencatat status pengajar per sesi:
 
 ## 🔒 Peran Pengguna & Hak Akses (RBAC)
 
-| Modul / Menu | Super Admin | Admin (Staff CDU) | Dosen |
-| :--- | :---: | :---: | :---: |
-| **Dashboard Eksekutif** | ✅ | ✅ | ✅ |
-| **Pusat Pengaduan (Lapor CDU)** | ✅ (Verifikator) | ✅ (Verifikator) | ✅ (Pelapor) |
-| **Monitoring Kelas (Grid & Input)** | ✅ | ✅ | ❌ |
-| **Import Excel Aktivitas Edlink** | ✅ | ✅ | ❌ |
-| **Laporan & Rekapitulasi (Excel/PDF)** | ✅ | ✅ | ✅ |
-| **Data Master (Semester, Prodi, Dosen, Kelas)** | ✅ | ❌ | ❌ |
-| **Import Massal Data Master** | ✅ | ❌ | ❌ |
-| **Kelola Akun & Reset Password** | ✅ | ❌ | ❌ |
+| Modul / Menu                                    |   Super Admin    | Admin (Staff CDU) |    Dosen     |
+| :---------------------------------------------- | :--------------: | :---------------: | :----------: |
+| **Dashboard Eksekutif**                         |        ✅        |        ✅         |      ✅      |
+| **Pusat Pengaduan (Lapor CDU)**                 | ✅ (Verifikator) | ✅ (Verifikator)  | ✅ (Pelapor) |
+| **Monitoring Kelas (Grid & Input)**             |        ✅        |        ✅         |      ❌      |
+| **Import Excel Aktivitas Edlink**               |        ✅        |        ✅         |      ❌      |
+| **Laporan & Rekapitulasi (Excel/PDF)**          |        ✅        |        ✅         |      ✅      |
+| **Data Master (Semester, Prodi, Dosen, Kelas)** |        ✅        |        ❌         |      ❌      |
+| **Import Massal Data Master**                   |        ✅        |        ❌         |      ❌      |
+| **Kelola Akun & Reset Password**                |        ✅        |        ❌         |      ❌      |
 
 ---
 
@@ -162,7 +179,7 @@ Jika dosen utama berhalangan mengajar, sistem mencatat status pengajar per sesi:
 - **UI & View**: [React 19](https://react.dev/) & [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/), [tw-animate-css](https://www.npmjs.com/package/tw-animate-css), [Class Variance Authority (CVA)](https://cva.style/)
 - **Komponen UI**: [shadcn/ui](https://ui.shadcn.com/) & [Base UI](https://base-ui.com/)
-- **Typography & Desain**: *Plus Jakarta Sans*, Nusa Putra Maroon/Ruby Theme (`#a80063`)
+- **Typography & Desain**: _Plus Jakarta Sans_, Nusa Putra Maroon/Ruby Theme (`#a80063`)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Database**: [PostgreSQL (Neon Serverless)](https://neon.tech/)
 - **ORM**: [Prisma ORM v5](https://www.prisma.io/)
@@ -239,7 +256,9 @@ monitoring-perkuliahan/
 ## 🚀 Panduan Instalasi & Menjalankan Aplikasi
 
 ### Prasyarat Sistem
+
 Pastikan perangkat Anda telah terpasang:
+
 - **Node.js**: Versi `20.x` atau lebih baru
 - **NPM** atau **PNPM** atau **Yarn**
 - Database **PostgreSQL** (disarankan menggunakan [Neon.tech](https://neon.tech) serverless)
@@ -249,12 +268,14 @@ Pastikan perangkat Anda telah terpasang:
 ### Langkah-Langkah Instalasi
 
 1. **Clone repositori proyek:**
+
    ```bash
    git clone https://github.com/username/cdu-monitoring-perkuliahan.git
    cd cdu-monitoring-perkuliahan
    ```
 
 2. **Install dependensi:**
+
    ```bash
    npm install
    ```
@@ -297,18 +318,22 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 1. **Sinkronisasi Skema Database:**
    Jalankan migrasi Prisma untuk membuat tabel di PostgreSQL:
+
    ```bash
    npm run db:migrate
    ```
-   *(Atau gunakan `npx prisma db push` jika menggunakan database development)*
+
+   _(Atau gunakan `npx prisma db push` jika menggunakan database development)_
 
 2. **Generate Prisma Client:**
+
    ```bash
    npm run db:generate
    ```
 
 3. **Jalankan Seeding Data Awal:**
    Perintah ini akan membuat data akun bawaan, fakultas, program studi contoh, semester aktif, dan kelas percontohan:
+
    ```bash
    npm run db:seed
    ```
@@ -325,10 +350,10 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 Setelah menjalankan `npm run db:seed`, akun berikut siap digunakan untuk login:
 
-| Role | Email | Password | Hak Akses |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | `admin@nusaputra.ac.id` | `admin123` | Akses Penuh: Monitoring, Data Master, Kelola Akun, Lapor CDU |
-| **Admin (Staff CDU)** | `cdu@nusaputra.ac.id` | `cdu123` | Monitoring Sesi, Verifikasi Lapor CDU, Rekapitulasi Laporan |
+| Role                  | Email                   | Password   | Hak Akses                                                    |
+| :-------------------- | :---------------------- | :--------- | :----------------------------------------------------------- |
+| **Super Admin**       | `admin@nusaputra.ac.id` | `admin123` | Akses Penuh: Monitoring, Data Master, Kelola Akun, Lapor CDU |
+| **Admin (Staff CDU)** | `cdu@nusaputra.ac.id`   | `cdu123`   | Monitoring Sesi, Verifikasi Lapor CDU, Rekapitulasi Laporan  |
 
 > ⚠️ **PENTING UNTUK PRODUCTION**: Segera ganti password akun default melalui menu **Pengaturan > Kelola Akun** setelah sistem pertama kali dideploy!
 
@@ -336,39 +361,42 @@ Setelah menjalankan `npm run db:seed`, akun berikut siap digunakan untuk login:
 
 ## 📜 Daftar Perintah (NPM Scripts)
 
-| Perintah | Deskripsi |
-| :--- | :--- |
-| `npm run dev` | Menjalankan server lokal Next.js dalam mode development |
-| `npm run build` | Melakukan compile Prisma Client dan build production Next.js |
-| `npm run start` | Menjalankan build production Next.js |
-| `npm run lint` | Menjalankan linter ESLint untuk pengecekan kode |
-| `npm run db:migrate` | Membuat dan menerapkan migrasi database baru dengan Prisma |
-| `npm run db:seed` | Menjalankan script seeding data awal dari `prisma/seed.ts` |
+| Perintah              | Deskripsi                                                      |
+| :-------------------- | :------------------------------------------------------------- |
+| `npm run dev`         | Menjalankan server lokal Next.js dalam mode development        |
+| `npm run build`       | Melakukan compile Prisma Client dan build production Next.js   |
+| `npm run start`       | Menjalankan build production Next.js                           |
+| `npm run lint`        | Menjalankan linter ESLint untuk pengecekan kode                |
+| `npm run db:migrate`  | Membuat dan menerapkan migrasi database baru dengan Prisma     |
+| `npm run db:seed`     | Menjalankan script seeding data awal dari `prisma/seed.ts`     |
 | `npm run db:generate` | Melakukan regenerate Prisma Client dari `prisma/schema.prisma` |
-| `npm run db:studio` | Membuka antarmuka grafis GUI Prisma Studio di browser |
+| `npm run db:studio`   | Membuka antarmuka grafis GUI Prisma Studio di browser          |
 
 ---
 
 ## 📖 Panduan Penggunaan Fitur
 
 ### Monitoring Kelas (Grid & List View)
+
 1. Buka menu **Monitoring > Monitoring Kelas**.
 2. Pilih Semester Aktif, Fakultas, dan Prodi yang ingin ditinjau.
 3. Anda dapat beralih antara tampilan **Grid Matrix** (rekomendasi untuk melihat progres 16 sesi sekaligus) atau **List View**.
 4. Klik pada kotak nomor sesi (misal: Sesi 3) untuk membuka popover interaktif:
-   - Pilih status kehadiran (*Hadir*, *Alpha*, *Hadir Tidak Lengkap*).
-   - Centang ketersediaan materi (*Lecture Note*, *Slide*, *Video*, *Conference*, *Tugas*, *Kuis*).
+   - Pilih status kehadiran (_Hadir_, _Alpha_, _Hadir Tidak Lengkap_).
+   - Centang ketersediaan materi (_Lecture Note_, _Slide_, _Video_, _Conference_, _Tugas_, _Kuis_).
    - Tetapkan dosen pengganti jika kelas diampu oleh pengajar lain.
    - Klik **Simpan Perubahan**.
 
 ### Import Excel Laporan Aktivitas Edlink
+
 1. Di halaman **Monitoring Kelas**, klik tombol **Import Excel Edlink**.
 2. Unggah file spreadsheet hasil unduhan "Laporan Aktivitas" dari Edlink.id.
 3. Sistem secara otomatis mencocokkan nama mata kuliah dan kelas.
 4. Periksa pratinjau status 3 pilar yang terdeteksi, lalu konfirmasi untuk menyimpan langsung ke database.
 
 ### Import Massal Data Master
-1. Masuk sebagai **Super Admin**, buka salah satu sub-menu di **Data Master** (misal: *Data Dosen* atau *Data Perkuliahan*).
+
+1. Masuk sebagai **Super Admin**, buka salah satu sub-menu di **Data Master** (misal: _Data Dosen_ atau _Data Perkuliahan_).
 2. Klik tombol **Import Excel**.
 3. Unduh format template yang telah disediakan.
 4. Isi data pada file template, lalu unggah kembali file tersebut.
@@ -376,12 +404,14 @@ Setelah menjalankan `npm run db:seed`, akun berikut siap digunakan untuk login:
 6. Klik **Simpan Data Valid**.
 
 ### Alur Pengaduan Lapor CDU
+
 1. Dosen atau admin membuka menu **Lapor CDU**.
-2. Klik **Buat Laporan Baru**, pilih kelas, nomor sesi yang ingin disanggah, kategori laporan (misal: *Temu Virtual di Luar Edlink* atau *Kesalahan Presensi*), deskripsi kendala, serta tautan bukti.
+2. Klik **Buat Laporan Baru**, pilih kelas, nomor sesi yang ingin disanggah, kategori laporan (misal: _Temu Virtual di Luar Edlink_ atau _Kesalahan Presensi_), deskripsi kendala, serta tautan bukti.
 3. Tim CDU meninjau laporan di menu **Lapor CDU**, memeriksa bukti, lalu memilih **Setujui** atau **Tolak** dengan catatan.
 4. Jika disetujui, data sesi monitoring akan langsung diperbarui secara otomatis.
 
 ### Ekspor Laporan & Rekapitulasi
+
 1. Buka menu **Laporan**:
    - **Rekapitulasi Sesi**: Rangkuman seluruh kelas per semester.
    - **Laporan per Dosen**: Rekapitulasi mengajar per individu dosen.
@@ -411,5 +441,5 @@ Aplikasi ini siap dideploy ke platform modern seperti **Vercel**:
 
 ## 📄 Lisensi & Hak Cipta
 
-Hak Cipta © 2026 **Curriculum Development Unit (CDU) — Universitas Nusa Putra**.  
+Hak Cipta © 2026 **Julhan A Malik (CDU) — Universitas Nusa Putra**.  
 Seluruh hak cipta dilindungi undang-undang. Sistem ini dikembangkan untuk kebutuhan operasional internal Universitas Nusa Putra.
