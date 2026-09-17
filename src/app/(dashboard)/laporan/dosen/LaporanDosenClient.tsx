@@ -52,7 +52,7 @@ interface DosenReportItem {
   totalKelas: number;
   avgKehadiran: number;
   avgKonten: number | null;
-  status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN";
+  status: "SANGAT_BAIK" | "PERLU_PEMBINAAN";
 }
 
 interface SemesterOption {
@@ -323,9 +323,8 @@ export default function LaporanDosenClient({
               title="Filter Kinerja Dosen"
             >
               <option value="ALL">Semua Kinerja</option>
-              <option value="SANGAT_BAIK">Sangat Baik (≥90%)</option>
-              <option value="BAIK">Baik (75%–89%)</option>
-              <option value="PERLU_PEMBINAAN">Perlu Pembinaan (&lt;75%)</option>
+              <option value="SANGAT_BAIK">Sangat Baik</option>
+              <option value="PERLU_PEMBINAAN">Perlu Pembinaan</option>
             </select>
 
             {/* Reset All Filters Button */}
@@ -461,17 +460,11 @@ export default function LaporanDosenClient({
 
                         {/* Status Evaluasi */}
                         <td className="py-3 px-2.5 text-center">
-                          {d.status === "SANGAT_BAIK" && (
+                          {d.status === "SANGAT_BAIK" ? (
                             <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               Sangat Baik
                             </span>
-                          )}
-                          {d.status === "BAIK" && (
-                            <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                              Baik
-                            </span>
-                          )}
-                          {d.status === "PERLU_PEMBINAAN" && (
+                          ) : (
                             <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                               Perlu Pembinaan
                             </span>
@@ -570,13 +563,9 @@ export default function LaporanDosenClient({
                                             )}
                                           </td>
                                           <td className="py-2 px-2 text-center">
-                                            {cls.statusEvaluasi === "MEMENUHI" ? (
+                                            {cls.statusEvaluasi === "TERLAKSANA" ? (
                                               <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                Memenuhi
-                                              </span>
-                                            ) : cls.statusEvaluasi === "CUKUP" ? (
-                                              <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                                Cukup
+                                                Terlaksana
                                               </span>
                                             ) : (
                                               <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">

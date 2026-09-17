@@ -187,9 +187,8 @@ export default function RekapClient({
       }
       case "STATUS_ASC": {
         const rankMap: Record<string, number> = {
-          PERLU_PERHATIAN: 1,
-          CUKUP: 2,
-          MEMENUHI: 3,
+          PERHATIAN: 1,
+          TERLAKSANA: 2,
         };
         const aRank = rankMap[a.statusEvaluasi] || 0;
         const bRank = rankMap[b.statusEvaluasi] || 0;
@@ -197,9 +196,8 @@ export default function RekapClient({
       }
       case "STATUS_DESC": {
         const rankMap: Record<string, number> = {
-          PERLU_PERHATIAN: 1,
-          CUKUP: 2,
-          MEMENUHI: 3,
+          PERHATIAN: 1,
+          TERLAKSANA: 2,
         };
         const aRank = rankMap[a.statusEvaluasi] || 0;
         const bRank = rankMap[b.statusEvaluasi] || 0;
@@ -443,9 +441,8 @@ export default function RekapClient({
               title="Filter Status Evaluasi"
             >
               <option value="ALL">Semua Status</option>
-              <option value="MEMENUHI">Memenuhi Syarat</option>
-              <option value="CUKUP">Cukup</option>
-              <option value="PERLU_PERHATIAN">Perlu Perhatian</option>
+              <option value="TERLAKSANA">Terlaksana</option>
+              <option value="PERHATIAN">Perlu Perhatian</option>
             </select>
 
             {/* Reset Button */}
@@ -808,28 +805,21 @@ export default function RekapClient({
 
                       {/* Status Evaluasi */}
                       <td className="py-4 px-2.5 text-center">
-                        {cls.statusEvaluasi === "MEMENUHI" && (
+                        {cls.statusEvaluasi === "TERLAKSANA" ? (
                           <span
-                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
                             title={cls.evaluasiNote}
                           >
-                            Memenuhi
+                            <CheckCircle2 size={10} className="text-emerald-600" />
+                            <span>Terlaksana</span>
                           </span>
-                        )}
-                        {cls.statusEvaluasi === "CUKUP" && (
+                        ) : (
                           <span
-                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
                             title={cls.evaluasiNote}
                           >
-                            Cukup
-                          </span>
-                        )}
-                        {cls.statusEvaluasi === "PERLU_PERHATIAN" && (
-                          <span
-                            className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
-                            title={cls.evaluasiNote}
-                          >
-                            Perhatian
+                            <AlertTriangle size={10} className="text-rose-600" />
+                            <span>Perhatian</span>
                           </span>
                         )}
                       </td>

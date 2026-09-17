@@ -124,8 +124,6 @@ export async function GET(request: NextRequest) {
       const statusLabel =
         d.status === "SANGAT_BAIK"
           ? "Sangat Baik"
-          : d.status === "BAIK"
-          ? "Baik"
           : "Perlu Pembinaan";
 
       const rowValues = [
@@ -189,13 +187,6 @@ export async function GET(request: NextRequest) {
               fgColor: { argb: "FFECFDF5" },
             };
             cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
-          } else if (d.status === "BAIK") {
-            cell.fill = {
-              type: "pattern",
-              pattern: "solid",
-              fgColor: { argb: "FFEFF6FF" },
-            };
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF1D4ED8" } };
           } else {
             cell.fill = {
               type: "pattern",
@@ -298,10 +289,8 @@ export async function GET(request: NextRequest) {
         const isBimbingan = cls.modePembelajaran === "BIMBINGAN";
         const modeLabel = isBimbingan ? "Bimbingan" : cls.modePembelajaran === "LURING" ? "Offline" : "Online";
         const evalLabel =
-          cls.statusEvaluasi === "MEMENUHI"
-            ? "Memenuhi"
-            : cls.statusEvaluasi === "CUKUP"
-            ? "Cukup"
+          cls.statusEvaluasi === "TERLAKSANA"
+            ? "Terlaksana"
             : "Perhatian";
 
         const rowValues = [
@@ -367,20 +356,13 @@ export async function GET(request: NextRequest) {
 
           // Status Evaluasi (Col 14)
           if (colNumber === 14) {
-            if (cls.statusEvaluasi === "MEMENUHI") {
+            if (cls.statusEvaluasi === "TERLAKSANA") {
               cell.fill = {
                 type: "pattern",
                 pattern: "solid",
                 fgColor: { argb: "FFECFDF5" },
               };
               cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
-            } else if (cls.statusEvaluasi === "CUKUP") {
-              cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "FFFFFBEB" },
-              };
-              cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB45309" } };
             } else {
               cell.fill = {
                 type: "pattern",

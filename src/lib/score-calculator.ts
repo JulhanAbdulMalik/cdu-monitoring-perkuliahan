@@ -82,13 +82,14 @@ export interface ClassSummaryResult {
 
   totalSkor3Pilar: number; // Max 42 (14 regular sesi * 3)
   persenKonten: number;
+  sesiMateriKosongCount: number; // Jumlah sesi reguler berjalan dengan materi 0/3
 
   confPraUTS: number; // Sesi 1-7
   confPraUAS: number; // Sesi 9-15
   confTotal: number;
   isConfCompliant: boolean; // confPraUTS >= 3 && confPraUAS >= 3
 
-  statusEvaluasi: "MEMENUHI" | "CUKUP" | "PERLU_PERHATIAN";
+  statusEvaluasi: "TERLAKSANA" | "PERHATIAN";
   evaluasiNote: string;
 }
 
@@ -103,13 +104,15 @@ export function calculateClassSummary(
     tugas?: boolean | null;
     kuis?: boolean | null;
   }>,
-  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN" = "DARING"
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN" = "DARING",
+  activeSessionNumber: number = 16
 ): ClassSummaryResult {
   let totalHadirLengkap = 0;
   let totalHadirTdkLengkap = 0;
   let totalAlpha = 0;
   let totalBelumDiisi = 0;
   let totalSkor3Pilar = 0;
+  let sesiMateriKosongCount = 0;
 
   let confPraUTS = 0;
   let confPraUAS = 0;
@@ -131,6 +134,11 @@ export function calculateClassSummary(
         const pilar = calculateSessionPillars(s);
         if (pilar.score !== null) {
           totalSkor3Pilar += pilar.score;
+
+          // Periksa sesi tanpa materi sama sekali (0/3) pada sesi yang sudah berjalan menurut kalender
+          if (s.nomorSesi <= activeSessionNumber && pilar.score === 0) {
+            sesiMateriKosongCount++;
+          }
         }
 
         if (s.conference) {
@@ -149,53 +157,28 @@ export function calculateClassSummary(
   const confTotal = confPraUTS + confPraUAS;
   const isConfCompliant = modePembelajaran !== "DARING" ? true : confPraUTS >= 3 && confPraUAS >= 3;
 
-  let statusEvaluasi: "MEMENUHI" | "CUKUP" | "PERLU_PERHATIAN" = "MEMENUHI";
-  let evaluasiNote = "Memenuhi standar perkuliahan CDU.";
+  let statusEvaluasi: "TERLAKSANA" | "PERHATIAN" = "TERLAKSANA";
+  let evaluasiNote = "Perkuliahan berjalan lancar dan memenuhi standar CDU.";
 
-  if (modePembelajaran === "BIMBINGAN") {
-    // Mode Bimbingan: Bebas 3 Pilar materi LMS, murni dievaluasi dari Kehadiran Sesi Pembimbingan (16 sesi)
-    if (totalAlpha >= 3 || persenKehadiran < 75) {
-      statusEvaluasi = "PERLU_PERHATIAN";
-      evaluasiNote = "Kehadiran bimbingan kurang dari 75% atau Alpha ≥ 3 sesi.";
-    } else if (persenKehadiran < 85) {
-      statusEvaluasi = "CUKUP";
-      evaluasiNote = "Kehadiran bimbingan memenuhi standar minimal (75%–84%).";
-    } else {
-      statusEvaluasi = "MEMENUHI";
-      evaluasiNote = "Sangat memuaskan: Kehadiran bimbingan ≥ 85%.";
-    }
-  } else if (modePembelajaran === "LURING") {
-    // Mode Offline: 3 Pilar dievaluasi, bebas kewajiban kuota Live Conference
-    if (totalAlpha >= 3 || persenKehadiran < 75 || persenKonten < 60) {
-      statusEvaluasi = "PERLU_PERHATIAN";
-      if (persenKonten < 60 && persenKehadiran >= 75 && totalAlpha < 3) {
-        evaluasiNote = "Kelengkapan 3 pilar materi di bawah standar (< 60%).";
-      } else {
-        evaluasiNote = "Kehadiran tatap muka di kelas kurang dari 75% atau Alpha ≥ 3 sesi.";
-      }
-    } else if (persenKehadiran < 85 || persenKonten < 75) {
-      statusEvaluasi = "CUKUP";
-      evaluasiNote = "Perkuliahan tatap muka & kelengkapan 3 pilar memenuhi standar minimal.";
-    } else {
-      statusEvaluasi = "MEMENUHI";
-      evaluasiNote = "Sangat memuaskan: Kehadiran tatap muka ≥ 85% & 3 Pilar materi lengkap.";
-    }
+  // Aturan Evaluasi Baru:
+  // 1. Alpa >= 2 sesi -> PERHATIAN
+  // 2. Materi Kosong (0/3) >= 2 sesi pada sesi berjalan -> PERHATIAN (khusus Non-Bimbingan)
+  // Di luar kondisi di atas -> TERLAKSANA
+  const isAlphaExceeded = totalAlpha >= 2;
+  const isKontenEmpty = modePembelajaran !== "BIMBINGAN" && sesiMateriKosongCount >= 2;
+
+  if (isAlphaExceeded && isKontenEmpty) {
+    statusEvaluasi = "PERHATIAN";
+    evaluasiNote = `Perhatian: Terdapat ${totalAlpha} sesi Alpa dan ${sesiMateriKosongCount} sesi tanpa materi 3 pilar pada sesi berjalan.`;
+  } else if (isAlphaExceeded) {
+    statusEvaluasi = "PERHATIAN";
+    evaluasiNote = `Perhatian: Terdapat ${totalAlpha} sesi Alpa (tidak hadir).`;
+  } else if (isKontenEmpty) {
+    statusEvaluasi = "PERHATIAN";
+    evaluasiNote = `Perhatian: Terdapat ${sesiMateriKosongCount} sesi tanpa materi 3 pilar sama sekali pada sesi berjalan.`;
   } else {
-    // Mode Online: Wajib 3 pilar & kuota Live Conference (3x pra-UTS & 3x pra-UAS)
-    if (totalAlpha >= 3 || persenKonten < 60 || !isConfCompliant) {
-      statusEvaluasi = "PERLU_PERHATIAN";
-      if (!isConfCompliant) {
-        evaluasiNote = `Kuota Live Conference belum terpenuhi (Pra-UTS: ${confPraUTS}/3, Pra-UAS: ${confPraUAS}/3).`;
-      } else {
-        evaluasiNote = "Kelengkapan 3 pilar materi atau kehadiran online di bawah standar.";
-      }
-    } else if (persenKehadiran < 85 || persenKonten < 75) {
-      statusEvaluasi = "CUKUP";
-      evaluasiNote = "Perkuliahan online memenuhi standar minimal.";
-    } else {
-      statusEvaluasi = "MEMENUHI";
-      evaluasiNote = "Sangat memuaskan: 3 Pilar lengkap & kuota Live Conference terpenuhi.";
-    }
+    statusEvaluasi = "TERLAKSANA";
+    evaluasiNote = "Perkuliahan berjalan lancar dan memenuhi standar CDU.";
   }
 
   return {
@@ -207,6 +190,7 @@ export function calculateClassSummary(
     persenKehadiran,
     totalSkor3Pilar,
     persenKonten,
+    sesiMateriKosongCount,
     confPraUTS,
     confPraUAS,
     confTotal,

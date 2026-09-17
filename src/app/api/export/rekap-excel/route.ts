@@ -227,10 +227,8 @@ export async function GET(request: NextRequest) {
           : cls.modePembelajaran === "BIMBINGAN"
           ? `UTS: ${cls.confPraUTS}/8 | UAS: ${cls.confPraUAS}/8`
           : `UTS: ${cls.confPraUTS}/3 | UAS: ${cls.confPraUAS}/3`,
-        cls.statusEvaluasi === "MEMENUHI"
-          ? "Memenuhi"
-          : cls.statusEvaluasi === "CUKUP"
-          ? "Cukup"
+        cls.statusEvaluasi === "TERLAKSANA"
+          ? "Terlaksana"
           : "Perhatian",
         statusPengajarText,
       ];
@@ -327,10 +325,8 @@ export async function GET(request: NextRequest) {
 
         // Color coding for Status Evaluasi (Column 29)
         if (colNumber === 29) {
-          if (cls.statusEvaluasi === "MEMENUHI") {
+          if (cls.statusEvaluasi === "TERLAKSANA") {
             cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
-          } else if (cls.statusEvaluasi === "CUKUP") {
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB45309" } };
           } else {
             cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB91C1C" } };
           }

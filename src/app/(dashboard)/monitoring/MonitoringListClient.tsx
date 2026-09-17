@@ -177,7 +177,7 @@ export default function MonitoringListClient({
 
   // Process and compute stats for every class
   const processedClasses = kelasList.map((cls) => {
-    const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran);
+    const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran, defaultActiveSesi);
 
     // Evaluasi status monitoring untuk sesi target (selectedSesi)
     const targetSesiData = cls.monitoringSesi.find((s) => s.nomorSesi === selectedSesi);
@@ -621,8 +621,8 @@ export default function MonitoringListClient({
               title="Filter Status Evaluasi"
             >
               <option value="ALL">Semua Status</option>
-              <option value="MEMENUHI">Sesuai</option>
-              <option value="PERLU_PERHATIAN">Perlu Perhatian</option>
+              <option value="TERLAKSANA">Terlaksana</option>
+              <option value="PERHATIAN">Perhatian</option>
             </select>
 
             {/* Reset All Filters Button */}

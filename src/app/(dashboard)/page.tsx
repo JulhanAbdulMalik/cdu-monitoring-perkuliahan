@@ -140,13 +140,12 @@ export default async function DashboardPage() {
     for (const cls of rawClasses) {
       const summary = calculateClassSummary(
         cls.monitoringSesi as any,
-        cls.modePembelajaran as any
+        cls.modePembelajaran as any,
+        currentActiveSesi
       );
 
-      if (summary.statusEvaluasi === "PERLU_PERHATIAN") {
+      if (summary.statusEvaluasi === "PERHATIAN") {
         kelasPerluPerhatianCount++;
-      } else if (summary.statusEvaluasi === "CUKUP") {
-        kelasCukupCount++;
       }
 
       if ((cls.modePembelajaran as any) !== "BIMBINGAN") {
@@ -506,13 +505,12 @@ export default async function DashboardPage() {
         <SparklineCard
           title="Kelas Perlu Perhatian"
           value={`${kelasPerluPerhatianCount} Kelas`}
-          subtitle={`${totalAlpha} sesi alpha • ${kelasCukupCount} kelas cukup`}
-          trendText={kelasPerluPerhatianCount === 0 ? "Kondisi Baik" : `${kelasPerluPerhatianCount} Ditindak`}
+          subtitle={`${totalAlpha} sesi alpha terdeteksi`}
+          trendText={kelasPerluPerhatianCount === 0 ? "Kondisi Baik" : `${kelasPerluPerhatianCount} Perlu Dicek`}
           isPositive={kelasPerluPerhatianCount === 0}
           details={[
             { label: "Perhatian", value: kelasPerluPerhatianCount, color: "rose" },
-            { label: "Cukup", value: kelasCukupCount, color: "amber" },
-            { label: "Memenuhi", value: totalKelas - kelasPerluPerhatianCount - kelasCukupCount, color: "emerald" },
+            { label: "Terlaksana", value: totalKelas - kelasPerluPerhatianCount, color: "emerald" },
           ]}
         />
       </div>

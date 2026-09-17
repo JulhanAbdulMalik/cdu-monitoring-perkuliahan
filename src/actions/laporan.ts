@@ -4,7 +4,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
-import { getWeekDates, getEstimatedSessionDate, DEFAULT_SEMESTER_START_DATE } from "@/lib/utils";
+import {
+  getWeekDates,
+  getEstimatedSessionDate,
+  getCurrentActiveSessionNumber,
+  DEFAULT_SEMESTER_START_DATE,
+} from "@/lib/utils";
 
 export interface DosenPengajarPeran {
   id: string;
@@ -82,7 +87,7 @@ export interface ClassRekapSummary {
   confTotal: number;
   isConfCompliant: boolean;
 
-  statusEvaluasi: "MEMENUHI" | "CUKUP" | "PERLU_PERHATIAN";
+  statusEvaluasi: "TERLAKSANA" | "PERHATIAN";
   evaluasiNote: string;
 }
 
@@ -132,10 +137,19 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
     });
 
+    const semStartStr = activeSemester?.tanggalMulai
+      ? new Date(activeSemester.tanggalMulai).toISOString().split("T")[0]
+      : DEFAULT_SEMESTER_START_DATE;
+    const currentActiveSesi = getCurrentActiveSessionNumber(
+      semStartStr,
+      (activeSemester as any)?.hariLibur
+    );
+
     const summaries: ClassRekapSummary[] = rawClasses.map((cls) => {
       const summary = calculateClassSummary(
         cls.monitoringSesi as any,
-        cls.modePembelajaran as any
+        cls.modePembelajaran as any,
+        currentActiveSesi
       );
 
       // Kumpulkan peran dosen pengajar di kelas ini
@@ -239,6 +253,7 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
         semesters: allSemesters,
         prodiList: allProdi,
         activeSemesterId: activeSemester?.id || allSemesters[0]?.id,
+        currentActiveSesi,
       },
     };
   } catch (error: any) {
@@ -253,7 +268,7 @@ export async function getLaporanDosen(semesterId?: string) {
       return { success: false, error: "Gagal memuat data laporan dosen" };
     }
 
-    const { rekapList, semesters, prodiList, activeSemesterId } = rekapRes.data;
+    const { rekapList, semesters, prodiList, activeSemesterId, currentActiveSesi = 16 } = rekapRes.data;
 
     // Map dosen: key = dosenId
     const dosenMap = new Map<
@@ -391,22 +406,21 @@ export async function getLaporanDosen(semesterId?: string) {
 
         const confCount = data.sesiList.filter((s) => s.conference).length;
 
-        // Evaluasi kelas (Kehadiran & 3 Pilar berlaku untuk kelas daring/luring, sedangkan Bimbingan murni kehadiran)
-        let classEvaluasi = "MEMENUHI";
-        if (isBimbingan) {
-          if (persenKehadiran >= 85) {
-            classEvaluasi = "MEMENUHI";
-          } else if (persenKehadiran >= 75) {
-            classEvaluasi = "CUKUP";
-          } else {
-            classEvaluasi = "PERLU_PERHATIAN";
-          }
-        } else if (persenKehadiran >= 85 && (persenKonten ?? 0) >= 75) {
-          classEvaluasi = "MEMENUHI";
-        } else if (persenKehadiran >= 75 && (persenKonten ?? 0) >= 60) {
-          classEvaluasi = "CUKUP";
+        // Evaluasi kelas: Jika 1 dosen penuh, gunakan statusEvaluasi kelas yang sudah dihitung; jika pengajar terpisah, evaluasi sesi berjalan
+        let classEvaluasi: "TERLAKSANA" | "PERHATIAN" = "TERLAKSANA";
+        if (!item.isSplitPengajar) {
+          classEvaluasi = item.statusEvaluasi;
         } else {
-          classEvaluasi = "PERLU_PERHATIAN";
+          const emptySesiCount = isBimbingan
+            ? 0
+            : regularSesi.filter(
+                (s) => s.nomorSesi <= currentActiveSesi && (s.contentScore || 0) === 0
+              ).length;
+          if (alphaCount >= 2 || (!isBimbingan && emptySesiCount >= 2)) {
+            classEvaluasi = "PERHATIAN";
+          } else {
+            classEvaluasi = "TERLAKSANA";
+          }
         }
 
         // Masukkan ke dosenMap
@@ -472,18 +486,15 @@ export async function getLaporanDosen(semesterId?: string) {
           ? Math.round((d.totalSkor3PilarSemua / d.maxSkor3PilarSemua) * 1000) / 10
           : null;
 
+      // Status Evaluasi Dosen: Mengikuti agregasi status kelas yang diampu
+      // Jika seluruh kelas berstatus TERLAKSANA -> SANGAT_BAIK
+      // Status PERLU_PEMBINAAN hanya diberikan jika ada kelasnya yang berstatus PERHATIAN
+      const totalPerhatian = d.kelasList.filter((c) => c.statusEvaluasi === "PERHATIAN").length;
       let status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
-      if (
-        avgKehadiran < 75 ||
-        (d.maxSkor3PilarSemua > 0 && avgKonten !== null && avgKonten < 60) ||
-        d.totalAlphaSemua >= 4
-      ) {
+      if (totalPerhatian > 0) {
         status = "PERLU_PEMBINAAN";
-      } else if (
-        avgKehadiran < 90 ||
-        (d.maxSkor3PilarSemua > 0 && avgKonten !== null && avgKonten < 80)
-      ) {
-        status = "BAIK";
+      } else {
+        status = "SANGAT_BAIK";
       }
 
       return {
