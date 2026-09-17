@@ -448,6 +448,11 @@ export default async function DashboardPage() {
           subtitle={`${totalProdi} Prodi • ${totalDosen} Dosen terdaftar`}
           trendText={`Sem. Aktif`}
           isPositive={true}
+          segments={[
+            { label: "Offline", value: kelasOffline, color: "blue" },
+            { label: "Online", value: kelasOnline, color: "emerald" },
+            { label: "Bimbingan", value: kelasBimbingan, color: "violet" },
+          ]}
           details={[
             { label: "Offline", value: kelasOffline, color: "blue" },
             { label: "Online", value: kelasOnline, color: "emerald" },
@@ -508,9 +513,13 @@ export default async function DashboardPage() {
           subtitle={`${totalAlpha} sesi alpha terdeteksi`}
           trendText={kelasPerluPerhatianCount === 0 ? "Kondisi Baik" : `${kelasPerluPerhatianCount} Perlu Dicek`}
           isPositive={kelasPerluPerhatianCount === 0}
+          segments={[
+            { label: "Perhatian", value: kelasPerluPerhatianCount, color: "rose" },
+            { label: "Terlaksana", value: Math.max(0, totalKelas - kelasPerluPerhatianCount), color: "emerald" },
+          ]}
           details={[
             { label: "Perhatian", value: kelasPerluPerhatianCount, color: "rose" },
-            { label: "Terlaksana", value: totalKelas - kelasPerluPerhatianCount, color: "emerald" },
+            { label: "Terlaksana", value: Math.max(0, totalKelas - kelasPerluPerhatianCount), color: "emerald" },
           ]}
         />
       </div>

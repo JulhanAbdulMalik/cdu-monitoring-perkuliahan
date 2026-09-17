@@ -10,6 +10,12 @@ interface DetailItem {
   color?: "blue" | "emerald" | "violet" | "rose" | "amber" | "slate" | "pink" | "maroon";
 }
 
+export interface SegmentItem {
+  label?: string;
+  value: number;
+  color?: "blue" | "emerald" | "violet" | "rose" | "amber" | "slate" | "pink" | "maroon" | string;
+}
+
 interface SparklineCardProps {
   title: string;
   value: string | number;
@@ -20,6 +26,7 @@ interface SparklineCardProps {
   progress?: number;
   progressColor?: "emerald" | "green" | "maroon" | "rose" | "blue" | string;
   valueColor?: "emerald" | "green" | "maroon" | "rose" | "blue" | "slate" | string;
+  segments?: SegmentItem[];
 }
 
 const colorMap: Record<string, string> = {
@@ -50,6 +57,18 @@ const progressColorMap: Record<string, string> = {
   blue: "bg-blue-500",
 };
 
+const segmentColorMap: Record<string, string> = {
+  emerald: "bg-[#10b981]",
+  green: "bg-[#10b981]",
+  blue: "bg-[#3b82f6]",
+  violet: "bg-[#8b5cf6]",
+  purple: "bg-[#8b5cf6]",
+  rose: "bg-[#ef4444]",
+  amber: "bg-[#f59e0b]",
+  maroon: "bg-[#a80063]",
+  slate: "bg-slate-400",
+};
+
 export default function SparklineCard({
   title,
   value,
@@ -60,6 +79,7 @@ export default function SparklineCard({
   progress,
   progressColor,
   valueColor,
+  segments,
 }: SparklineCardProps) {
   const valueColorClass = valueColor
     ? (valueColorMap[valueColor] || valueColor)
@@ -103,13 +123,40 @@ export default function SparklineCard({
           {subtitle}
         </p>
 
-        {/* Progress Bar (if provided) */}
+        {/* Single Progress Bar (if provided) */}
         {progress !== undefined && (
           <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
             <div
               className={`h-full ${progressColorClass} rounded-full transition-all duration-500`}
               style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
             />
+          </div>
+        )}
+
+        {/* Multi-segment Indicator Bar (if provided) */}
+        {segments && segments.length > 0 && (
+          <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2 flex">
+            {(() => {
+              const totalSeg = segments.reduce((acc, s) => acc + (s.value || 0), 0);
+              if (totalSeg === 0) {
+                return <div className="h-full w-full bg-slate-200/70 rounded-full" />;
+              }
+              return segments.map((seg, idx) => {
+                if (seg.value <= 0) return null;
+                const pct = (seg.value / totalSeg) * 100;
+                const bgClass = seg.color && seg.color.startsWith("bg-")
+                  ? seg.color
+                  : segmentColorMap[seg.color || "slate"] || "bg-slate-400";
+                return (
+                  <div
+                    key={idx}
+                    className={`h-full ${bgClass} transition-all duration-500`}
+                    style={{ width: `${pct}%` }}
+                    title={`${seg.label || ""}: ${seg.value} (${Math.round(pct)}%)`}
+                  />
+                );
+              });
+            })()}
           </div>
         )}
 

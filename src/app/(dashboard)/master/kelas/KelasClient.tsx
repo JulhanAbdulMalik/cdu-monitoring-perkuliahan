@@ -120,7 +120,7 @@ interface KelasClientProps {
   defaultSemesterId: string;
 }
 
-const HARI_OPTIONS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const HARI_OPTIONS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 export default function KelasClient({
   initialKelas,
