@@ -371,7 +371,7 @@ export default function LaporanProdiClient({
       {/* ── Official Print Header (Visible Only When Printing) ────────────────── */}
       <div className="hidden print:block text-center pb-4 mb-4 border-b border-slate-300">
         <h2 className="text-base font-bold text-slate-900 uppercase">
-          Universitas Nusa Putra — Curriculum Development Unit (CDU)
+          Universitas Nusa Putra - Curriculum Development Unit (CDU)
         </h2>
         <h3 className="text-sm font-semibold text-slate-700 mt-0.5">
           Laporan Performa Program Studi per Periode Tanggal
@@ -911,7 +911,7 @@ export default function LaporanProdiClient({
                                     </div>
                                     <div>
                                       <h4 className="text-xs font-bold text-slate-900">
-                                        Rincian Sesi Alpha & Belum Diisi — {p.nama}
+                                        Rincian Sesi Alpha & Belum Diisi - {p.nama}
                                       </h4>
                                       <p className="text-[10.5px] text-slate-500 font-normal">
                                         {isAllTime
@@ -1009,7 +1009,7 @@ export default function LaporanProdiClient({
                                                 </span>
                                               ) : (
                                                 <span className="text-slate-400 italic text-[10.5px]">
-                                                  — Belum ada catatan
+                                                  - Belum ada catatan
                                                 </span>
                                               )}
                                             </td>

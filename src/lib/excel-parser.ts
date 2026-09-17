@@ -4,7 +4,7 @@
 
 import * as XLSX from "xlsx";
 
-// Sesi UTS & UAS — hanya kehadiran, konten = NULL (ditentukan by nomor sesi, BUKAN isi sheet)
+// Sesi UTS & UAS - hanya kehadiran, konten = NULL (ditentukan by nomor sesi, BUKAN isi sheet)
 const SESI_KEHADIRAN_ONLY = [8, 16];
 
 // ─────────────────────────────────────────────────────────────────────────────

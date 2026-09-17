@@ -1,5 +1,5 @@
 // src/lib/utils.ts
-// Helper functions umum — CDU Monitoring
+// Helper functions umum - CDU Monitoring
 
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -24,7 +24,7 @@ export function roundPct(numerator: number, denominator: number): number {
 }
 
 export function formatDate(date: Date | string | null, fmt = "dd MMM yyyy") {
-  if (!date) return "—";
+  if (!date) return "-";
   return format(new Date(date), fmt, { locale: idLocale });
 }
 
@@ -37,9 +37,9 @@ export function formatTerakhirUpdateParts(date: Date | string | null | undefined
   waktu: string;
   tanggal: string;
 } {
-  if (!date) return { waktu: "—", tanggal: "—" };
+  if (!date) return { waktu: "-", tanggal: "-" };
   const d = new Date(date);
-  if (isNaN(d.getTime())) return { waktu: "—", tanggal: "—" };
+  if (isNaN(d.getTime())) return { waktu: "-", tanggal: "-" };
 
   const jam = String(d.getHours()).padStart(2, "0");
   const menit = String(d.getMinutes()).padStart(2, "0");
@@ -62,7 +62,7 @@ export function formatTerakhirUpdateParts(date: Date | string | null | undefined
 // Format waktu 1 baris '13:00 WIB, 9 September 2026'
 export function formatTerakhirUpdate(date: Date | string | null | undefined): string {
   const parts = formatTerakhirUpdateParts(date);
-  if (parts.waktu === "—") return "—";
+  if (parts.waktu === "-") return "-";
   return `${parts.waktu}, ${parts.tanggal}`;
 }
 
@@ -145,7 +145,7 @@ export function getWeekDates(baseDate: Date = new Date()) {
 
 // Format range tanggal Indonesia (misal: "31 Agustus - 6 September 2026")
 export function formatTanggalRange(startDateStr: string, endDateStr: string): string {
-  if (!startDateStr || !endDateStr) return "—";
+  if (!startDateStr || !endDateStr) return "-";
   const start = new Date(startDateStr);
   const end = new Date(endDateStr);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return `${startDateStr} s/d ${endDateStr}`;

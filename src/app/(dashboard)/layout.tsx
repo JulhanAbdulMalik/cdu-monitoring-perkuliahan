@@ -1,5 +1,5 @@
 // src/app/(dashboard)/layout.tsx
-// Dashboard layout — Layout responsif sempurna dengan Collapsible Mini Sidebar + Header
+// Dashboard layout - Layout responsif sempurna dengan Collapsible Mini Sidebar + Header
 
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";

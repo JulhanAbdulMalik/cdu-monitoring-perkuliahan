@@ -1,6 +1,6 @@
 "use client";
 // src/app/(dashboard)/lapor-cdu/LaporCduClient.tsx
-// Antarmuka Pusat "Lapor CDU" — Sanggahan & Pengaduan Kendala Perkuliahan
+// Antarmuka Pusat "Lapor CDU" - Sanggahan & Pengaduan Kendala Perkuliahan
 // Format Terstandarisasi CDU: Plus Jakarta Sans, #a80063 Brand, Full-Bleed Card, Zebra Rows, Modal Terintegrasi
 
 import { useState, useMemo, useEffect } from "react";
@@ -1150,7 +1150,7 @@ export default function LaporCduClient({
                 {getStatusBadge(selectedItem.status)}
               </div>
               <h3 className="text-sm font-bold text-slate-900">
-                [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama} — Sesi {selectedItem.nomorSesi}
+                [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama} - Sesi {selectedItem.nomorSesi}
               </h3>
             </div>
 

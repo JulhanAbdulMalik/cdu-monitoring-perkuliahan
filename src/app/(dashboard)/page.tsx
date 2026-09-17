@@ -1,5 +1,5 @@
 // src/app/(dashboard)/page.tsx
-// CDU Monitoring — Real-Data Dashboard (Plus Jakarta Sans)
+// CDU Monitoring - Real-Data Dashboard (Plus Jakarta Sans)
 
 import { Metadata } from "next";
 import { auth } from "@/lib/auth";

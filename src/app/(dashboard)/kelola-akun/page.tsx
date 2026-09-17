@@ -1,5 +1,5 @@
 // src/app/(dashboard)/kelola-akun/page.tsx
-// Halaman Kelola Akun Pengguna — Khusus Role SUPER_ADMIN
+// Halaman Kelola Akun Pengguna - Khusus Role SUPER_ADMIN
 
 import { Metadata } from "next";
 import { auth } from "@/lib/auth";

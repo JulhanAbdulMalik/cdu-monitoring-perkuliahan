@@ -345,7 +345,7 @@ export default function RekapClient({
       {/* ── Official Print Header (Visible Only When Printing) ────────────────── */}
       <div className="hidden print:block text-center pb-4 mb-4 border-b border-slate-300">
         <h2 className="text-base font-bold text-slate-900 uppercase">
-          Universitas Nusa Putra — Curriculum Development Unit (CDU)
+          Universitas Nusa Putra - Curriculum Development Unit (CDU)
         </h2>
         <h3 className="text-sm font-semibold text-slate-700 mt-0.5">
           Laporan Rekapitulasi Monitoring Perkuliahan Semester{" "}
@@ -734,7 +734,7 @@ export default function RekapClient({
                                   {cellText}
                                 </span>
                               ) : (
-                                <span className="text-slate-300 font-bold" title={tooltipText}>—</span>
+                                <span className="text-slate-300 font-bold" title={tooltipText}>-</span>
                               )}
 
                               {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru */}

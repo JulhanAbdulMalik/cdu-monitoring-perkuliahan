@@ -1,5 +1,5 @@
 // src/middleware.ts
-// Proteksi route — Edge-safe menggunakan getToken dari next-auth/jwt
+// Proteksi route - Edge-safe menggunakan getToken dari next-auth/jwt
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 

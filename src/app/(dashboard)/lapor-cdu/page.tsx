@@ -1,5 +1,5 @@
 // src/app/(dashboard)/lapor-cdu/page.tsx
-// Halaman Pusat Lapor CDU — Sanggahan & Pelaporan Ketidaksesuaian Monitoring
+// Halaman Pusat Lapor CDU - Sanggahan & Pelaporan Ketidaksesuaian Monitoring
 
 import { Metadata } from "next";
 import { auth } from "@/lib/auth";

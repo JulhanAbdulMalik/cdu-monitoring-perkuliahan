@@ -236,10 +236,10 @@ export default function ImportClient({
                   Terdeteksi dari File Excel:
                 </p>
                 <p className="text-xs font-bold text-slate-800">
-                  Mata Kuliah: <span className="text-[#a80063]">{parsedResult.mataKuliah || "—"}</span>
+                  Mata Kuliah: <span className="text-[#a80063]">{parsedResult.mataKuliah || "-"}</span>
                 </p>
                 <p className="text-xs font-bold text-slate-800 mt-0.5">
-                  Kelas: <span className="text-[#a80063]">{parsedResult.kelas || "—"}</span>
+                  Kelas: <span className="text-[#a80063]">{parsedResult.kelas || "-"}</span>
                 </p>
               </div>
 
@@ -341,7 +341,7 @@ export default function ImportClient({
                         {/* Lecture Note */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.lectureNote ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓
@@ -354,7 +354,7 @@ export default function ImportClient({
                         {/* Slide */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.slide ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓
@@ -367,7 +367,7 @@ export default function ImportClient({
                         {/* Tugas */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.tugas ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓
@@ -380,7 +380,7 @@ export default function ImportClient({
                         {/* Quiz */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.kuis ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓
@@ -393,7 +393,7 @@ export default function ImportClient({
                         {/* Video */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.video ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓
@@ -406,7 +406,7 @@ export default function ImportClient({
                         {/* Conference */}
                         <td className="py-2.5 px-2 text-center">
                           {isExam ? (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300">-</span>
                           ) : s.conference ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 font-bold text-xs">
                               ✓

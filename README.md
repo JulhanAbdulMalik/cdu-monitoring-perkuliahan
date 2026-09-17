@@ -1,4 +1,4 @@
-# 🎓 CDU Monitoring — Nusa Putra University
+# 🎓 CDU Monitoring - Nusa Putra University
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev/)
@@ -308,7 +308,7 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-super-secret-key-minimum-32-characters-here"
 
 # ── Konfigurasi Aplikasi ──────────────────────────────────────────────────────
-NEXT_PUBLIC_APP_NAME="CDU Monitoring — Nusa Putra University"
+NEXT_PUBLIC_APP_NAME="CDU Monitoring - Nusa Putra University"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
@@ -428,5 +428,5 @@ Aplikasi ini siap dideploy ke platform modern seperti **Vercel**:
 
 ## 📄 Lisensi & Hak Cipta
 
-Hak Cipta © 2026 **Julhan A Malik (CDU) — Universitas Nusa Putra**.  
+Hak Cipta © 2026 **Julhan A Malik (CDU) - Universitas Nusa Putra**.  
 Seluruh hak cipta dilindungi undang-undang. Sistem ini dikembangkan untuk kebutuhan operasional internal Universitas Nusa Putra.

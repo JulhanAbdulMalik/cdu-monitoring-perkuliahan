@@ -1239,7 +1239,7 @@ export default function MonitoringGridClient({
                           {/* 3. Pilar 1: L/S (Lecture Note / Slide) */}
                           <td className="py-2.5 px-2 text-center">
                             {isExam ? (
-                              <span className="text-slate-300 text-xs">—</span>
+                              <span className="text-slate-300 text-xs">-</span>
                             ) : (
                               <div className="flex items-center justify-center gap-1">
                                 <button
@@ -1273,7 +1273,7 @@ export default function MonitoringGridClient({
                           {/* 4. Pilar 2: Q/T (Quiz / Tugas) */}
                           <td className="py-2.5 px-2 text-center">
                             {isExam ? (
-                              <span className="text-slate-300 text-xs">—</span>
+                              <span className="text-slate-300 text-xs">-</span>
                             ) : (
                               <div className="flex items-center justify-center gap-1">
                                 <button
@@ -1307,7 +1307,7 @@ export default function MonitoringGridClient({
                           {/* 5. Pilar 3: T/V (Temu Virtual / Video) */}
                           <td className="py-2.5 px-2 text-center">
                             {isExam && currentKelas.modePembelajaran !== "BIMBINGAN" ? (
-                              <span className="text-slate-300 text-xs">—</span>
+                              <span className="text-slate-300 text-xs">-</span>
                             ) : (
                               <div className="flex items-center justify-center gap-1">
                                 {currentKelas.modePembelajaran !== "BIMBINGAN" && (
@@ -1457,7 +1457,7 @@ export default function MonitoringGridClient({
                                       }`}
                                     >
                                       <option value="" className="text-slate-400 font-normal">
-                                        — Pilih Catatan —
+                                        - Pilih Catatan -
                                       </option>
                                       {CATATAN_PRESETS.map((preset) => (
                                         <option key={preset} value={preset} className="text-slate-800">

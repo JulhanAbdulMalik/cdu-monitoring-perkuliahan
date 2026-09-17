@@ -1,5 +1,5 @@
 // prisma/schema.prisma
-// CDU Monitoring — Nusa Putra University
+// CDU Monitoring - Nusa Putra University
 
 generator client {
   provider = "prisma-client-js"
@@ -164,7 +164,7 @@ model MonitoringSesi {
 
   // ── Kehadiran Dosen ──────────────────────────────────────────────────────
   // Berlaku untuk SEMUA sesi (Reguler, UTS, UAS)
-  // Diisi MANUAL oleh CDU Staff — default: BELUM_DIISI
+  // Diisi MANUAL oleh CDU Staff - default: BELUM_DIISI
   kehadiran Kehadiran @default(BELUM_DIISI)
 
   // ── Komponen Konten ───────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ enum Kehadiran {
   HADIR               // Hadir
   TIDAK_HADIR         // Tidak hadir / Alpha
   HADIR_TIDAK_LENGKAP // Hadir tapi tidak lengkap
-  BELUM_DIISI         // Default — belum dicek CDU
+  BELUM_DIISI         // Default - belum dicek CDU
 }
 
 enum SumberData {

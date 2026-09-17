@@ -1,5 +1,5 @@
 // src/app/layout.tsx
-// Root layout — Google Fonts: Plus Jakarta Sans, metadata, providers
+// Root layout - Google Fonts: Plus Jakarta Sans, metadata, providers
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   description:
     "Sistem monitoring kinerja dosen Curriculum Development Unit (CDU) Universitas Nusa Putra.",
   keywords: ["CDU", "monitoring", "dosen", "Nusa Putra", "perkuliahan"],
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon",
+  },
 };
 
 export default function RootLayout({

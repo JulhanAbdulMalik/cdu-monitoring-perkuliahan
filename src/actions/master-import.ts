@@ -66,7 +66,7 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
           email: email || null,
           kodeProdi,
           prodiId: matchedProdi?.id || null,
-          prodiNama: matchedProdi?.nama || "—",
+          prodiNama: matchedProdi?.nama || "-",
         },
         isValid: errors.length === 0,
         errors,
@@ -176,7 +176,7 @@ export async function parseMataKuliahExcel(formData: FormData): Promise<{ succes
           sks,
           kodeProdi,
           prodiId: matchedProdi?.id || null,
-          prodiNama: matchedProdi?.nama || "—",
+          prodiNama: matchedProdi?.nama || "-",
         },
         isValid: errors.length === 0,
         errors,
@@ -346,7 +346,7 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
         data: {
           kodeKelas,
           semesterId: matchedSem?.id || null,
-          semesterTahun: matchedSem ? `${matchedSem.tahunAkademik} (${matchedSem.periode})` : "—",
+          semesterTahun: matchedSem ? `${matchedSem.tahunAkademik} (${matchedSem.periode})` : "-",
           // MK data
           kodeMk: kodeMk || matchedMk?.kode || kodeKelas,
           namaMk: namaMk || matchedMk?.nama || "Mata Kuliah",
@@ -356,7 +356,7 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
           // Prodi data
           prodiQuery: prodiQuery || matchedProdi?.nama || "Umum",
           prodiId: matchedProdi?.id || null,
-          prodiNama: matchedProdi?.nama || prodiQuery || "—",
+          prodiNama: matchedProdi?.nama || prodiQuery || "-",
           // Dosen data
           dosenQuery,
           dosenId: matchedDosen?.id || null,

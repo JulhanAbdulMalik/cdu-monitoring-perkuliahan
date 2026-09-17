@@ -1,5 +1,5 @@
 // src/lib/auth.ts
-// NextAuth.js v5 — full config dengan Credentials provider
+// NextAuth.js v5 - full config dengan Credentials provider
 // Gunakan ini di server components dan API routes (BUKAN middleware)
 
 import NextAuth from "next-auth";

@@ -619,7 +619,7 @@ export default function ProdiClient({
                         <td className="py-2.5 px-3 text-slate-600 font-medium">
                           <div className="flex items-center gap-1.5">
                             <Building2 size={13} className="text-slate-400" />
-                            <span>{p.fakultas?.nama || "—"}</span>
+                            <span>{p.fakultas?.nama || "-"}</span>
                           </div>
                         </td>
 

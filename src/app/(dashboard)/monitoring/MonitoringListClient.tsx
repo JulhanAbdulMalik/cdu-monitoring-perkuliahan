@@ -793,10 +793,10 @@ export default function MonitoringListClient({
                       {/* Jadwal Kuliah */}
                       <td className="py-3 px-2.5">
                         <p className="font-medium text-slate-700 text-xs leading-tight">
-                          {cls.jadwalHari || "—"}
+                          {cls.jadwalHari || "-"}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                          {cls.jadwalJam || "—"}
+                          {cls.jadwalJam || "-"}
                         </p>
                       </td>
 

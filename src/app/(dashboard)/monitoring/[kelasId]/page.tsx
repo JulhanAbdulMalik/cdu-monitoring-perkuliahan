@@ -19,7 +19,7 @@ export async function generateMetadata({
 
   return {
     title: kelas
-      ? `Monitoring Sesi — ${kelas.mataKuliah.nama} (${kelas.kodeKelas})`
+      ? `Monitoring Sesi - ${kelas.mataKuliah.nama} (${kelas.kodeKelas})`
       : "Grid Monitoring 16 Sesi",
   };
 }

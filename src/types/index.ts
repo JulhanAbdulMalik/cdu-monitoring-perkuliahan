@@ -114,7 +114,7 @@ export interface MonitoringSesi {
   // Kehadiran (manual CDU)
   kehadiran: Kehadiran;
 
-  // Konten (dari import Excel — boolean | null)
+  // Konten (dari import Excel - boolean | null)
   lectureNote: boolean | null;
   slide: boolean | null;
   video: boolean | null;

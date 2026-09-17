@@ -456,7 +456,7 @@ export default function DosenClient({
                             <span>{d.nidn}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
+                          <span className="text-slate-400 text-[11px]">-</span>
                         )}
                       </td>
 
@@ -468,7 +468,7 @@ export default function DosenClient({
                             <span>{d.email}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
+                          <span className="text-slate-400 text-[11px]">-</span>
                         )}
                       </td>
 

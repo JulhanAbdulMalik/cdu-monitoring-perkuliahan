@@ -37,14 +37,14 @@ export async function GET(request: NextRequest) {
     // Title Header
     worksheet.mergeCells("A1:K1");
     const titleCell = worksheet.getCell("A1");
-    titleCell.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 25;
 
     worksheet.mergeCells("A2:K2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN EVALUASI KINERJA DOSEN — SEMESTER ${
+    subtitleCell.value = `LAPORAN EVALUASI KINERJA DOSEN - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "AKTIF"
     }`;
     subtitleCell.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
 
       const rowValues = [
         idx + 1,
-        d.nidn || "—",
+        d.nidn || "-",
         d.nama,
         `${d.prodi.kode} - ${d.prodi.nama}`,
         d.totalKelas,
@@ -230,14 +230,14 @@ export async function GET(request: NextRequest) {
 
     detailSheet.mergeCells("A1:N1");
     const detailTitle = detailSheet.getCell("A1");
-    detailTitle.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    detailTitle.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     detailTitle.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
     detailTitle.alignment = { horizontal: "center", vertical: "middle" };
     detailSheet.getRow(1).height = 25;
 
     detailSheet.mergeCells("A2:N2");
     const detailSubtitle = detailSheet.getCell("A2");
-    detailSubtitle.value = `RINCIAN PERFORMA KELAS PER DOSEN PENGAMPU — SEMESTER ${
+    detailSubtitle.value = `RINCIAN PERFORMA KELAS PER DOSEN PENGAMPU - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "AKTIF"
     }`;
     detailSubtitle.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
 
         const rowValues = [
           detailCounter++,
-          d.nidn || "—",
+          d.nidn || "-",
           d.nama,
           `${d.prodi.kode} - ${d.prodi.nama}`,
           cls.kodeKelas,
@@ -317,7 +317,7 @@ export async function GET(request: NextRequest) {
           `${cls.totalHadir}/${cls.totalSesiBeban ?? 16}`,
           formatPct(cls.persenKehadiran),
           isBimbingan ? "Bebas" : `${cls.totalSkorKonten}/${cls.maxSkorKonten ?? 42}`,
-          isBimbingan ? "—" : formatPct(cls.persenKonten),
+          isBimbingan ? "-" : formatPct(cls.persenKonten),
           evalLabel,
         ];
 

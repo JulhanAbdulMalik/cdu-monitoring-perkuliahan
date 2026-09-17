@@ -39,14 +39,14 @@ export async function GET(request: NextRequest) {
     // ── 1. Title Header ──────────────────────────────────────────────────────
     worksheet.mergeCells("A1:AD1");
     const titleCell = worksheet.getCell("A1");
-    titleCell.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Arial", size: 14, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 26;
 
     worksheet.mergeCells("A2:AD2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN REKAPITULASI MONITORING PERKULIAHAN (3 PILAR) — SEMESTER ${
+    subtitleCell.value = `LAPORAN REKAPITULASI MONITORING PERKULIAHAN (3 PILAR) - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : ""
     }`;
     subtitleCell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF334155" } };
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
         const isFilled = isHadir || isHTL || isAlpha;
 
-        if (!isFilled) return "—";
+        if (!isFilled) return "-";
 
         if (isExam) {
           return isHadir ? "H" : isHTL ? "T" : "A";
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
         `${cls.totalHadir}/16`,
         formatPct(cls.persenKehadiran),
         cls.modePembelajaran === "BIMBINGAN" ? "Bebas" : `${cls.totalSkor3Pilar}/42`,
-        cls.modePembelajaran === "BIMBINGAN" ? "—" : formatPct(cls.persenKonten),
+        cls.modePembelajaran === "BIMBINGAN" ? "-" : formatPct(cls.persenKonten),
         cls.modePembelajaran === "LURING"
           ? "Bebas Conf"
           : cls.modePembelajaran === "BIMBINGAN"
@@ -270,7 +270,7 @@ export async function GET(request: NextRequest) {
           const isAlpha = s.kehadiran === "TIDAK_HADIR" || s.kehadiran === "ALPHA";
           const isSub = s && s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
 
-          // Pewarnaan Sel Presensi (Murni Berdasarkan Status Kehadiran — Tanpa Warna Biru)
+          // Pewarnaan Sel Presensi (Murni Berdasarkan Status Kehadiran - Tanpa Warna Biru)
           if (isHadir) {
             cell.fill = {
               type: "pattern",
@@ -380,14 +380,14 @@ export async function GET(request: NextRequest) {
 
     logWorksheet.mergeCells("A1:K1");
     const logTitle = logWorksheet.getCell("A1");
-    logTitle.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    logTitle.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     logTitle.font = { name: "Arial", size: 14, bold: true, color: { argb: "FFA80063" } };
     logTitle.alignment = { horizontal: "center", vertical: "middle" };
     logWorksheet.getRow(1).height = 26;
 
     logWorksheet.mergeCells("A2:K2");
     const logSubtitle = logWorksheet.getCell("A2");
-    logSubtitle.value = `LOG RINCIAN PERGANTIAN & DOSEN PENGGANTI — SEMESTER ${
+    logSubtitle.value = `LOG RINCIAN PERGANTIAN & DOSEN PENGGANTI - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : ""
     }`;
     logSubtitle.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF334155" } };
@@ -467,9 +467,9 @@ export async function GET(request: NextRequest) {
             `Sesi ${s.nomorSesi}${s.nomorSesi === 8 ? " (UTS)" : s.nomorSesi === 16 ? " (UAS)" : ""}`,
             cls.dosen.nama,
             s.dosenPengajar!.nama,
-            s.dosenPengajar!.nidn || "—",
+            s.dosenPengajar!.nidn || "-",
             jenisStr,
-            s.catatanGantiDosen || "—",
+            s.catatanGantiDosen || "-",
             kehadiranStr,
           ]);
 
@@ -504,17 +504,17 @@ export async function GET(request: NextRequest) {
     // Jika tidak ada sesi yang digantikan sama sekali
     if (logCounter === 1) {
       const emptyRow = logWorksheet.addRow([
-        "—",
-        "—",
-        "—",
-        "—",
-        "—",
-        "—",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
         "Tidak ada catatan pergantian dosen pada semester ini.",
-        "—",
-        "—",
-        "—",
-        "—",
+        "-",
+        "-",
+        "-",
+        "-",
       ]);
       emptyRow.height = 24;
       emptyRow.eachCell((cell) => {

@@ -267,12 +267,12 @@ export default function MasterImportModal({
                         <td className="py-2 px-2.5 font-medium text-slate-800">
                           {type === "dosen" && (
                             <span>
-                              <strong>{row.data.nama}</strong> ({row.data.nidn || "Tanpa NIDN"}) — Prodi: {row.data.kodeProdi}
+                              <strong>{row.data.nama}</strong> ({row.data.nidn || "Tanpa NIDN"}) - Prodi: {row.data.kodeProdi}
                             </span>
                           )}
                           {type === "mata-kuliah" && (
                             <span>
-                              <strong>[{row.data.kode}]</strong> {row.data.nama} ({row.data.sks} SKS) — {row.data.kodeProdi}
+                              <strong>[{row.data.kode}]</strong> {row.data.nama} ({row.data.sks} SKS) - {row.data.kodeProdi}
                             </span>
                           )}
                           {type === "kelas" && (
@@ -301,7 +301,7 @@ export default function MasterImportModal({
                           )}
                           {type === "prodi" && (
                             <span>
-                              <strong>[{row.data.kodeProdi}]</strong> {row.data.namaProdi} — {row.data.namaFakultas}
+                              <strong>[{row.data.kodeProdi}]</strong> {row.data.namaProdi} - {row.data.namaFakultas}
                             </span>
                           )}
                           {type === "semester" && (

@@ -768,7 +768,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                   <Palmtree size={16} />
                 </span> */}
                 <h3 className="text-base font-bold text-slate-900">
-                  Libur Perkuliahan — {selectedSemesterForLibur.tahunAkademik} ({selectedSemesterForLibur.periode})
+                  Libur Perkuliahan - {selectedSemesterForLibur.tahunAkademik} ({selectedSemesterForLibur.periode})
                 </h3>
               </div>
               {/* <p className="text-xs text-slate-500 leading-relaxed">

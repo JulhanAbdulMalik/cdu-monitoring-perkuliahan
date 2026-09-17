@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // ── 1. Title Header ──────────────────────────────────────────────────────
     worksheet.mergeCells("A1:R1");
     const titleCell = worksheet.getCell("A1");
-    titleCell.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 25;
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         idx + 1,
         p.kode,
         p.nama,
-        p.fakultasNama || "—",
+        p.fakultasNama || "-",
         p.totalDosenAktifRentang,
         p.totalKelasAktifRentang,
         p.totalSesiRentang,
@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
 
     sheetKendala.mergeCells("A1:I1");
     const kTitle = sheetKendala.getCell("A1");
-    kTitle.value = "UNIVERSITAS NUSA PUTRA — CURRICULUM DEVELOPMENT UNIT (CDU)";
+    kTitle.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     kTitle.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
     kTitle.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(1).height = 25;
@@ -265,12 +265,12 @@ export async function GET(request: NextRequest) {
           idx + 1,
           `[${k.prodiKode}] ${k.prodiNama}`,
           k.dosenNama,
-          k.dosenNidn || "—",
+          k.dosenNidn || "-",
           k.mataKuliahNama,
           k.kelasKode,
           `Sesi ${k.nomorSesi}`,
           k.status === "ALPHA" ? "ALPHA / TIDAK HADIR" : "BELUM DIISI",
-          k.catatan || "— (Belum ada catatan)",
+          k.catatan || "- (Belum ada catatan)",
         ]);
         kRow.height = 20;
 
