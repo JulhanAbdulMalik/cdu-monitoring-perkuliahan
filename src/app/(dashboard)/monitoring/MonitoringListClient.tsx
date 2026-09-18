@@ -25,6 +25,7 @@ import {
   ArrowDown,
   GraduationCap,
   RotateCcw,
+  DoorClosed,
   X,
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
@@ -50,6 +51,7 @@ export interface MonitoringKelasItem {
   kodeKelas: string;
   jadwalHari: string | null;
   jadwalJam: string | null;
+  ruangan?: string | null;
   modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   updatedAt: Date | string;
   semester: {
@@ -137,6 +139,8 @@ export type SortKey =
   | "DOSEN_DESC"
   | "JADWAL_ASC"
   | "JADWAL_DESC"
+  | "RUANG_ASC"
+  | "RUANG_DESC"
   | "KEHADIRAN_DESC"
   | "KEHADIRAN_ASC"
   | "PILAR_DESC"
@@ -312,6 +316,10 @@ export default function MonitoringListClient({
         if (dayDiff !== 0) return dayDiff;
         return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
       }
+      case "RUANG_ASC":
+        return (a.ruangan || "").localeCompare(b.ruangan || "", "id", { sensitivity: "base" });
+      case "RUANG_DESC":
+        return (b.ruangan || "").localeCompare(a.ruangan || "", "id", { sensitivity: "base" });
       case "KEHADIRAN_DESC":
         return b.summary.persenKehadiran - a.summary.persenKehadiran;
       case "KEHADIRAN_ASC":
@@ -326,7 +334,7 @@ export default function MonitoringListClient({
   });
 
   // Helper toggle column sort
-  function handleColumnSort(column: "KODE" | "MK" | "DOSEN" | "JADWAL" | "KEHADIRAN" | "PILAR" | "UPDATE") {
+  function handleColumnSort(column: "KODE" | "MK" | "DOSEN" | "JADWAL" | "RUANG" | "KEHADIRAN" | "PILAR" | "UPDATE") {
     switch (column) {
       case "KODE":
         setSortBy(sortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC");
@@ -339,6 +347,9 @@ export default function MonitoringListClient({
         break;
       case "JADWAL":
         setSortBy(sortBy === "JADWAL_ASC" ? "JADWAL_DESC" : "JADWAL_ASC");
+        break;
+      case "RUANG":
+        setSortBy(sortBy === "RUANG_ASC" ? "RUANG_DESC" : "RUANG_ASC");
         break;
       case "KEHADIRAN":
         setSortBy(sortBy === "KEHADIRAN_DESC" ? "KEHADIRAN_ASC" : "KEHADIRAN_DESC");
@@ -355,7 +366,7 @@ export default function MonitoringListClient({
   // Render clickable header column with sort icon
   function renderSortHeader(
     label: string,
-    columnKey: "KODE" | "MK" | "DOSEN" | "JADWAL" | "KEHADIRAN" | "PILAR" | "UPDATE",
+    columnKey: "KODE" | "MK" | "DOSEN" | "JADWAL" | "RUANG" | "KEHADIRAN" | "PILAR" | "UPDATE",
     align: "left" | "center" = "left",
     extraClass: string = ""
   ) {
@@ -364,6 +375,7 @@ export default function MonitoringListClient({
       (columnKey === "MK" && (sortBy === "MK_ASC" || sortBy === "MK_DESC")) ||
       (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
       (columnKey === "JADWAL" && (sortBy === "JADWAL_ASC" || sortBy === "JADWAL_DESC")) ||
+      (columnKey === "RUANG" && (sortBy === "RUANG_ASC" || sortBy === "RUANG_DESC")) ||
       (columnKey === "KEHADIRAN" && (sortBy === "KEHADIRAN_ASC" || sortBy === "KEHADIRAN_DESC")) ||
       (columnKey === "PILAR" && (sortBy === "PILAR_ASC" || sortBy === "PILAR_DESC")) ||
       (columnKey === "UPDATE" && (sortBy === "TERBARU" || sortBy === "TERLAMA"));
@@ -373,6 +385,7 @@ export default function MonitoringListClient({
       sortBy === "MK_ASC" ||
       sortBy === "DOSEN_ASC" ||
       sortBy === "JADWAL_ASC" ||
+      sortBy === "RUANG_ASC" ||
       sortBy === "KEHADIRAN_ASC" ||
       sortBy === "PILAR_ASC" ||
       sortBy === "TERLAMA";
@@ -660,6 +673,7 @@ export default function MonitoringListClient({
                 {renderSortHeader("Mata Kuliah", "MK")}
                 {renderSortHeader("Dosen Pengampu", "DOSEN", "left", "min-w-[250px]")}
                 {renderSortHeader("Jadwal Kuliah", "JADWAL")}
+                {renderSortHeader("Ruang Kelas", "RUANG")}
                 {renderSortHeader("Kehadiran", "KEHADIRAN", "center")}
                 {renderSortHeader("Skor 3 Pilar", "PILAR", "center")}
                 <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold">Live Conf</th>
@@ -670,7 +684,7 @@ export default function MonitoringListClient({
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     {monitoringTab === "BELUM" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
                         <CheckCircle2 size={32} className="text-emerald-500" />
@@ -798,6 +812,18 @@ export default function MonitoringListClient({
                         <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
                           {cls.jadwalJam || "-"}
                         </p>
+                      </td>
+
+                      {/* Ruang Kelas */}
+                      <td className="py-3 px-2.5">
+                        {cls.ruangan ? (
+                          <span className="inline-flex gap-1.5 text-xs font-medium leading-tight text-slate-700">
+                            <DoorClosed size={12} className="text-[#a80063] shrink-0" />
+                            <span>{cls.ruangan}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
                       </td>
 
                       {/* Kehadiran */}

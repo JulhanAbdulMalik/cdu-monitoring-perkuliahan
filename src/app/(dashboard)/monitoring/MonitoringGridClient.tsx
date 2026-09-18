@@ -36,6 +36,7 @@ import {
   UserCheck,
   ArrowRightLeft,
   GraduationCap,
+  DoorClosed,
 } from "lucide-react";
 import {
   updateSingleMonitoringSesi,
@@ -95,6 +96,7 @@ interface KelasDetailData {
   kodeKelas: string;
   jadwalHari: string;
   jadwalJam: string;
+  ruangan?: string | null;
   modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   semester: {
     id: string;
@@ -702,53 +704,65 @@ export default function MonitoringGridClient({
         <div className="space-y-4">
           {/* ── TOP CARDS ROW: Info Kelas, Statistik, Konten, & Aksi Cepat ────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
-            {/* Card 1: Detail Kelas & Mode */}
+            {/* Card 1: Detail Kelas & Mode (Compact & Clear) */}
             <div className="duralux-card p-3 bg-white flex flex-col justify-between">
               <div>
+                {/* Baris 1: Mata Kuliah (Rata Kiri) & Kode Kelas + Jenis Kelas (Rata Kanan) */}
                 <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[11px] font-extrabold">
-                    {currentKelas.kodeKelas}
-                  </span>
-                  {/* Mode Badge */}
-                  <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
-                      currentKelas.modePembelajaran === "BIMBINGAN"
-                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                        : currentKelas.modePembelajaran === "LURING"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-blue-50 text-blue-700 border-blue-200"
-                    }`}
+                  <h3
+                    className="text-sm font-bold text-slate-900 leading-snug line-clamp-1 min-w-0"
+                    title={currentKelas.mataKuliah.nama}
                   >
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? (
-                      <>
-                        <GraduationCap size={10} />
-                        <span>Bimbingan</span>
-                      </>
-                    ) : currentKelas.modePembelajaran === "LURING" ? (
-                      <>
-                        <Building size={10} />
-                        <span>Offline</span>
-                      </>
-                    ) : (
-                      <>
-                        <Laptop size={10} />
-                        <span>Online</span>
-                      </>
-                    )}
-                  </span>
+                    {currentKelas.mataKuliah.nama}
+                  </h3>
+
+                  {/* Kode Kelas & Jenis Kelas bersanding di Rata Kanan */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="inline-flex px-1.5 py-0.5 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10px] font-extrabold shadow-2xs">
+                      {currentKelas.kodeKelas}
+                    </span>
+
+                    {/* Mode Badge (Offline / Online / Bimbingan) */}
+                    <span
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-bold border shrink-0 ${
+                        currentKelas.modePembelajaran === "BIMBINGAN"
+                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                          : currentKelas.modePembelajaran === "LURING"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      }`}
+                    >
+                      {currentKelas.modePembelajaran === "BIMBINGAN" ? (
+                        <>
+                          <GraduationCap size={10} />
+                          <span>Bimbingan</span>
+                        </>
+                      ) : currentKelas.modePembelajaran === "LURING" ? (
+                        <>
+                          <Building size={10} />
+                          <span>Offline</span>
+                        </>
+                      ) : (
+                        <>
+                          <Laptop size={10} />
+                          <span>Online</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="text-[12.5px] font-bold text-slate-900 mt-1 leading-tight line-clamp-1" title={currentKelas.mataKuliah.nama}>
-                  {currentKelas.mataKuliah.nama}
-                </h3>
-                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+
+                {/* Info SKS & Prodi di bawah Nama Mata Kuliah */}
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
                   {currentKelas.mataKuliah.sks} SKS • {currentKelas.mataKuliah.prodi.nama}
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 space-y-0.5 text-[10.5px] text-slate-600 font-medium mt-2">
+              {/* Dosen & Jadwal/Ruang (Sejajar & Compact) */}
+              <div className="pt-2 border-t border-slate-100 space-y-1 text-[10.5px] text-slate-600 font-medium mt-2">
                 <div className="flex items-center gap-1.5 truncate">
                   <User size={12} className="text-[#a80063] shrink-0" />
-                  <span className="truncate font-semibold text-slate-800" title={currentKelas.dosen.nama}>
+                  <span className="truncate font-semibold text-slate-800 text-xs" title={currentKelas.dosen.nama}>
                     {currentKelas.dosen.nama}
                   </span>
                   <span className="text-[8.5px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200 shrink-0">
@@ -756,9 +770,30 @@ export default function MonitoringGridClient({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5">
-                  <Clock size={11} className="text-slate-400 shrink-0" />
-                  <span>{currentKelas.jadwalHari}, {currentKelas.jadwalJam}</span>
+                {/* Jadwal & Ruang sejajar */}
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5 flex-wrap">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Clock size={11} className="text-slate-400 shrink-0" />
+                    <span>
+                      <span className="font-semibold text-slate-800">{currentKelas.jadwalHari}</span>, {currentKelas.jadwalJam}
+                    </span>
+                  </div>
+                  <span className="text-slate-300">•</span>
+                  <div className="flex items-center gap-1 truncate">
+                    <DoorClosed size={11} className="text-slate-400 shrink-0" />
+                    <span className="truncate">
+                      Ruang:{" "}
+                      {currentKelas.ruangan ? (
+                        <span className="font-semibold text-slate-800 text-[10px]">
+                          {currentKelas.ruangan}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">
+                          {currentKelas.modePembelajaran === "DARING" ? "Online (LMS)" : "-"}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
