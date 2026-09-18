@@ -1261,6 +1261,7 @@ export default function KelasClient({
         onClose={() => setIsImportOpen(false)}
         title="Import Data Perkuliahan dari Excel (Format Kurikulum)"
         type="kelas"
+        prodiList={prodiList}
         parseAction={parseKelasExcel}
         commitAction={commitKelasImport}
         onSuccess={async () => {

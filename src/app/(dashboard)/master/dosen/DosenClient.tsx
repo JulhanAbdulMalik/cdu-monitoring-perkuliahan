@@ -627,6 +627,7 @@ export default function DosenClient({
         onClose={() => setIsImportOpen(false)}
         title="Import Data Dosen dari Excel"
         type="dosen"
+        prodiList={prodiList}
         parseAction={parseDosenExcel}
         commitAction={commitDosenImport}
         onSuccess={async () => {

@@ -93,26 +93,52 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
     for (const r of rows) {
       if (!r.nama || !r.prodiId) continue;
 
-      if (r.nidn) {
-        await prisma.dosen.upsert({
-          where: { nidn: r.nidn },
-          update: {
-            nama: r.nama,
-            email: r.email || null,
-            prodiId: r.prodiId,
-          },
-          create: {
-            nama: r.nama,
-            nidn: r.nidn,
-            email: r.email || null,
+      const cleanNama = String(r.nama).trim();
+      const cleanNidn = r.nidn ? String(r.nidn).trim() : null;
+      const cleanEmail = r.email ? String(r.email).trim() : null;
+
+      // 1. Cari dosen yang sudah ada (Anti-Duplikasi):
+      //    a. Berdasarkan NIDN (jika NIDN diisi)
+      //    b. ATAU berdasarkan Nama Dosen (case-insensitive) pada Prodi tersebut atau secara universal
+      let existingDosen = cleanNidn
+        ? await prisma.dosen.findUnique({ where: { nidn: cleanNidn } })
+        : null;
+
+      if (!existingDosen) {
+        existingDosen = await prisma.dosen.findFirst({
+          where: {
+            nama: { equals: cleanNama, mode: "insensitive" },
             prodiId: r.prodiId,
           },
         });
+      }
+
+      if (!existingDosen) {
+        existingDosen = await prisma.dosen.findFirst({
+          where: {
+            nama: { equals: cleanNama, mode: "insensitive" },
+          },
+        });
+      }
+
+      if (existingDosen) {
+        // UPDATE Dosen yang sudah ada (jangan buat duplikat!)
+        await prisma.dosen.update({
+          where: { id: existingDosen.id },
+          data: {
+            nama: cleanNama,
+            nidn: cleanNidn || existingDosen.nidn,
+            email: cleanEmail || existingDosen.email,
+            prodiId: r.prodiId || existingDosen.prodiId,
+          },
+        });
       } else {
+        // Buat baru hanya jika benar-benar belum terdaftar
         await prisma.dosen.create({
           data: {
-            nama: r.nama,
-            email: r.email || null,
+            nama: cleanNama,
+            nidn: cleanNidn,
+            email: cleanEmail,
             prodiId: r.prodiId,
           },
         });
@@ -260,68 +286,161 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
         row["Nama Kelas"] || row["Kode Kelas"] || row["Kelas"] || row["kodeKelas"] || ""
       ).trim().toUpperCase();
 
-      // 2. Kode MK & Nama MK
-      const kodeMk = String(
-        row["Kode Mata Kuliah"] || row["Kode MK"] || row["Kode"] || row["kodeMk"] || ""
-      ).trim().toUpperCase();
-      const namaMk = String(
+      // 2. Kode MK, Nama MK, SKS (Smart Parser untuk format gabungan SIAKAD seperti "26GZ11001 - Biologi Dasar (2.00 SKS)")
+      const rawMk = String(
         row["Mata Kuliah"] || row["Nama Mata Kuliah"] || row["Nama MK"] || row["namaMk"] || ""
       ).trim();
-      const sksRaw = row["SKS"] || row["sks"] || 3;
+
+      const explicitKodeMk = String(
+        row["Kode Mata Kuliah"] || row["Kode MK"] || row["Kode"] || row["kodeMk"] || ""
+      ).trim().toUpperCase();
+
+      let extractedKodeMk = "";
+      let extractedNamaMk = rawMk;
+      let extractedSks = 0;
+
+      // Regex format SIAKAD: "26GZ11001 - Biologi Dasar (2.00 SKS)" atau "26GZ11001-Biologi Dasar (2 SKS)"
+      const mkCombinedMatch = rawMk.match(/^([A-Za-z0-9]+)\s*[-–—]\s*(.+?)(?:\s*\(\s*([\d.]+)\s*SKS\s*\))?$/i);
+      if (mkCombinedMatch) {
+        extractedKodeMk = mkCombinedMatch[1].trim().toUpperCase();
+        extractedNamaMk = mkCombinedMatch[2].trim();
+        if (mkCombinedMatch[3]) {
+          extractedSks = Math.round(parseFloat(mkCombinedMatch[3])) || 3;
+        }
+      }
+
+      const kodeMk = explicitKodeMk || extractedKodeMk;
+      const namaMk = explicitKodeMk ? rawMk : extractedNamaMk;
+      const sksRaw = row["SKS"] || row["sks"] || extractedSks || 3;
       const sks = parseInt(String(sksRaw)) || 3;
 
-      // 3. Program Studi
+      // 3. Program Studi (Smart Parser untuk "S1 - Gizi", "Prodi Pengampu", dll)
       const prodiQuery = String(
-        row["Kode Program Studi"] || row["Program Studi"] || row["Prodi"] || row["prodi"] || row["Kode Prodi"] || ""
+        row["Prodi Pengampu"] ||
+        row["Program Studi Pengampu"] ||
+        row["Kode Program Studi"] ||
+        row["Program Studi"] ||
+        row["Prodi"] ||
+        row["prodi"] ||
+        row["Kode Prodi"] ||
+        ""
       ).trim();
+
+      // Bersihkan prefix jenjang: "S1 - Gizi" -> "Gizi", "S2 - Teknik" -> "Teknik"
+      const cleanProdiQuery = prodiQuery.replace(/^(S[1-3]|D[3-4])\s*[-–—]?\s*/i, "").trim();
 
       // 4. Pengajar / Dosen
-      const dosenQuery = String(
+      const rawDosen = String(
         row["Pengajar"] || row["Dosen"] || row["Nama Dosen"] || row["NIDN Dosen"] || row["dosen"] || ""
       ).trim();
+      // Bersihkan enter / newline pada team teaching: "LAZUARDI...\nDr. CHRIS..." -> "LAZUARDI... / Dr. CHRIS..."
+      let cleanDosen = rawDosen.replace(/[\r\n]+/g, " / ").replace(/\s{2,}/g, " ").trim();
+
+      // Deteksi Otomatis Kelas Jenis 'BIMBINGAN' (Magang, Skripsi, Riset, PKL, SCP, dll)
+      const BIMBINGAN_CODES = [
+        "IN4005", "IN4006", "IN4007", "MS40062", "RS4005", "RS4006", "RS4007", "WU30004", "RS4008"
+      ];
+      const BIMBINGAN_KEYWORDS = [
+        "magang", "skripsi", "riset", "pkl", "praktek kerja lapangan", "review literatur",
+        "publikasi ilmiah", "scp", "bimbingan", "tugas akhir"
+      ];
+
+      const isBimbinganCourse =
+        BIMBINGAN_CODES.some((code) => kodeMk.toUpperCase().includes(code)) ||
+        BIMBINGAN_KEYWORDS.some((kw) => namaMk.toLowerCase().includes(kw)) ||
+        kodeKelas.toUpperCase().includes("SKRIP") ||
+        kodeKelas.toUpperCase().startsWith("IN-") ||
+        kodeKelas.toUpperCase().startsWith("RS-");
 
       // 5. Semester (opsional dari excel, fallback ke activeSemester)
-      const tahunAkademik = String(row["Tahun Akademik"] || row["tahunAkademik"] || "").trim();
+      const tahunAkademik = String(row["Tahun Akademik"] || row["tahunAkademik"] || row["Kur."] || row["Kurikulum"] || "").trim();
       const periode = String(row["Periode"] || row["periode"] || "").trim().toUpperCase();
 
-      // 6. Hari & Jam
-      const hari = String(row["Hari Perkuliahan"] || row["Hari"] || row["hari"] || "Senin").trim();
-      const jam = String(row["Jam Perkuliahan"] || row["Jam"] || row["jam"] || "08:00 - 09:40").trim();
+      // 6. Jadwal Mingguan (Smart Parser untuk "Selasa, 08:00 s.d 09:40 @ B2A" atau format kolom terpisah)
+      const rawJadwalMingguan = String(row["Jadwal Mingguan"] || row["Jadwal"] || row["jadwal"] || "").trim();
+
+      let hari = String(row["Hari Perkuliahan"] || row["Hari"] || row["hari"] || "").trim();
+      let jam = String(row["Jam Perkuliahan"] || row["Jam"] || row["jam"] || "").trim();
+      let rawRuang = String(
+        row["Ruang Kelas"] || row["Ruang"] || row["Ruangan"] || row["ruangKelas"] || row["ruangan"] || ""
+      ).trim();
+
+      if (rawJadwalMingguan) {
+        // Ekstraksi ruangan jika ada @
+        const atParts = rawJadwalMingguan.split("@");
+        if (atParts.length > 1 && !rawRuang) {
+          const roomCand = atParts[1].trim();
+          if (roomCand && roomCand !== "-" && !roomCand.toLowerCase().includes("online")) {
+            rawRuang = roomCand;
+          }
+        }
+
+        const schedulePart = atParts[0].trim();
+
+        // Ekstraksi Hari
+        if (!hari) {
+          const dayMatch = schedulePart.match(/(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu)/i);
+          if (dayMatch) {
+            hari = dayMatch[1].charAt(0).toUpperCase() + dayMatch[1].slice(1).toLowerCase();
+          }
+        }
+
+        // Ekstraksi Jam (misal "08:00 s.d 09:40" atau "07:30 - 10:00")
+        if (!jam) {
+          const timeMatch = schedulePart.match(/(\d{1,2}[:.]\d{2})\s*(?:s\.d|-|s\/d|sampai)\s*(\d{1,2}[:.]\d{2})/i);
+          if (timeMatch) {
+            const start = timeMatch[1].replace(".", ":");
+            const end = timeMatch[2].replace(".", ":");
+            jam = `${start} - ${end}`;
+          }
+        }
+      }
+
+      // Cek apakah jadwal terisi
+      const hasJadwal = Boolean(hari && jam);
 
       // 7. Mode Pembelajaran
-      const rawMode = String(row["Mode Pembelajaran"] || row["Mode (Online / Offline)"] || row["Mode"] || row["mode"] || "ONLINE").trim().toUpperCase();
+      const rawMode = String(row["Mode Pembelajaran"] || row["Mode (Online / Offline)"] || row["Mode"] || row["mode"] || "").trim().toUpperCase();
       let mode: "DARING" | "LURING" | "BIMBINGAN" = "DARING";
-      if (rawMode.includes("BIMBINGAN")) {
+
+      if (isBimbinganCourse || rawMode.includes("BIMBINGAN")) {
         mode = "BIMBINGAN";
-      } else if (rawMode.includes("OFFLINE") || rawMode.includes("LURING")) {
+        rawRuang = ""; // Bimbingan tidak memerlukan ruangan fisik di jadwal mingguan
+      } else if (rawMode.includes("OFFLINE") || rawMode.includes("LURING") || (rawRuang && rawRuang !== "-")) {
         mode = "LURING";
       }
 
-      // 8. Ruang Kelas (Opsional, untuk Offline / Bimbingan jika tatap muka)
-      const rawRuang = String(
-        row["Ruang Kelas"] || row["Ruang"] || row["Ruangan"] || row["ruangKelas"] || row["ruangan"] || ""
-      ).trim();
-      const ruangan = mode !== "DARING" ? (rawRuang || null) : null;
+      // 8. Ruang Kelas
+      const ruangan = mode === "LURING" ? (rawRuang || null) : null;
+      const dosenQuery = cleanDosen;
 
       const errors: string[] = [];
 
       if (!kodeKelas) errors.push("Nama / Kode Kelas wajib diisi");
       if (!kodeMk && !namaMk) errors.push("Kode atau Nama Mata Kuliah wajib diisi");
-      if (!dosenQuery) errors.push("Pengajar / Dosen wajib diisi");
+      if (!cleanDosen) errors.push("Pengajar / Dosen belum diisi");
+      if (!hasJadwal) errors.push("Jadwal mingguan belum diisi");
 
       // Match semester
       let matchedSem = activeSemester;
       if (tahunAkademik && periode) {
         matchedSem = allSemesters.find(
-          (s) => s.tahunAkademik === tahunAkademik && s.periode === periode
+          (s) => s.tahunAkademik.includes(tahunAkademik) && s.periode === periode
+        ) || activeSemester;
+      } else if (tahunAkademik) {
+        matchedSem = allSemesters.find(
+          (s) => s.tahunAkademik.includes(tahunAkademik)
         ) || activeSemester;
       }
 
-      // Match Prodi (case-insensitive to kode or nama)
+      // Match Prodi (case-insensitive to kode or nama or cleanProdiQuery)
       const matchedProdi = allProdi.find(
         (p) =>
           (p.kode && p.kode.toUpperCase() === prodiQuery.toUpperCase()) ||
           (p.nama && p.nama.toLowerCase() === prodiQuery.toLowerCase()) ||
+          (cleanProdiQuery && p.nama.toLowerCase() === cleanProdiQuery.toLowerCase()) ||
+          (cleanProdiQuery && cleanProdiQuery.length >= 3 && p.nama.toLowerCase().includes(cleanProdiQuery.toLowerCase())) ||
+          (cleanProdiQuery && cleanProdiQuery.length >= 3 && cleanProdiQuery.toLowerCase().includes(p.nama.toLowerCase())) ||
           (prodiQuery && p.nama.toLowerCase().includes(prodiQuery.toLowerCase()))
       );
 
