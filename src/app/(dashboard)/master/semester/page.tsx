@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Data Master Semester",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function MasterSemesterPage() {
   const res = await getSemesters();
   const semesters = res.success ? res.data! : [];

@@ -112,6 +112,11 @@ const navGroups: NavGroup[] = [
         icon: GraduationCap,
       },
       {
+        label: "Data Mata Kuliah",
+        href: "/master/mata-kuliah",
+        icon: BookOpen,
+      },
+      {
         label: "Data Perkuliahan",
         href: "/master/kelas",
         icon: School,

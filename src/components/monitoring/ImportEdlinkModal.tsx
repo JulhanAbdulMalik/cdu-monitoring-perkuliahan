@@ -59,25 +59,24 @@ export default function ImportEdlinkModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state when modal opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setFile(null);
-      setParsedResult(null);
-      setApplying(false);
-    }
-  }, [isOpen]);
+  function handleClose() {
+    if (applying) return;
+    setFile(null);
+    setParsedResult(null);
+    setApplying(false);
+    onClose();
+  }
 
   // Handle ESC key to close
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && isOpen && !applying) {
-        onClose();
+        handleClose();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, applying, onClose]);
+  }, [isOpen, applying]);
 
   if (!isOpen) return null;
 
@@ -127,7 +126,7 @@ export default function ImportEdlinkModal({
     toast.success(
       `Data komponen 3 pilar [${targetKelas.kodeKelas}] berhasil diterapkan ke matriks! Silakan periksa dan klik "Simpan Perubahan" di atas untuk menyimpan ke server.`
     );
-    onClose();
+    handleClose();
   }
 
   return (
@@ -160,7 +159,7 @@ export default function ImportEdlinkModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={applying}
             className="w-8 h-8 rounded-lg hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
             title="Tutup (ESC)"
@@ -424,7 +423,7 @@ export default function ImportEdlinkModal({
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/70 shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={applying}
             className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer disabled:opacity-50"
           >

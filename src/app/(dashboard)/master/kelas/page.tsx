@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Data Master Perkuliahan",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function MasterKelasPage() {
   const res = await getKelasList();
   const data = res.success

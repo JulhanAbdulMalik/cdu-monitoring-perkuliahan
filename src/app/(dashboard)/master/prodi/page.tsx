@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Data Master Fakultas & Program Studi",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function MasterProdiPage() {
   const res = await getFakultasAndProdi();
   const data = res.success ? res.data! : { fakultas: [], prodi: [] };

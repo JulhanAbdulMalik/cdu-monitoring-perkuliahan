@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Data Master Dosen",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function MasterDosenPage() {
   const res = await getDosenList();
   const data = res.success ? res.data! : { dosen: [], prodiList: [] };
