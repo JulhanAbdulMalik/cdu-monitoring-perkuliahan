@@ -237,7 +237,7 @@ export async function createLiburSemester(data: {
     const parsed = liburSemesterSchema.parse(data);
 
     const tglMulai = new Date(`${parsed.tanggalMulai}T00:00:00.000Z`);
-    const tglSelesai = new Date(`${parsed.tanggalSelesai}T23:59:59.999Z`);
+    const tglSelesai = new Date(`${parsed.tanggalSelesai}T00:00:00.000Z`);
 
     if (tglSelesai < tglMulai) {
       return { success: false, error: "Tanggal selesai tidak boleh sebelum tanggal mulai" };
@@ -277,7 +277,7 @@ export async function updateLiburSemester(
 ) {
   try {
     const tglMulai = new Date(`${data.tanggalMulai}T00:00:00.000Z`);
-    const tglSelesai = new Date(`${data.tanggalSelesai}T23:59:59.999Z`);
+    const tglSelesai = new Date(`${data.tanggalSelesai}T00:00:00.000Z`);
 
     if (tglSelesai < tglMulai) {
       return { success: false, error: "Tanggal selesai tidak boleh sebelum tanggal mulai" };

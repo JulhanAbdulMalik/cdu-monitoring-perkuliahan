@@ -323,12 +323,36 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
   }
 
   function formatRentangLibur(startInput: Date | string, endInput: Date | string) {
-    const dStart = new Date(startInput);
-    const dEnd = new Date(endInput);
-    const sStr = dStart.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-    const eStr = dEnd.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    function parseDate(input: Date | string) {
+      if (typeof input === "string") {
+        const datePart = input.split("T")[0];
+        const parts = datePart.split("-").map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          return { year: parts[0], month: parts[1], day: parts[2] };
+        }
+      }
+      const d = new Date(input);
+      return {
+        year: d.getUTCFullYear(),
+        month: d.getUTCMonth() + 1,
+        day: d.getUTCDate(),
+      };
+    }
 
-    const diffDays = Math.round((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const pStart = parseDate(startInput);
+    const pEnd = parseDate(endInput);
+
+    const BULAN_INDONESIA = [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    ];
+
+    const sStr = `${pStart.day} ${BULAN_INDONESIA[pStart.month - 1]} ${pStart.year}`;
+    const eStr = `${pEnd.day} ${BULAN_INDONESIA[pEnd.month - 1]} ${pEnd.year}`;
+
+    const msStart = Date.UTC(pStart.year, pStart.month - 1, pStart.day);
+    const msEnd = Date.UTC(pEnd.year, pEnd.month - 1, pEnd.day);
+    const diffDays = Math.max(1, Math.round((msEnd - msStart) / (1000 * 60 * 60 * 24)) + 1);
     const durasiStr = diffDays > 1 ? `${diffDays} hari` : `1 hari`;
 
     if (sStr === eStr) {
