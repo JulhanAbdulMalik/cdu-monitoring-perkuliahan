@@ -123,7 +123,23 @@ export default function MasterImportModal({
   // Buka form edit untuk baris tertentu
   function handleStartEdit(row: ImportPreviewRow) {
     setEditingRowIndex(row.rowIndex);
-    setEditFormData({ ...row.data });
+    const d = { ...row.data };
+
+    // Bersihkan nilai dummy "-" agar form edit terisi nilai yang bersih dan valid
+    if (!d.jadwalHari || d.jadwalHari === "-") {
+      d.jadwalHari = d.modePembelajaran === "BIMBINGAN" ? "Jumat" : "Senin";
+    }
+    if (!d.jadwalJam || d.jadwalJam === "-") {
+      d.jadwalJam = "08:00 - 09:40";
+    }
+    if (!d.dosenNama || d.dosenNama === "-") {
+      d.dosenNama = d.dosenQuery && d.dosenQuery !== "-" ? d.dosenQuery : "";
+    }
+    if (d.dosenQuery === "-") {
+      d.dosenQuery = "";
+    }
+
+    setEditFormData(d);
   }
 
   // Simpan perubahan edit baris ke state pratinjau
@@ -134,19 +150,40 @@ export default function MasterImportModal({
       if (r.rowIndex !== editingRowIndex) return r;
 
       const newData = { ...r.data, ...editFormData };
+
+      // Pastikan nama dosen dan query tersinkronisasi
+      if (newData.dosenNama && !newData.dosenQuery) {
+        newData.dosenQuery = newData.dosenNama;
+      }
+      if (newData.dosenQuery && !newData.dosenNama) {
+        newData.dosenNama = newData.dosenQuery;
+      }
+
+      // Normalisasi jadwal & dosen
+      const cleanHari = String(newData.jadwalHari || "").trim();
+      const cleanJam = String(newData.jadwalJam || "").trim();
+      const cleanDosen = String(newData.dosenNama || newData.dosenQuery || "").trim();
+
+      newData.jadwalHari = cleanHari && cleanHari !== "-" ? cleanHari : "-";
+      newData.jadwalJam = cleanJam && cleanJam !== "-" ? cleanJam : "-";
+      newData.dosenNama = cleanDosen && cleanDosen !== "-" ? cleanDosen : "-";
+      newData.dosenQuery = cleanDosen && cleanDosen !== "-" ? cleanDosen : "";
+
       const errors: string[] = [];
 
       // Validasi ulang sesuai type
       if (type === "kelas") {
         if (!newData.kodeKelas?.trim()) errors.push("Nama / Kode Kelas wajib diisi");
         if (!newData.kodeMk?.trim() && !newData.namaMk?.trim()) errors.push("Kode atau Nama MK wajib diisi");
-        if ((!newData.dosenNama?.trim() && !newData.dosenQuery?.trim()) || newData.dosenNama === "-") {
+        if (!cleanDosen || cleanDosen === "-") {
           errors.push("Pengajar / Dosen belum diisi");
         }
-        if (!newData.jadwalHari?.trim() || newData.jadwalHari === "-" || !newData.jadwalJam?.trim() || newData.jadwalJam === "-") {
+        if (!cleanHari || cleanHari === "-" || !cleanJam || cleanJam === "-") {
           errors.push("Jadwal mingguan belum diisi");
         }
-        if (!newData.prodiNama?.trim() && !newData.prodiQuery?.trim()) errors.push("Program Studi wajib diisi");
+        if (!newData.prodiNama?.trim() && !newData.prodiQuery?.trim()) {
+          errors.push("Program Studi wajib diisi");
+        }
       } else if (type === "dosen") {
         if (!newData.nama?.trim()) errors.push("Nama dosen wajib diisi");
         if (!newData.kodeProdi?.trim()) errors.push("Kode prodi wajib diisi");
@@ -745,10 +782,21 @@ export default function MasterImportModal({
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block font-semibold text-slate-700 mb-1">Pengajar / Dosen</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-semibold text-slate-700">Pengajar / Dosen</label>
+                        {(!editFormData.dosenNama || editFormData.dosenNama === "-") && (
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, dosenNama: "Dosen CDU", dosenQuery: "Dosen CDU" })}
+                            className="text-[10px] font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded border border-purple-200 cursor-pointer transition-colors"
+                          >
+                            + Isi "Dosen CDU"
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
-                        value={editFormData.dosenNama || editFormData.dosenQuery || ""}
+                        value={editFormData.dosenNama && editFormData.dosenNama !== "-" ? editFormData.dosenNama : (editFormData.dosenQuery && editFormData.dosenQuery !== "-" ? editFormData.dosenQuery : "")}
                         onChange={(e) => setEditFormData({ ...editFormData, dosenNama: e.target.value, dosenQuery: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
                         placeholder="Nama Dosen & Gelar"
@@ -760,7 +808,7 @@ export default function MasterImportModal({
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">Hari Perkuliahan</label>
                       <select
-                        value={editFormData.jadwalHari || "Senin"}
+                        value={editFormData.jadwalHari && editFormData.jadwalHari !== "-" ? editFormData.jadwalHari : "Senin"}
                         onChange={(e) => setEditFormData({ ...editFormData, jadwalHari: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-[#a80063]"
                       >
@@ -775,11 +823,24 @@ export default function MasterImportModal({
                       <label className="block font-semibold text-slate-700 mb-1">Jam Perkuliahan</label>
                       <input
                         type="text"
-                        value={editFormData.jadwalJam || "08:00 - 09:40"}
+                        value={editFormData.jadwalJam && editFormData.jadwalJam !== "-" ? editFormData.jadwalJam : ""}
                         onChange={(e) => setEditFormData({ ...editFormData, jadwalJam: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                        placeholder="08:00 - 09:40"
+                        placeholder="Contoh: 08:00 - 09:40"
                       />
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400 font-medium">Pilihan cepat:</span>
+                        {["08:00 - 09:40", "10:00 - 11:40", "13:00 - 14:40", "15:30 - 17:10", "Fleksibel"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, jadwalJam: preset })}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#fdf2f8] hover:text-[#a80063] text-slate-600 border border-slate-200 cursor-pointer transition-colors"
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
