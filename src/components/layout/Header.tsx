@@ -11,12 +11,29 @@ import {
   ChevronDown,
   LogOut,
   ShieldCheck,
+  Shield,
+  GraduationCap,
   PanelLeft,
 } from "lucide-react";
 import { useState } from "react";
 import { useSidebar } from "./SidebarContext";
+import { cn } from "@/lib/utils";
 
-export default function Header() {
+interface HeaderProps {
+  initialProdis?: { id: string; nama: string; kode: string }[];
+}
+
+function extractProdiFromName(name?: string | null): string | null {
+  if (!name) return null;
+  // Format standar: "Kaprodi S1 - Akuntansi", "Kaprodi Akuntansi", "Prodi Akuntansi"
+  const match = name.match(/^(?:Kaprodi|Prodi)\s+(?:(?:S1|D3|D4)\s*[-–]\s*)?(.*)$/i);
+  if (match && match[1]?.trim()) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+export default function Header({ initialProdis = [] }: HeaderProps) {
   const { data: session } = useSession();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -32,12 +49,50 @@ export default function Header() {
 
   const userRole = (session?.user as any)?.role;
   const isSuperAdmin = userRole === "SUPER_ADMIN";
-  const roleLabel =
-    userRole === "SUPER_ADMIN"
-      ? "Super Administrator"
-      : userRole === "ADMIN"
-      ? "Administrator"
-      : "Staff CDU";
+
+  // Ambil prodi dari props (server component), session JWT, atau parsing nama akun
+  const effectiveProdis =
+    (initialProdis && initialProdis.length > 0 ? initialProdis : null) ||
+    ((session?.user as any)?.prodis as { id: string; nama: string; kode: string }[] | undefined) ||
+    [];
+
+  const effectiveProdiNames =
+    effectiveProdis.length > 0
+      ? effectiveProdis.map((p) => p.nama)
+      : ((session?.user as any)?.prodiNames as string[] | undefined) || [];
+
+  let roleLabel = "Staff CDU";
+  let roleBadgeClass = "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]";
+  let roleSubtextColor = "text-[#a80063]";
+  let RoleIcon = ShieldCheck;
+
+  if (userRole === "SUPER_ADMIN") {
+    roleLabel = "Super Administrator";
+    roleBadgeClass = "bg-gradient-to-r from-[#fdf2f8] to-[#fce7f3] text-[#a80063] border-[#fbcfe8]";
+    roleSubtextColor = "text-[#a80063]";
+    RoleIcon = ShieldCheck;
+  } else if (userRole === "ADMIN") {
+    roleLabel = "Staff CDU";
+    roleBadgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+    roleSubtextColor = "text-blue-600";
+    RoleIcon = Shield;
+  } else if (userRole === "DOSEN") {
+    RoleIcon = GraduationCap;
+    roleBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    roleSubtextColor = "text-emerald-700";
+
+    const singleProdiName =
+      effectiveProdiNames[0] ||
+      extractProdiFromName(session?.user?.name);
+
+    if (effectiveProdiNames.length > 1) {
+      roleLabel = `Dosen (${effectiveProdiNames.length} Prodi)`;
+    } else if (singleProdiName) {
+      roleLabel = `Prodi ${singleProdiName}`;
+    } else {
+      roleLabel = "Dosen (Kaprodi)";
+    }
+  }
 
   const initials = session?.user?.name
     ? session.user.name
@@ -148,7 +203,7 @@ export default function Header() {
               <p className="text-xs font-semibold text-slate-800 leading-none">
                 {session?.user?.name ?? "Admin CDU"}
               </p>
-              <p className="text-[10px] font-medium text-[#a80063] leading-none mt-1">
+              <p className={cn("text-[10px] font-medium leading-none mt-1", roleSubtextColor)}>
                 {roleLabel}
               </p>
             </div>
@@ -163,8 +218,13 @@ export default function Header() {
                 <p className="text-xs font-semibold text-slate-800 truncate mt-0.5">
                   {session?.user?.email ?? "admin@nusaputra.ac.id"}
                 </p>
-                <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#fdf2f8] text-[#a80063] text-[9px] font-semibold">
-                  <ShieldCheck size={10} />
+                <div
+                  className={cn(
+                    "mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border",
+                    roleBadgeClass
+                  )}
+                >
+                  <RoleIcon size={10} />
                   <span>{roleLabel}</span>
                 </div>
               </div>

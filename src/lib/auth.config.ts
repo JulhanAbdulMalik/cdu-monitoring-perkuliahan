@@ -31,6 +31,8 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.role = (user as { role?: string }).role;
         token.prodiIds = (user as { prodiIds?: string[] }).prodiIds || [];
+        token.prodis = (user as { prodis?: any[] }).prodis || [];
+        token.prodiNames = (user as { prodiNames?: string[] }).prodiNames || [];
       }
       return token;
     },
@@ -39,6 +41,8 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.prodiIds = (token.prodiIds as string[]) || [];
+        (session.user as any).prodis = token.prodis || [];
+        (session.user as any).prodiNames = token.prodiNames || [];
       }
       return session;
     },

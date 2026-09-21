@@ -50,7 +50,7 @@ export const { handlers, auth: rawAuth, signIn, signOut } = NextAuth({
           },
           include: {
             prodis: {
-              select: { id: true },
+              select: { id: true, nama: true, kode: true },
             },
           },
         });
@@ -66,6 +66,8 @@ export const { handlers, auth: rawAuth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           prodiIds: user.prodis.map((p) => p.id),
+          prodis: user.prodis.map((p) => ({ id: p.id, nama: p.nama, kode: p.kode })),
+          prodiNames: user.prodis.map((p) => p.nama),
         };
       },
     }),

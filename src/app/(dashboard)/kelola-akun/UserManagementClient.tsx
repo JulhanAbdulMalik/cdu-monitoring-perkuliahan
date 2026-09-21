@@ -489,7 +489,7 @@ export default function UserManagementClient({
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <p className="font-bold text-xs text-slate-900 leading-tight">
+                              <p className="font-semibold text-xs text-slate-900 leading-tight">
                                 {user.name}
                               </p>
                               {isCurrent && (
