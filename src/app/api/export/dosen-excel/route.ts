@@ -6,22 +6,50 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getLaporanDosen } from "@/actions/laporan";
 import { formatPct } from "@/lib/utils";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const userProdiIds = ((session.user as any).prodiIds as string[]) || [];
+    const isDosen = userRole === "DOSEN";
+
     const { searchParams } = new URL(request.url);
     const semesterId = searchParams.get("semesterId") || undefined;
+    const prodiId = searchParams.get("prodiId") || undefined;
 
-    const res = await getLaporanDosen(semesterId);
+    let targetProdiId = prodiId;
+    let allowedProdiIds: string[] | undefined = undefined;
+
+    if (isDosen) {
+      allowedProdiIds = userProdiIds;
+      if (prodiId && prodiId !== "ALL" && userProdiIds.includes(prodiId)) {
+        targetProdiId = prodiId;
+      } else {
+        targetProdiId = userProdiIds[0];
+      }
+    }
+
+    const res = await getLaporanDosen(semesterId, targetProdiId, allowedProdiIds);
     if (!res.success || !res.data) {
       return NextResponse.json({ error: "Gagal memuat data laporan dosen" }, { status: 500 });
     }
 
-    const { dosenReportList, semesters, activeSemesterId } = res.data;
+    const { dosenReportList, semesters, prodiList, activeSemesterId } = res.data;
     const currentSem =
       semesters.find((s) => s.id === (semesterId || activeSemesterId)) || semesters[0];
+
+    const selectedProdiObj =
+      targetProdiId && targetProdiId !== "ALL"
+        ? prodiList.find((p) => p.id === targetProdiId)
+        : undefined;
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "CDU Nusa Putra University";
@@ -44,7 +72,9 @@ export async function GET(request: NextRequest) {
 
     worksheet.mergeCells("A2:K2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN EVALUASI KINERJA DOSEN - SEMESTER ${
+    subtitleCell.value = `LAPORAN EVALUASI KINERJA DOSEN${
+      selectedProdiObj ? ` - PRODI ${selectedProdiObj.nama.toUpperCase()}` : ""
+    } - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "AKTIF"
     }`;
     subtitleCell.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
@@ -228,7 +258,9 @@ export async function GET(request: NextRequest) {
 
     detailSheet.mergeCells("A2:N2");
     const detailSubtitle = detailSheet.getCell("A2");
-    detailSubtitle.value = `RINCIAN PERFORMA KELAS PER DOSEN PENGAMPU - SEMESTER ${
+    detailSubtitle.value = `RINCIAN PERFORMA KELAS PER DOSEN PENGAMPU${
+      selectedProdiObj ? ` - PRODI ${selectedProdiObj.nama.toUpperCase()}` : ""
+    } - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "AKTIF"
     }`;
     detailSubtitle.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
@@ -394,12 +426,13 @@ export async function GET(request: NextRequest) {
 
     // Return as downloadable Excel file
     const buffer = await workbook.xlsx.writeBuffer();
+    const prodiSuffix = selectedProdiObj ? `_${selectedProdiObj.kode}` : "";
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Laporan_Evaluasi_Kinerja_Dosen_CDU_${
+        "Content-Disposition": `attachment; filename="Laporan_Evaluasi_Kinerja_Dosen_CDU${prodiSuffix}_${
           currentSem ? currentSem.tahunAkademik.replace("/", "-") : "2025-2026"
         }.xlsx"`,
       },

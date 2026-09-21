@@ -47,6 +47,8 @@ interface RekapClientProps {
   semesters: SemesterOption[];
   prodiList: ProdiOption[];
   defaultSemesterId: string;
+  initialFilterProdi?: string;
+  isDosen?: boolean;
 }
 
 export type RekapSortKey =
@@ -82,9 +84,13 @@ export default function RekapClient({
   semesters,
   prodiList,
   defaultSemesterId,
+  initialFilterProdi,
+  isDosen = false,
 }: RekapClientProps) {
+  const defaultProdiVal =
+    initialFilterProdi || (isDosen && prodiList.length > 0 ? prodiList[0].id : "ALL");
   const [selectedSemester, setSelectedSemester] = useState<string>(defaultSemesterId);
-  const [filterProdi, setFilterProdi] = useState<string>("ALL");
+  const [filterProdi, setFilterProdi] = useState<string>(defaultProdiVal);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterMode, setFilterMode] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -419,8 +425,11 @@ export default function RekapClient({
                   : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
               }`}
               title="Filter Program Studi"
+              disabled={isDosen && prodiList.length <= 1}
             >
-              <option value="ALL">Semua Prodi</option>
+              {!isDosen || prodiList.length > 1 ? (
+                <option value="ALL">Semua Prodi</option>
+              ) : null}
               {prodiList.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.kode} - {p.nama}
@@ -462,12 +471,12 @@ export default function RekapClient({
             </select>
 
             {/* Reset Button */}
-            {(searchQuery || filterProdi !== "ALL" || filterMode !== "ALL" || filterStatus !== "ALL") && (
+            {(searchQuery || filterProdi !== defaultProdiVal || filterMode !== "ALL" || filterStatus !== "ALL") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
-                  setFilterProdi("ALL");
+                  setFilterProdi(defaultProdiVal);
                   setFilterMode("ALL");
                   setFilterStatus("ALL");
                 }}

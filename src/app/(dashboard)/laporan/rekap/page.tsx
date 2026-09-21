@@ -24,12 +24,13 @@ export default async function RekapPage({ searchParams }: RekapPageProps) {
   const targetProdiId = isDosen
     ? (resolvedSearchParams.prodiId && userProdiIds.includes(resolvedSearchParams.prodiId)
         ? resolvedSearchParams.prodiId
-        : undefined)
+        : userProdiIds[0])
     : resolvedSearchParams.prodiId;
 
   const res = await getRekapLaporan(
     resolvedSearchParams.semesterId,
-    targetProdiId
+    targetProdiId,
+    isDosen ? userProdiIds : undefined
   );
 
   const data = res.success
@@ -55,6 +56,8 @@ export default async function RekapPage({ searchParams }: RekapPageProps) {
       semesters={data.semesters as any}
       prodiList={filteredProdiList as any}
       defaultSemesterId={resolvedSearchParams.semesterId || data.activeSemesterId || ""}
+      initialFilterProdi={targetProdiId || (isDosen && userProdiIds.length > 0 ? userProdiIds[0] : "ALL")}
+      isDosen={isDosen}
     />
   );
 }

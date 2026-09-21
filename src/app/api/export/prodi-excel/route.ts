@@ -1,22 +1,30 @@
-// src/app/api/export/prodi-excel/route.ts
-// ExcelJS Export API Route for CDU Laporan Performa per Program Studi (Weekly / Date Range)
-
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getLaporanProdi } from "@/actions/laporan";
 import { getWeekDates, formatTanggalRange, formatPct } from "@/lib/utils";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const userProdiIds = ((session.user as any).prodiIds as string[]) || [];
+    const isDosen = userRole === "DOSEN";
+    const allowedProdiIds = isDosen ? userProdiIds : undefined;
+
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
     const semesterId = searchParams.get("semesterId") || undefined;
     const isAllTime = !startDate && !endDate;
 
-    const res = await getLaporanProdi(semesterId, startDate, endDate);
+    const res = await getLaporanProdi(semesterId, startDate, endDate, allowedProdiIds);
     if (!res.success || !res.data) {
       return NextResponse.json({ error: "Gagal memuat data laporan prodi" }, { status: 500 });
     }
@@ -44,18 +52,22 @@ export async function GET(request: NextRequest) {
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 25;
 
+    const singleProdi = isDosen && prodiReportList.length === 1 ? prodiReportList[0] : undefined;
+    const subtitleProdi = singleProdi ? ` - PRODI ${singleProdi.nama.toUpperCase()}` : "";
+
     worksheet.mergeCells("A2:R2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN PERFORMA PROGRAM STUDI PER PERIODE (${periodeText.toUpperCase()})`;
+    subtitleCell.value = `LAPORAN PERFORMA PROGRAM STUDI${subtitleProdi} PER PERIODE (${periodeText.toUpperCase()})`;
     subtitleCell.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
     subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(2).height = 20;
 
     worksheet.mergeCells("A3:R3");
     const semCell = worksheet.getCell("A3");
+    const rataLabel = isDosen ? "Rata Kehadiran Prodi" : "Rata Kehadiran Univ";
     semCell.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
-    } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | Rata Kehadiran Univ: ${formatPct(
+    } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | ${rataLabel}: ${formatPct(
       globalSummary.avgKehadiranRentangSemua
     )} | Rata Konten 3P: ${formatPct(globalSummary.avgKontenRentangSemua)} | Live Conf: ${globalSummary.totalConfRentangSemua}`;
     semCell.font = { name: "Arial", size: 9, italic: true, color: { argb: "FF64748B" } };
@@ -317,7 +329,10 @@ export async function GET(request: NextRequest) {
     sheetKendala.getColumn(9).width = 28; // Catatan
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const filename = isAllTime ? "Laporan_Prodi_All_Time.xlsx" : `Laporan_Prodi_${startDate}_sd_${endDate}.xlsx`;
+    const prodiSuffix = singleProdi ? `_${singleProdi.kode}` : "";
+    const filename = isAllTime
+      ? `Laporan_Prodi${prodiSuffix}_All_Time.xlsx`
+      : `Laporan_Prodi${prodiSuffix}_${startDate}_sd_${endDate}.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200,

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 interface LaporanDosenPageProps {
-  searchParams: Promise<{ semesterId?: string }>;
+  searchParams: Promise<{ semesterId?: string; prodiId?: string }>;
 }
 
 export default async function LaporanDosenPage({
@@ -23,7 +23,17 @@ export default async function LaporanDosenPage({
   const isDosen = userRole === "DOSEN";
 
   const resolvedSearchParams = await searchParams;
-  const res = await getLaporanDosen(resolvedSearchParams.semesterId);
+  const targetProdiId = isDosen
+    ? (resolvedSearchParams.prodiId && userProdiIds.includes(resolvedSearchParams.prodiId)
+        ? resolvedSearchParams.prodiId
+        : userProdiIds[0])
+    : resolvedSearchParams.prodiId;
+
+  const res = await getLaporanDosen(
+    resolvedSearchParams.semesterId,
+    targetProdiId,
+    isDosen ? userProdiIds : undefined
+  );
 
   const data = res.success
     ? res.data!
@@ -34,6 +44,10 @@ export default async function LaporanDosenPage({
         activeSemesterId: "",
       };
 
+  const filteredProdiList = isDosen
+    ? data.prodiList.filter((p: any) => userProdiIds.includes(p.id))
+    : data.prodiList;
+
   const filteredDosenReports = isDosen
     ? data.dosenReportList.filter((d: any) => userProdiIds.includes(d.prodi?.id))
     : data.dosenReportList;
@@ -42,7 +56,10 @@ export default async function LaporanDosenPage({
     <LaporanDosenClient
       dosenReports={filteredDosenReports as any}
       semesters={data.semesters as any}
+      prodiList={filteredProdiList as any}
       defaultSemesterId={resolvedSearchParams.semesterId || data.activeSemesterId || ""}
+      initialFilterProdi={targetProdiId || (isDosen && userProdiIds.length > 0 ? userProdiIds[0] : "ALL")}
+      isDosen={isDosen}
     />
   );
 }

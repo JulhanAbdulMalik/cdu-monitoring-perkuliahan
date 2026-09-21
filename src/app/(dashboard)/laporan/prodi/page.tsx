@@ -35,7 +35,8 @@ export default async function LaporanProdiPage({
   const res = await getLaporanProdi(
     resolvedSearchParams.semesterId,
     targetStartDate,
-    targetEndDate
+    targetEndDate,
+    isDosen ? userProdiIds : undefined
   );
 
   const data = res.success && res.data

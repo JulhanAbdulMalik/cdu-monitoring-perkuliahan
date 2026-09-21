@@ -63,10 +63,19 @@ interface SemesterOption {
   aktif: boolean;
 }
 
+interface ProdiOption {
+  id: string;
+  nama: string;
+  kode: string;
+}
+
 interface LaporanDosenClientProps {
   dosenReports: DosenReportItem[];
   semesters: SemesterOption[];
+  prodiList?: ProdiOption[];
   defaultSemesterId: string;
+  initialFilterProdi?: string;
+  isDosen?: boolean;
 }
 
 export type DosenSortKey =
@@ -94,9 +103,15 @@ export type DosenSortColumn =
 export default function LaporanDosenClient({
   dosenReports,
   semesters,
+  prodiList = [],
   defaultSemesterId,
+  initialFilterProdi,
+  isDosen = false,
 }: LaporanDosenClientProps) {
+  const defaultProdiVal =
+    initialFilterProdi || (isDosen && prodiList.length > 0 ? prodiList[0].id : "ALL");
   const [selectedSemester, setSelectedSemester] = useState(defaultSemesterId);
+  const [filterProdi, setFilterProdi] = useState(defaultProdiVal);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [expandedDosenId, setExpandedDosenId] = useState<string | null>(null);
@@ -109,14 +124,15 @@ export default function LaporanDosenClient({
   // Reset page ke 1 saat filter atau pencarian berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatus, selectedSemester]);
+  }, [searchQuery, filterStatus, filterProdi, selectedSemester]);
 
   const filtered = dosenReports.filter((d) => {
     const matchSearch =
       d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.nidn && d.nidn.includes(searchQuery));
     const matchStatus = filterStatus === "ALL" || d.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchProdi = filterProdi === "ALL" || d.prodi?.id === filterProdi;
+    return matchSearch && matchStatus && matchProdi;
   });
 
   const sortedDosen = [...filtered].sort((a, b) => {
@@ -270,7 +286,7 @@ export default function LaporanDosenClient({
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Link
-            href={`/api/export/dosen-excel?semesterId=${selectedSemester}`}
+            href={`/api/export/dosen-excel?semesterId=${selectedSemester}&prodiId=${filterProdi}`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer shadow-sm"
             target="_blank"
             download
@@ -327,6 +343,30 @@ export default function LaporanDosenClient({
 
           {/* Right Controls: Filter & Reset */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Prodi Filter */}
+            {prodiList && prodiList.length > 0 && (
+              <select
+                value={filterProdi}
+                onChange={(e) => setFilterProdi(e.target.value)}
+                className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
+                  filterProdi !== "ALL"
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Filter Program Studi"
+                disabled={isDosen && prodiList.length <= 1}
+              >
+                {(!isDosen || prodiList.length > 1) && (
+                  <option value="ALL">Semua Prodi</option>
+                )}
+                {prodiList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.kode} - {p.nama}
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Status / Kinerja Filter */}
             <select
               value={filterStatus}
@@ -344,12 +384,13 @@ export default function LaporanDosenClient({
             </select>
 
             {/* Reset All Filters Button */}
-            {(searchQuery || filterStatus !== "ALL") && (
+            {(searchQuery || filterStatus !== "ALL" || filterProdi !== defaultProdiVal) && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setFilterStatus("ALL");
+                  setFilterProdi(defaultProdiVal);
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"

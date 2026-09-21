@@ -414,7 +414,7 @@ export default function LaporanProdiClient({
               {formatPct(globalSummary.avgKehadiranRentangSemua)}
             </h3>
             <span className="text-[11px] text-slate-500">
-              Universitas
+              {globalSummary.totalProdi === 1 ? "Program Studi" : "Universitas"}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
@@ -432,7 +432,7 @@ export default function LaporanProdiClient({
               {formatPct(globalSummary.avgKontenRentangSemua)}
             </h3>
             <span className="text-[11px] text-slate-500">
-              Universitas
+              {globalSummary.totalProdi === 1 ? "Program Studi" : "Universitas"}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">

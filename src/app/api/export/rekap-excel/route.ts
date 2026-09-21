@@ -6,23 +6,50 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getRekapLaporan } from "@/actions/laporan";
 import { formatPct } from "@/lib/utils";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const userProdiIds = ((session.user as any).prodiIds as string[]) || [];
+    const isDosen = userRole === "DOSEN";
+
     const { searchParams } = new URL(request.url);
     const semesterId = searchParams.get("semesterId") || undefined;
     const prodiId = searchParams.get("prodiId") || undefined;
 
-    const res = await getRekapLaporan(semesterId, prodiId);
+    let targetProdiId = prodiId;
+    let allowedProdiIds: string[] | undefined = undefined;
+
+    if (isDosen) {
+      allowedProdiIds = userProdiIds;
+      if (prodiId && prodiId !== "ALL" && userProdiIds.includes(prodiId)) {
+        targetProdiId = prodiId;
+      } else {
+        targetProdiId = userProdiIds[0];
+      }
+    }
+
+    const res = await getRekapLaporan(semesterId, targetProdiId, allowedProdiIds);
     if (!res.success || !res.data) {
       return NextResponse.json({ error: "Gagal memuat data rekap" }, { status: 500 });
     }
 
-    const { rekapList, semesters, activeSemesterId } = res.data;
+    const { rekapList, semesters, prodiList, activeSemesterId } = res.data;
     const currentSem =
       semesters.find((s) => s.id === (semesterId || activeSemesterId)) || semesters[0];
+
+    const selectedProdiObj =
+      targetProdiId && targetProdiId !== "ALL"
+        ? prodiList.find((p) => p.id === targetProdiId)
+        : undefined;
 
     // Buat Workbook ExcelJS
     const workbook = new ExcelJS.Workbook();
@@ -46,7 +73,9 @@ export async function GET(request: NextRequest) {
 
     worksheet.mergeCells("A2:AD2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN REKAPITULASI MONITORING PERKULIAHAN (3 PILAR) - SEMESTER ${
+    subtitleCell.value = `LAPORAN REKAPITULASI MONITORING PERKULIAHAN (3 PILAR)${
+      selectedProdiObj ? ` - PRODI ${selectedProdiObj.nama.toUpperCase()}` : ""
+    } - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : ""
     }`;
     subtitleCell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF334155" } };
@@ -534,12 +563,13 @@ export async function GET(request: NextRequest) {
 
     // Return as downloadable Excel file
     const buffer = await workbook.xlsx.writeBuffer();
+    const prodiSuffix = selectedProdiObj ? `_${selectedProdiObj.kode}` : "";
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Rekap_Monitoring_3Pilar_CDU_${
+        "Content-Disposition": `attachment; filename="Rekap_Monitoring_3Pilar_CDU${prodiSuffix}_${
           currentSem ? currentSem.tahunAkademik.replace("/", "-") : "2025-2026"
         }.xlsx"`,
       },

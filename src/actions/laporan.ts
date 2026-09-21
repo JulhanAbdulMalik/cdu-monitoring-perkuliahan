@@ -91,10 +91,16 @@ export interface ClassRekapSummary {
   evaluasiNote: string;
 }
 
-export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
+export async function getRekapLaporan(
+  semesterId?: string,
+  prodiId?: string,
+  allowedProdiIds?: string[]
+) {
   try {
+    const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
+
     // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
-    const [allSemesters, allProdi] = await Promise.all([
+    const [allSemesters, rawAllProdi] = await Promise.all([
       prisma.semester.findMany({
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
@@ -103,13 +109,30 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
       }),
     ]);
 
+    const allProdi = isRestricted
+      ? rawAllProdi.filter((p) => allowedProdiIds!.includes(p.id))
+      : rawAllProdi;
+
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
+
+    let prodiWhere: any = {};
+    if (isRestricted) {
+      if (prodiId && prodiId !== "ALL" && allowedProdiIds!.includes(prodiId)) {
+        prodiWhere = { prodiId };
+      } else {
+        prodiWhere = { prodiId: { in: allowedProdiIds! } };
+      }
+    } else {
+      if (prodiId && prodiId !== "ALL") {
+        prodiWhere = { prodiId };
+      }
+    }
 
     const rawClasses = await prisma.kelas.findMany({
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
-        ...(prodiId && prodiId !== "ALL" ? { mataKuliah: { prodiId } } : {}),
+        ...(Object.keys(prodiWhere).length > 0 ? { mataKuliah: prodiWhere } : {}),
       },
       include: {
         semester: {
@@ -261,9 +284,13 @@ export async function getRekapLaporan(semesterId?: string, prodiId?: string) {
   }
 }
 
-export async function getLaporanDosen(semesterId?: string) {
+export async function getLaporanDosen(
+  semesterId?: string,
+  prodiId?: string,
+  allowedProdiIds?: string[]
+) {
   try {
-    const rekapRes = await getRekapLaporan(semesterId);
+    const rekapRes = await getRekapLaporan(semesterId, prodiId, allowedProdiIds);
     if (!rekapRes.success || !rekapRes.data) {
       return { success: false, error: "Gagal memuat data laporan dosen" };
     }
@@ -601,7 +628,8 @@ export interface LaporanProdiResponse {
 export async function getLaporanProdi(
   semesterId?: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  allowedProdiIds?: string[]
 ): Promise<LaporanProdiResponse> {
   try {
     const isAllTime = !startDate && !endDate;
@@ -616,8 +644,10 @@ export async function getLaporanProdi(
       endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
     }
 
+    const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
+
     // Optimasi Waterfall: Ambil allSemesters & allProdi secara paralel
-    const [allSemesters, allProdi] = await Promise.all([
+    const [allSemesters, rawAllProdi] = await Promise.all([
       prisma.semester.findMany({
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
@@ -630,6 +660,10 @@ export async function getLaporanProdi(
       }),
     ]);
 
+    const allProdi = isRestricted
+      ? rawAllProdi.filter((p) => allowedProdiIds!.includes(p.id))
+      : rawAllProdi;
+
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
 
@@ -637,6 +671,7 @@ export async function getLaporanProdi(
     const rawClasses = await prisma.kelas.findMany({
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
+        ...(isRestricted ? { mataKuliah: { prodiId: { in: allowedProdiIds! } } } : {}),
       },
       include: {
         semester: {
