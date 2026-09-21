@@ -830,7 +830,7 @@ export default function MasterImportModal({
                       />
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         <span className="text-[10px] text-slate-400 font-medium">Pilihan cepat:</span>
-                        {["08:00 - 09:40", "10:00 - 11:40", "13:00 - 14:40", "15:30 - 17:10", "Fleksibel"].map((preset) => (
+                        {["08:00 - 09:40", "10:00 - 11:40", "13:00 - 14:40", "15:30 - 17:10"].map((preset) => (
                           <button
                             key={preset}
                             type="button"
