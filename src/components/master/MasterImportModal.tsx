@@ -159,6 +159,13 @@ export default function MasterImportModal({
         newData.dosenNama = newData.dosenQuery;
       }
 
+      // Pastikan mataKuliahNama terupdate jika kode atau nama MK diedit
+      if (newData.kodeMk || newData.namaMk) {
+        newData.mataKuliahNama = newData.kodeMk
+          ? `${newData.kodeMk} - ${newData.namaMk || ""}`
+          : newData.namaMk;
+      }
+
       // Normalisasi jadwal & dosen
       const cleanHari = String(newData.jadwalHari || "").trim();
       const cleanJam = String(newData.jadwalJam || "").trim();

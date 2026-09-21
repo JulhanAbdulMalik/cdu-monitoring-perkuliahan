@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/kelas";
 import MasterImportModal from "@/components/master/MasterImportModal";
+import ResetKelasModal from "@/components/master/ResetKelasModal";
 import { parseKelasExcel, commitKelasImport } from "@/actions/master-import";
 import { generateTemplate } from "@/lib/template-generator";
 import TablePagination from "@/components/common/TablePagination";
@@ -158,6 +159,7 @@ export default function KelasClient({
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [editingKelas, setEditingKelas] = useState<KelasItem | null>(null);
 
   // Form states (Unified 1-Window Form)
@@ -529,6 +531,15 @@ export default function KelasClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsResetModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-semibold transition-all cursor-pointer"
+            title="Reset / Bersihkan Data Perkuliahan"
+          >
+            <Trash2 size={14} />
+            <span>Bersihkan Data</span>
+          </button>
+
           <button
             onClick={() => setIsImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer"
@@ -1292,6 +1303,19 @@ export default function KelasClient({
         onSuccess={async () => {
           await handleReloadData();
         }}
+      />
+
+      {/* ── Bulk Reset / Cleanup Modal ────────────────────────────────────── */}
+      <ResetKelasModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onSuccess={async () => {
+          await handleReloadData();
+        }}
+        prodiList={prodiList}
+        semesterList={semesters}
+        activeSemesterId={selectedSemester !== "ALL" ? selectedSemester : defaultSemesterId}
+        defaultProdiId={filterProdi !== "ALL" ? filterProdi : "ALL"}
       />
     </div>
   );

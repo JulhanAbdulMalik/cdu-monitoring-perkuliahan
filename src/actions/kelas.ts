@@ -364,3 +364,163 @@ export async function deleteKelas(id: string) {
     return { success: false, error: error.message || "Gagal menghapus kelas" };
   }
 }
+
+export interface ResetKelasStats {
+  kelasCount: number;
+  sesiCount: number;
+  emptyMkCount: number;
+  prodiNama: string;
+  semesterNama: string;
+}
+
+export async function getResetKelasStats(options: {
+  semesterId?: string;
+  prodiId?: string;
+}) {
+  try {
+    const whereKelas: any = {};
+    if (options.semesterId && options.semesterId !== "ALL") {
+      whereKelas.semesterId = options.semesterId;
+    }
+    if (options.prodiId && options.prodiId !== "ALL") {
+      whereKelas.mataKuliah = { prodiId: options.prodiId };
+    }
+
+    const [kelasCount, kelasList] = await Promise.all([
+      prisma.kelas.count({ where: whereKelas }),
+      prisma.kelas.findMany({
+        where: whereKelas,
+        select: { id: true, mataKuliahId: true },
+      }),
+    ]);
+
+    const kelasIds = kelasList.map((k) => k.id);
+    const sesiCount = await prisma.monitoringSesi.count({
+      where: { kelasId: { in: kelasIds } },
+    });
+
+    // Hitung estimasi Mata Kuliah yang akan menjadi 0 kelas jika filter ini dihapus
+    let emptyMkCount = 0;
+    const deletedMkIds = new Set(kelasList.map((k) => k.mataKuliahId));
+    const whereMkFilter: any = {};
+    if (options.prodiId && options.prodiId !== "ALL") {
+      whereMkFilter.prodiId = options.prodiId;
+    }
+
+    const mks = await prisma.mataKuliah.findMany({
+      where: whereMkFilter,
+      include: {
+        kelas: { select: { id: true } },
+      },
+    });
+
+    for (const m of mks) {
+      // MK kosong saat ini, atau semua kelas di dalamnya termasuk yang akan dihapus
+      const remainingClasses = m.kelas.filter((k) => !kelasIds.includes(k.id));
+      if (remainingClasses.length === 0) {
+        emptyMkCount++;
+      }
+    }
+
+    let prodiNama = "Semua Program Studi";
+    if (options.prodiId && options.prodiId !== "ALL") {
+      const p = await prisma.prodi.findUnique({ where: { id: options.prodiId } });
+      if (p) prodiNama = p.nama;
+    }
+
+    let semesterNama = "Semua Semester";
+    if (options.semesterId && options.semesterId !== "ALL") {
+      const s = await prisma.semester.findUnique({ where: { id: options.semesterId } });
+      if (s) semesterNama = `${s.tahunAkademik} ${s.periode}`;
+    }
+
+    return {
+      success: true,
+      data: {
+        kelasCount,
+        sesiCount,
+        emptyMkCount,
+        prodiNama,
+        semesterNama,
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal mengambil statistik pembersihan" };
+  }
+}
+
+export async function resetKelasData(options: {
+  semesterId?: string;
+  prodiId?: string;
+  cleanupEmptyMk?: boolean;
+}) {
+  try {
+    const whereKelas: any = {};
+    if (options.semesterId && options.semesterId !== "ALL") {
+      whereKelas.semesterId = options.semesterId;
+    }
+    if (options.prodiId && options.prodiId !== "ALL") {
+      whereKelas.mataKuliah = { prodiId: options.prodiId };
+    }
+
+    // Ambil list ID kelas yang akan dihapus
+    const targetedKelas = await prisma.kelas.findMany({
+      where: whereKelas,
+      select: { id: true, mataKuliahId: true },
+    });
+
+    const targetKelasIds = targetedKelas.map((k) => k.id);
+    const kelasCount = targetKelasIds.length;
+
+    if (kelasCount === 0) {
+      return {
+        success: true,
+        countKelas: 0,
+        countSesi: 0,
+        countMk: 0,
+        message: "Tidak ada data kelas yang cocok dengan filter yang dipilih.",
+      };
+    }
+
+    // Hitung sesi yang ikut terhapus
+    const sesiCount = await prisma.monitoringSesi.count({
+      where: { kelasId: { in: targetKelasIds } },
+    });
+
+    // Eksekusi penghapusan kelas secara batch (onDelete: Cascade otomatis menghapus monitoringSesi dan laporanCdu)
+    await prisma.kelas.deleteMany({
+      where: { id: { in: targetKelasIds } },
+    });
+
+    // Jika user menghendaki pembersihan MK kosong
+    let countMk = 0;
+    if (options.cleanupEmptyMk) {
+      const whereMk: any = {
+        kelas: { none: {} },
+      };
+      if (options.prodiId && options.prodiId !== "ALL") {
+        whereMk.prodiId = options.prodiId;
+      }
+
+      const deletedMks = await prisma.mataKuliah.deleteMany({
+        where: whereMk,
+      });
+      countMk = deletedMks.count;
+    }
+
+    revalidatePath("/master/kelas");
+    revalidatePath("/master/mata-kuliah");
+    revalidatePath("/monitoring");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      countKelas: kelasCount,
+      countSesi: sesiCount,
+      countMk,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal membersihkan data perkuliahan" };
+  }
+}
+

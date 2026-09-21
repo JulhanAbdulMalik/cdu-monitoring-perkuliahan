@@ -259,6 +259,59 @@ export async function commitMataKuliahImport(rows: any[]): Promise<{ success: bo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper Pencarian Program Studi Akurat & Anti-Salah Sasaran
+// ─────────────────────────────────────────────────────────────────────────────
+
+function findBestProdiMatch(
+  allProdi: Array<{ id: string; nama: string; kode: string }>,
+  query: string
+) {
+  if (!query || !query.trim()) return null;
+  const raw = query.trim();
+  // Bersihkan prefix jenjang: "S1 - Gizi" -> "Gizi", "S1 - Manajemen" -> "Manajemen"
+  const clean = raw.replace(/^(S[1-3]|D[3-4])\s*[-–—]?\s*/i, "").trim();
+
+  // 1. Exact match kode
+  let match = allProdi.find(
+    (p) =>
+      p.kode &&
+      (p.kode.toUpperCase() === raw.toUpperCase() ||
+        p.kode.toUpperCase() === clean.toUpperCase())
+  );
+  if (match) return match;
+
+  // 2. Exact match nama prodi (case-insensitive)
+  match = allProdi.find(
+    (p) =>
+      p.nama &&
+      (p.nama.toLowerCase() === raw.toLowerCase() ||
+        p.nama.toLowerCase() === clean.toLowerCase())
+  );
+  if (match) return match;
+
+  // 3. Exact match setelah nama prodi di database juga dibersihkan dari prefix
+  match = allProdi.find((p) => {
+    const pClean = p.nama.replace(/^(S[1-3]|D[3-4])\s*[-–—]?\s*/i, "").trim();
+    return pClean.toLowerCase() === clean.toLowerCase();
+  });
+  if (match) return match;
+
+  // 4. Fuzzy match hanya jika clean cukup spesifik (hindari "Manajemen" tertaut ke "Magister Manajemen")
+  const isPostgrad = /magister|master|doktor|s[23]/i.test(raw);
+  match = allProdi.find((p) => {
+    const pIsPostgrad = /magister|master|doktor/i.test(p.nama);
+    if (!isPostgrad && pIsPostgrad) return false;
+
+    return (
+      (clean.length >= 4 && p.nama.toLowerCase().includes(clean.toLowerCase())) ||
+      (clean.length >= 4 && clean.toLowerCase().includes(p.nama.toLowerCase()))
+    );
+  });
+
+  return match || null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 3. IMPORT KELAS / PERKULIAHAN (DENGAN AUTO GENERATE 16 SESI MONITORING)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -434,31 +487,48 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
       }
 
       // Match Prodi (case-insensitive to kode or nama or cleanProdiQuery)
-      const matchedProdi = allProdi.find(
-        (p) =>
-          (p.kode && p.kode.toUpperCase() === prodiQuery.toUpperCase()) ||
-          (p.nama && p.nama.toLowerCase() === prodiQuery.toLowerCase()) ||
-          (cleanProdiQuery && p.nama.toLowerCase() === cleanProdiQuery.toLowerCase()) ||
-          (cleanProdiQuery && cleanProdiQuery.length >= 3 && p.nama.toLowerCase().includes(cleanProdiQuery.toLowerCase())) ||
-          (cleanProdiQuery && cleanProdiQuery.length >= 3 && cleanProdiQuery.toLowerCase().includes(p.nama.toLowerCase())) ||
-          (prodiQuery && p.nama.toLowerCase().includes(prodiQuery.toLowerCase()))
-      );
+      const matchedProdi = findBestProdiMatch(allProdi, prodiQuery);
 
-      // Match Mata Kuliah jika sudah ada
-      const matchedMk = allMk.find(
-        (m) =>
-          (kodeMk && m.kode.toUpperCase() === kodeMk) ||
-          (namaMk && m.nama.toLowerCase() === namaMk.toLowerCase())
-      );
+      // Match Mata Kuliah jika sudah ada KHUSUS di Prodi yang bersangkutan
+      const targetProdiId = matchedProdi?.id;
+      let matchedMk: any = null;
 
-      // Match Dosen jika sudah ada
-      const matchedDosen = allDosen.find(
-        (d) =>
-          (d.nidn && d.nidn === dosenQuery) ||
-          d.nama.toLowerCase() === dosenQuery.toLowerCase() ||
-          d.nama.toLowerCase().includes(dosenQuery.toLowerCase()) ||
-          dosenQuery.toLowerCase().includes(d.nama.toLowerCase())
-      );
+      if (targetProdiId) {
+        // Prioritas 1: Cocokkan Kode MK di prodi ini
+        if (kodeMk) {
+          matchedMk = allMk.find(
+            (m) => m.prodiId === targetProdiId && m.kode.toUpperCase() === kodeMk.toUpperCase()
+          );
+        }
+        // Prioritas 2: Cocokkan Nama MK (case-insensitive) di prodi ini
+        if (!matchedMk && namaMk) {
+          matchedMk = allMk.find(
+            (m) => m.prodiId === targetProdiId && m.nama.toLowerCase() === namaMk.toLowerCase()
+          );
+        }
+      }
+
+      // Match Dosen jika sudah ada (HANYA jika nama/query dosen diisi di Excel dan bukan "-")
+      let matchedDosen: any = null;
+      if (cleanDosen && cleanDosen !== "-") {
+        const queryLower = cleanDosen.toLowerCase();
+        // 1. Cocokkan NIDN
+        matchedDosen = allDosen.find((d) => d.nidn && d.nidn.trim() === cleanDosen);
+
+        // 2. Cocokkan Nama Lengkap Eksak (case-insensitive)
+        if (!matchedDosen) {
+          matchedDosen = allDosen.find((d) => d.nama.toLowerCase() === queryLower);
+        }
+
+        // 3. Cocokkan Partial/Substring HANYA jika query cukup panjang (minimal 4 karakter)
+        if (!matchedDosen && queryLower.length >= 4) {
+          matchedDosen = allDosen.find(
+            (d) =>
+              d.nama.toLowerCase().includes(queryLower) ||
+              (d.nama.length >= 4 && queryLower.includes(d.nama.toLowerCase()))
+          );
+        }
+      }
 
       previewList.push({
         rowIndex: idx + 2,
@@ -476,10 +546,10 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
           prodiQuery: prodiQuery || matchedProdi?.nama || "Umum",
           prodiId: matchedProdi?.id || null,
           prodiNama: matchedProdi?.nama || prodiQuery || "-",
-          // Dosen data
-          dosenQuery,
+          // Dosen data (kosong jika tidak ada di Excel)
+          dosenQuery: cleanDosen && cleanDosen !== "-" ? cleanDosen : "",
           dosenId: matchedDosen?.id || null,
-          dosenNama: matchedDosen?.nama || dosenQuery,
+          dosenNama: matchedDosen?.nama || (cleanDosen && cleanDosen !== "-" ? cleanDosen : "-"),
           // Jadwal, Ruangan & Mode
           jadwalHari: hari,
           jadwalJam: jam,
@@ -511,6 +581,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
 
     const allSemesters = await prisma.semester.findMany();
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
+    const allProdi = await prisma.prodi.findMany();
 
     // Dapatkan fakultas default jika perlu membuat prodi baru
     let defaultFakultas = await prisma.fakultas.findFirst();
@@ -530,50 +601,67 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
       let prodiId = r.prodiId;
       if (!prodiId) {
         const query = (r.prodiQuery || "Umum").trim();
-        let existingProdi = await prisma.prodi.findFirst({
-          where: {
-            OR: [
-              { nama: { equals: query, mode: "insensitive" } },
-              { kode: { equals: query, mode: "insensitive" } },
-            ],
-          },
-        });
+        const matched = findBestProdiMatch(allProdi, query);
 
-        if (!existingProdi) {
+        if (matched) {
+          prodiId = matched.id;
+        } else {
           // Generate kode prodi aman
-          const safeKode = query.replace(/[^A-Za-z0-9]/g, "").substring(0, 6).toUpperCase() || "PRODI";
+          const clean = query.replace(/^(S[1-3]|D[3-4])\s*[-–—]?\s*/i, "").trim();
+          const safeKode = clean.replace(/[^A-Za-z0-9]/g, "").substring(0, 6).toUpperCase() || "PRODI";
           let kodeToUse = safeKode;
           let counter = 1;
           while (await prisma.prodi.findUnique({ where: { kode: kodeToUse } })) {
             kodeToUse = `${safeKode}${counter++}`;
           }
 
-          existingProdi = await prisma.prodi.create({
+          const newProdi = await prisma.prodi.create({
             data: {
-              nama: query,
+              nama: clean || query,
               kode: kodeToUse,
               fakultasId: defaultFakultas.id,
             },
           });
+          prodiId = newProdi.id;
         }
-        prodiId = existingProdi.id;
       }
 
-      // 2. Dapatkan atau Buat Mata Kuliah
-      let mataKuliahId = r.mataKuliahId;
+      // 2. Dapatkan atau Buat Mata Kuliah KHUSUS untuk Prodi ini
       const mkKode = (r.kodeMk || "MK").trim().toUpperCase();
       const mkNama = (r.namaMk || mkKode).trim();
       const mkSks = Number(r.sks) || 3;
 
-      let existingMk = mataKuliahId
-        ? await prisma.mataKuliah.findUnique({ where: { id: mataKuliahId } })
-        : await prisma.mataKuliah.findFirst({
+      // a. Cek apakah r.mataKuliahId valid dan memang milik prodiId ini
+      let existingMk = r.mataKuliahId
+        ? await prisma.mataKuliah.findFirst({
             where: {
-              kode: mkKode,
+              id: r.mataKuliahId,
               prodiId: prodiId,
             },
-          });
+          })
+        : null;
 
+      // b. Jika tidak, cari berdasarkan kode MK dan prodiId
+      if (!existingMk && mkKode && mkKode !== "MK") {
+        existingMk = await prisma.mataKuliah.findFirst({
+          where: {
+            kode: mkKode,
+            prodiId: prodiId,
+          },
+        });
+      }
+
+      // c. Jika belum ditemukan, cari berdasarkan nama MK (case-insensitive) di prodiId ini
+      if (!existingMk && mkNama) {
+        existingMk = await prisma.mataKuliah.findFirst({
+          where: {
+            nama: { equals: mkNama, mode: "insensitive" },
+            prodiId: prodiId,
+          },
+        });
+      }
+
+      // d. Jika belum ada di prodi ini, BUAT MATA KULIAH BARU khusus untuk prodi ini!
       if (!existingMk) {
         existingMk = await prisma.mataKuliah.create({
           data: {
@@ -592,31 +680,41 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
           },
         });
       }
-      mataKuliahId = existingMk.id;
+      const mataKuliahId = existingMk.id;
 
       // 3. Dapatkan atau Buat Dosen
       let dosenId = r.dosenId;
-      const dosenNama = (r.dosenQuery || r.dosenNama || "Dosen Pengampu").trim();
-      let existingDosen = dosenId
-        ? await prisma.dosen.findUnique({ where: { id: dosenId } })
-        : await prisma.dosen.findFirst({
-            where: {
-              nama: { equals: dosenNama, mode: "insensitive" },
-            },
-          });
+      const cleanDosenNama = String(r.dosenNama || r.dosenQuery || "").trim();
+      const dosenNamaToUse =
+        cleanDosenNama && cleanDosenNama !== "-"
+          ? cleanDosenNama
+          : "Dosen Pengampu";
+
+      let existingDosen =
+        dosenId && cleanDosenNama && cleanDosenNama !== "-"
+          ? await prisma.dosen.findUnique({ where: { id: dosenId } })
+          : null;
+
+      if (!existingDosen && dosenNamaToUse) {
+        existingDosen = await prisma.dosen.findFirst({
+          where: {
+            nama: { equals: dosenNamaToUse, mode: "insensitive" },
+          },
+        });
+      }
 
       if (!existingDosen) {
         existingDosen = await prisma.dosen.create({
           data: {
-            nama: dosenNama,
+            nama: dosenNamaToUse,
             prodiId: prodiId,
           },
         });
       }
       dosenId = existingDosen.id;
 
-      // 4. Upsert Kelas
-      const existing = await prisma.kelas.findFirst({
+      // 4. Cari kelas yang sudah ada (termasuk jika sebelumnya salah terhubung ke MK prodi lain)
+      let existing = await prisma.kelas.findFirst({
         where: {
           kodeKelas: r.kodeKelas.trim().toUpperCase(),
           semesterId: semesterId,
@@ -625,11 +723,26 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
         include: { monitoringSesi: true },
       });
 
+      // Jika tidak ditemukan dengan mataKuliahId baru, cek apakah sebelumnya ada kelas dengan nama MK yang sama (misal salah link ke prodi lain)
+      if (!existing) {
+        existing = await prisma.kelas.findFirst({
+          where: {
+            kodeKelas: r.kodeKelas.trim().toUpperCase(),
+            semesterId: semesterId,
+            mataKuliah: {
+              nama: { equals: mkNama, mode: "insensitive" },
+            },
+          },
+          include: { monitoringSesi: true },
+        });
+      }
+
       if (existing) {
-        // Update kelas data
+        // Update kelas data, relink ke mataKuliahId yang benar di prodi ini!
         await prisma.kelas.update({
           where: { id: existing.id },
           data: {
+            mataKuliahId: mataKuliahId,
             dosenId: dosenId,
             jadwalHari: r.jadwalHari,
             jadwalJam: r.jadwalJam,
@@ -683,6 +796,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
     }
 
     revalidatePath("/master/kelas");
+    revalidatePath("/master/mata-kuliah");
     revalidatePath("/monitoring");
     revalidatePath("/");
     return { success: true, count };

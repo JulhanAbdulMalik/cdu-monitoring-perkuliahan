@@ -16,6 +16,9 @@ import {
   RotateCcw,
   Sparkles,
   FileSpreadsheet,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   createMataKuliah,
@@ -54,6 +57,20 @@ interface MataKuliahClientProps {
   prodiList: ProdiOption[];
 }
 
+type MataKuliahSortColumn = "KODE" | "NAMA" | "SKS" | "PRODI" | "KELAS";
+
+type MataKuliahSortKey =
+  | "KODE_ASC"
+  | "KODE_DESC"
+  | "NAMA_ASC"
+  | "NAMA_DESC"
+  | "SKS_ASC"
+  | "SKS_DESC"
+  | "PRODI_ASC"
+  | "PRODI_DESC"
+  | "KELAS_DESC"
+  | "KELAS_ASC";
+
 export default function MataKuliahClient({
   initialMataKuliah,
   prodiList,
@@ -62,15 +79,17 @@ export default function MataKuliahClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProdi, setFilterProdi] = useState<string>("ALL");
   const [filterSks, setFilterSks] = useState<string>("ALL");
+  const [filterKelas, setFilterKelas] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<MataKuliahSortKey>("KODE_ASC");
 
   // Pagination states (Default 20 per halaman)
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  // Reset ke halaman 1 saat filter atau pencarian berubah
+  // Reset ke halaman 1 saat filter, pencarian, atau sorting berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterProdi, filterSks]);
+  }, [searchQuery, filterProdi, filterSks, filterKelas, sortBy]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -183,19 +202,123 @@ export default function MataKuliahClient({
 
   // Filter list
   const filteredMk = mkList.filter((m) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchSearch =
-      m.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.kode.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      m.nama.toLowerCase().includes(q) ||
+      m.kode.toLowerCase().includes(q) ||
+      m.prodi.nama.toLowerCase().includes(q) ||
+      m.prodi.kode.toLowerCase().includes(q);
     const matchProdi = filterProdi === "ALL" || m.prodiId === filterProdi;
     const matchSks = filterSks === "ALL" || m.sks.toString() === filterSks;
-    return matchSearch && matchProdi && matchSks;
+    const matchKelas =
+      filterKelas === "ALL" ||
+      (filterKelas === "HAS_CLASS" && m._count.kelas > 0) ||
+      (filterKelas === "NO_CLASS" && m._count.kelas === 0);
+    return matchSearch && matchProdi && matchSks && matchKelas;
+  });
+
+  // Sorting list
+  const sortedMk = [...filteredMk].sort((a, b) => {
+    switch (sortBy) {
+      case "KODE_ASC":
+        return a.kode.localeCompare(b.kode, "id", { numeric: true });
+      case "KODE_DESC":
+        return b.kode.localeCompare(a.kode, "id", { numeric: true });
+      case "NAMA_ASC":
+        return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+      case "NAMA_DESC":
+        return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "SKS_ASC":
+        return a.sks - b.sks;
+      case "SKS_DESC":
+        return b.sks - a.sks;
+      case "PRODI_ASC":
+        return a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
+      case "PRODI_DESC":
+        return b.prodi.nama.localeCompare(a.prodi.nama, "id", { sensitivity: "base" });
+      case "KELAS_DESC":
+        return b._count.kelas - a._count.kelas;
+      case "KELAS_ASC":
+        return a._count.kelas - b._count.kelas;
+      default:
+        return 0;
+    }
   });
 
   // Paginated Sliced Data
-  const paginatedMk = filteredMk.slice(
+  const paginatedMk = sortedMk.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+
+  function handleColumnSort(column: MataKuliahSortColumn) {
+    switch (column) {
+      case "KODE":
+        setSortBy(sortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC");
+        break;
+      case "NAMA":
+        setSortBy(sortBy === "NAMA_ASC" ? "NAMA_DESC" : "NAMA_ASC");
+        break;
+      case "SKS":
+        setSortBy(sortBy === "SKS_ASC" ? "SKS_DESC" : "SKS_ASC");
+        break;
+      case "PRODI":
+        setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
+        break;
+      case "KELAS":
+        setSortBy(sortBy === "KELAS_DESC" ? "KELAS_ASC" : "KELAS_DESC");
+        break;
+    }
+  }
+
+  function renderSortHeader(
+    label: string,
+    columnKey: MataKuliahSortColumn,
+    align: "left" | "center" = "left",
+    extraClass: string = ""
+  ) {
+    const isCurrent =
+      (columnKey === "KODE" && (sortBy === "KODE_ASC" || sortBy === "KODE_DESC")) ||
+      (columnKey === "NAMA" && (sortBy === "NAMA_ASC" || sortBy === "NAMA_DESC")) ||
+      (columnKey === "SKS" && (sortBy === "SKS_ASC" || sortBy === "SKS_DESC")) ||
+      (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
+      (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC"));
+
+    const isAsc =
+      sortBy === "KODE_ASC" ||
+      sortBy === "NAMA_ASC" ||
+      sortBy === "SKS_ASC" ||
+      sortBy === "PRODI_ASC" ||
+      sortBy === "KELAS_ASC";
+
+    return (
+      <th
+        onClick={() => handleColumnSort(columnKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none transition-colors group hover:bg-slate-200/60 ${
+          align === "center" ? "text-center" : "text-left"
+        } ${extraClass}`}
+        title={`Klik untuk mengurutkan berdasarkan ${label}`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap ${
+            isCurrent ? "text-[#a80063]" : "text-slate-700 group-hover:text-slate-900"
+          } ${align === "center" ? "justify-center" : ""}`}
+        >
+          <span>{label}</span>
+          {isCurrent ? (
+            isAsc ? (
+              <ArrowUp size={11} className="text-[#a80063] stroke-[2.5]" />
+            ) : (
+              <ArrowDown size={11} className="text-[#a80063] stroke-[2.5]" />
+            )
+          ) : (
+            <ArrowUpDown size={10} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -306,14 +429,50 @@ export default function MataKuliahClient({
               <option value="6">6 SKS</option>
             </select>
 
+            {/* Filter Status Kelas */}
+            <select
+              value={filterKelas}
+              onChange={(e) => setFilterKelas(e.target.value)}
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterKelas !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Status Kelas"
+            >
+              <option value="ALL">Semua Status Kelas</option>
+              <option value="HAS_CLASS">Memiliki Kelas</option>
+              <option value="NO_CLASS">Belum Ada Kelas</option>
+            </select>
+
+            {/* Quick Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as MataKuliahSortKey)}
+              className="px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium outline-none cursor-pointer transition-all"
+              title="Urutkan Data"
+            >
+              <option value="KODE_ASC">Urut: Kode MK (A-Z)</option>
+              <option value="KODE_DESC">Urut: Kode MK (Z-A)</option>
+              <option value="NAMA_ASC">Urut: Nama MK (A-Z)</option>
+              <option value="NAMA_DESC">Urut: Nama MK (Z-A)</option>
+              <option value="SKS_DESC">Urut: SKS Tertinggi</option>
+              <option value="SKS_ASC">Urut: SKS Terendah</option>
+              <option value="PRODI_ASC">Urut: Prodi (A-Z)</option>
+              <option value="KELAS_DESC">Urut: Kelas Terbanyak</option>
+              <option value="KELAS_ASC">Urut: Kelas Paling Sedikit</option>
+            </select>
+
             {/* Reset All Filters Button */}
-            {(searchQuery || filterProdi !== "ALL" || filterSks !== "ALL") && (
+            {(searchQuery || filterProdi !== "ALL" || filterSks !== "ALL" || filterKelas !== "ALL" || sortBy !== "KODE_ASC") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setFilterProdi("ALL");
                   setFilterSks("ALL");
+                  setFilterKelas("ALL");
+                  setSortBy("KODE_ASC");
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
@@ -333,12 +492,12 @@ export default function MataKuliahClient({
             <thead>
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-3 w-10 text-center font-bold">No</th>
-                <th className="py-2.5 px-3 font-bold">Kode MK</th>
-                <th className="py-2.5 px-3 font-bold">Nama Mata Kuliah</th>
-                <th className="py-2.5 px-3 font-bold">Bobot SKS</th>
-                <th className="py-2.5 px-3 font-bold">Program Studi</th>
-                <th className="py-2.5 px-3 font-bold">Total Kelas Terbuka</th>
-                <th className="py-2.5 px-3 text-right font-bold">Aksi</th>
+                {renderSortHeader("Kode MK", "KODE", "left", "w-32")}
+                {renderSortHeader("Nama Mata Kuliah", "NAMA", "left")}
+                {renderSortHeader("Bobot SKS", "SKS", "center", "w-28")}
+                {renderSortHeader("Program Studi", "PRODI", "left", "w-52")}
+                {renderSortHeader("Total Kelas Terbuka", "KELAS", "center", "w-40")}
+                <th className="py-2.5 px-3 text-right font-bold w-20">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -358,7 +517,7 @@ export default function MataKuliahClient({
 
                     {/* Kode MK */}
                     <td className="py-3 px-3 font-bold">
-                      <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold">
+                      <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold font-mono">
                         {m.kode}
                       </span>
                     </td>
@@ -369,26 +528,31 @@ export default function MataKuliahClient({
                     </td>
 
                     {/* SKS */}
-                    <td className="py-3 pr-3">
+                    <td className="py-3 px-3 text-center">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                        {/* <Sparkles size={10} /> */}
                         <span>{m.sks} SKS</span>
                       </span>
                     </td>
 
                     {/* Prodi */}
                     <td className="py-3 pr-3">
-                      <span className="text-slate-600 font-medium text-xs">
+                      <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[11px]">
                         {m.prodi.nama} ({m.prodi.kode})
                       </span>
                     </td>
 
                     {/* Total Kelas */}
-                    <td className="py-3 pr-3">
-                      <div className="flex items-center gap-1 text-slate-600 text-xs font-medium">
-                        <School size={13} className="text-slate-400" />
+                    <td className="py-3 px-3 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                          m._count.kelas > 0
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border border-slate-200"
+                        }`}
+                      >
+                        <School size={12} className={m._count.kelas > 0 ? "text-emerald-600" : "text-slate-400"} />
                         <span>{m._count.kelas} Kelas</span>
-                      </div>
+                      </span>
                     </td>
 
                     {/* Aksi */}
