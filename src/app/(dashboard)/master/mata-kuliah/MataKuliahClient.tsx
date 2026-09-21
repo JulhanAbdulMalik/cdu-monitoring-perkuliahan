@@ -2,7 +2,7 @@
 // src/app/(dashboard)/master/mata-kuliah/MataKuliahClient.tsx
 // Compact & Clean Mata Kuliah Management UI (Plus Jakarta Sans & #a80063 Theme)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   BookOpen,
@@ -25,6 +25,7 @@ import {
 } from "@/actions/mata-kuliah";
 import MasterImportModal from "@/components/master/MasterImportModal";
 import { parseMataKuliahExcel, commitMataKuliahImport } from "@/actions/master-import";
+import TablePagination from "@/components/common/TablePagination";
 
 interface MataKuliahItem {
   id: string;
@@ -61,6 +62,15 @@ export default function MataKuliahClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProdi, setFilterProdi] = useState<string>("ALL");
   const [filterSks, setFilterSks] = useState<string>("ALL");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset ke halaman 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterProdi, filterSks]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -180,6 +190,12 @@ export default function MataKuliahClient({
     const matchSks = filterSks === "ALL" || m.sks.toString() === filterSks;
     return matchSearch && matchProdi && matchSks;
   });
+
+  // Paginated Sliced Data
+  const paginatedMk = filteredMk.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="space-y-4">
@@ -311,31 +327,37 @@ export default function MataKuliahClient({
       </div>
 
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-2.5 font-bold">Kode MK</th>
-                <th className="pb-2.5 font-bold">Nama Mata Kuliah</th>
-                <th className="pb-2.5 font-bold">Bobot SKS</th>
-                <th className="pb-2.5 font-bold">Program Studi</th>
-                <th className="pb-2.5 font-bold">Total Kelas Terbuka</th>
-                <th className="pb-2.5 text-right font-bold">Aksi</th>
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-3 w-10 text-center font-bold">No</th>
+                <th className="py-2.5 px-3 font-bold">Kode MK</th>
+                <th className="py-2.5 px-3 font-bold">Nama Mata Kuliah</th>
+                <th className="py-2.5 px-3 font-bold">Bobot SKS</th>
+                <th className="py-2.5 px-3 font-bold">Program Studi</th>
+                <th className="py-2.5 px-3 font-bold">Total Kelas Terbuka</th>
+                <th className="py-2.5 px-3 text-right font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredMk.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
                     Tidak ada data mata kuliah yang sesuai dengan kriteria pencarian.
                   </td>
                 </tr>
               ) : (
-                filteredMk.map((m) => (
+                paginatedMk.map((m, idx) => (
                   <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* No */}
+                    <td className="py-3 px-3 text-center font-medium text-slate-400 text-xs">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
+
                     {/* Kode MK */}
-                    <td className="py-3 pr-3 font-bold">
+                    <td className="py-3 px-3 font-bold">
                       <span className="inline-flex px-2 py-0.5 rounded-md bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-xs font-extrabold">
                         {m.kode}
                       </span>
@@ -399,6 +421,15 @@ export default function MataKuliahClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={filteredMk.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────────── */}

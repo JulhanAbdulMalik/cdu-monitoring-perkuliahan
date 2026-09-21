@@ -2,7 +2,7 @@
 // src/app/(dashboard)/master/prodi/ProdiClient.tsx
 // Compact & Clean Fakultas & Program Studi UI (Plus Jakarta Sans & #a80063 Theme)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Layers,
@@ -32,6 +32,7 @@ import {
 } from "@/actions/prodi";
 import MasterImportModal from "@/components/master/MasterImportModal";
 import { parseProdiExcel, commitProdiImport } from "@/actions/master-import";
+import TablePagination from "@/components/common/TablePagination";
 
 interface FakultasData {
   id: string;
@@ -64,6 +65,17 @@ export default function ProdiClient({
   const [activeTab, setActiveTab] = useState<"prodi" | "fakultas">("prodi");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFakultas, setFilterFakultas] = useState<string>("ALL");
+
+  // Pagination states
+  const [prodiPage, setProdiPage] = useState(1);
+  const [prodiPageSize, setProdiPageSize] = useState(20);
+
+  const [fakultasPage, setFakultasPage] = useState(1);
+  const [fakultasPageSize, setFakultasPageSize] = useState(20);
+
+  useEffect(() => {
+    setProdiPage(1);
+  }, [searchQuery, filterFakultas]);
 
   // Modal states
   const [isProdiModalOpen, setIsProdiModalOpen] = useState(false);
@@ -285,6 +297,12 @@ export default function ProdiClient({
     }
   });
 
+  // Paginated Sliced Data
+  const paginatedProdi = sortedProdi.slice(
+    (prodiPage - 1) * prodiPageSize,
+    prodiPage * prodiPageSize
+  );
+
   function handleProdiSort(column: ProdiSortColumn) {
     switch (column) {
       case "KODE":
@@ -373,6 +391,11 @@ export default function ProdiClient({
         return 0;
     }
   });
+
+  const paginatedFakultas = sortedFakultas.slice(
+    (fakultasPage - 1) * fakultasPageSize,
+    fakultasPage * fakultasPageSize
+  );
 
   function handleFakultasSort(column: FakultasSortColumn) {
     switch (column) {
@@ -589,7 +612,7 @@ export default function ProdiClient({
                     </td>
                   </tr>
                 ) : (
-                  sortedProdi.map((p, idx) => {
+                  paginatedProdi.map((p, idx) => {
                     const isOdd = idx % 2 === 1;
                     return (
                       <tr
@@ -600,7 +623,7 @@ export default function ProdiClient({
                       >
                         {/* No */}
                         <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
-                          {idx + 1}
+                          {(prodiPage - 1) * prodiPageSize + idx + 1}
                         </td>
 
                         {/* Kode */}
@@ -665,6 +688,15 @@ export default function ProdiClient({
               </tbody>
             </table>
           </div>
+
+          {/* ── Table Pagination Bar: Prodi ─────────────────────────────────── */}
+          <TablePagination
+            currentPage={prodiPage}
+            totalItems={sortedProdi.length}
+            pageSize={prodiPageSize}
+            onPageChange={setProdiPage}
+            onPageSizeChange={setProdiPageSize}
+          />
         </div>
       )}
 
@@ -689,7 +721,7 @@ export default function ProdiClient({
                     </td>
                   </tr>
                 ) : (
-                  sortedFakultas.map((f, idx) => {
+                  paginatedFakultas.map((f, idx) => {
                     const isOdd = idx % 2 === 1;
                     return (
                       <tr
@@ -700,7 +732,7 @@ export default function ProdiClient({
                       >
                         {/* No */}
                         <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
-                          {idx + 1}
+                          {(fakultasPage - 1) * fakultasPageSize + idx + 1}
                         </td>
 
                         {/* Nama Fakultas */}
@@ -744,6 +776,15 @@ export default function ProdiClient({
               </tbody>
             </table>
           </div>
+
+          {/* ── Table Pagination Bar: Fakultas ──────────────────────────────── */}
+          <TablePagination
+            currentPage={fakultasPage}
+            totalItems={sortedFakultas.length}
+            pageSize={fakultasPageSize}
+            onPageChange={setFakultasPage}
+            onPageSizeChange={setFakultasPageSize}
+          />
         </div>
       )}
 

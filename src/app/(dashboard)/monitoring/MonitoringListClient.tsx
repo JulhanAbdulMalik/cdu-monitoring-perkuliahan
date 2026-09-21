@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { calculateClassSummary } from "@/lib/score-calculator";
 import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE, formatPct, roundPct } from "@/lib/utils";
+import TablePagination from "@/components/common/TablePagination";
 
 interface SemesterOption {
   id: string;
@@ -178,6 +179,15 @@ export default function MonitoringListClient({
   useEffect(() => {
     setSelectedSesi(defaultActiveSesi);
   }, [defaultActiveSesi]);
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, monitoringTab, selectedSesi, filterHari, filterProdi, filterMode, filterStatus]);
 
   // Process and compute stats for every class
   const processedClasses = kelasList.map((cls) => {
@@ -332,6 +342,12 @@ export default function MonitoringListClient({
         return b.latestTime - a.latestTime;
     }
   });
+
+  // Paginated Sliced Data
+  const paginatedList = sortedList.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // Helper toggle column sort
   function handleColumnSort(column: "KODE" | "MK" | "DOSEN" | "JADWAL" | "RUANG" | "KEHADIRAN" | "PILAR" | "UPDATE") {
@@ -703,7 +719,7 @@ export default function MonitoringListClient({
                   </td>
                 </tr>
               ) : (
-                sortedList.map((cls, idx) => {
+                paginatedList.map((cls, idx) => {
                   const isOdd = idx % 2 === 1;
 
                   return (
@@ -715,7 +731,7 @@ export default function MonitoringListClient({
                     >
                       {/* No */}
                       <td className="py-2 px-2 text-center font-medium text-slate-400 text-xs">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Kode Kelas & Mode (Diperkecil & Compact) */}
@@ -955,6 +971,15 @@ export default function MonitoringListClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedList.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );

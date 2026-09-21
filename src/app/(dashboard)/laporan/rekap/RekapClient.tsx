@@ -2,7 +2,7 @@
 // src/app/(dashboard)/laporan/rekap/RekapClient.tsx
 // Master Rekapitulasi Monitoring Sesi 1-16 (3-Pillar & Conference Quota Model)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ClassRekapSummary } from "@/actions/laporan";
 import { formatPct } from "@/lib/utils";
+import TablePagination from "@/components/common/TablePagination";
 
 interface SemesterOption {
   id: string;
@@ -88,6 +89,15 @@ export default function RekapClient({
   const [filterMode, setFilterMode] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<RekapSortKey>("PRODI_ASC");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterProdi, filterStatus, filterMode, selectedSemester]);
 
   // Filter rekap list
   const filteredRekap = initialRekap.filter((item) => {
@@ -207,6 +217,12 @@ export default function RekapClient({
         return 0;
     }
   });
+
+  // Paginated Sliced Data
+  const paginatedRekap = sortedRekap.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // Toggle column sort
   function handleColumnSort(column: RekapSortColumn) {
@@ -559,7 +575,7 @@ export default function RekapClient({
                   </td>
                 </tr>
               ) : (
-                sortedRekap.map((cls, idx) => {
+                paginatedRekap.map((cls, idx) => {
                   const isOdd = idx % 2 === 1;
 
                   return (
@@ -571,7 +587,7 @@ export default function RekapClient({
                     >
                       {/* No */}
                       <td className="py-2 px-2 text-center font-medium text-slate-400 text-[11px]">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Program Studi */}
@@ -830,6 +846,15 @@ export default function RekapClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedRekap.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
 
         {/* ── Signature Line for PDF Print ────────────────────────────────────── */}
         <div className="hidden print:grid grid-cols-2 gap-8 pt-8 mt-6 border-t border-slate-300 text-center text-xs">

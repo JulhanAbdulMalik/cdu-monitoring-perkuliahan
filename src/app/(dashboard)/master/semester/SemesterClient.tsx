@@ -33,6 +33,7 @@ import {
 } from "@/actions/semester";
 import MasterImportModal from "@/components/master/MasterImportModal";
 import { parseSemesterExcel, commitSemesterImport } from "@/actions/master-import";
+import TablePagination from "@/components/common/TablePagination";
 
 export interface LiburSemesterData {
   id: string;
@@ -66,6 +67,10 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingSemester, setEditingSemester] = useState<SemesterData | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // Modal Hari Libur Perkuliahan states
   const [isLiburModalOpen, setIsLiburModalOpen] = useState(false);
@@ -420,6 +425,12 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
     }
   });
 
+  // Paginated Sliced Data
+  const paginatedSemesters = sortedSemesters.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   function handleColumnSort(column: SemesterSortColumn) {
     switch (column) {
       case "STATUS":
@@ -550,7 +561,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                   </td>
                 </tr>
               ) : (
-                sortedSemesters.map((sem, idx) => {
+                paginatedSemesters.map((sem, idx) => {
                   const jumlahLibur = sem.hariLibur?.length || 0;
                   const isOdd = idx % 2 === 1;
                   return (
@@ -562,7 +573,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                     >
                       {/* No */}
                       <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Tahun Akademik */}
@@ -665,6 +676,15 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedSemesters.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Create / Edit Modal ──────────────────────────────────────────────── */}

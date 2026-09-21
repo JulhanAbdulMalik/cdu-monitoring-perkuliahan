@@ -46,6 +46,7 @@ import {
   rejectLaporCdu,
   deleteLaporCdu,
 } from "@/actions/lapor-cdu";
+import TablePagination from "@/components/common/TablePagination";
 import { KategoriLapor, StatusLapor } from "@prisma/client";
 
 interface LaporCduClientProps {
@@ -93,6 +94,15 @@ export default function LaporCduClient({
   // Sort State
   const [sortField, setSortField] = useState<SortField>("tanggal");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedSemester, selectedProdi, selectedStatus]);
 
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -284,6 +294,12 @@ export default function LaporCduClient({
       return 0;
     });
   }, [items, sortField, sortOrder]);
+
+  // Paginated Sliced Data
+  const paginatedItems = sortedItems.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   function openCreateModal() {
     setFormProdiId(accessibleProdis.length === 1 ? accessibleProdis[0].id : accessibleProdis[0]?.id || "");
@@ -720,7 +736,7 @@ export default function LaporCduClient({
                   </td>
                 </tr>
               ) : (
-                sortedItems.map((item, idx) => {
+                paginatedItems.map((item, idx) => {
                   const formattedDate = new Date(item.createdAt).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
@@ -739,7 +755,7 @@ export default function LaporCduClient({
                     >
                       {/* No */}
                       <td className="py-2.5 px-2.5 text-center font-bold text-slate-400">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Tanggal */}
@@ -834,6 +850,15 @@ export default function LaporCduClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedItems.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Modal 1: Buat Laporan Baru (Dosen / Kaprodi / Pelapor) ───────────── */}

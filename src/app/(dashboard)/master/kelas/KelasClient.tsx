@@ -37,6 +37,7 @@ import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/k
 import MasterImportModal from "@/components/master/MasterImportModal";
 import { parseKelasExcel, commitKelasImport } from "@/actions/master-import";
 import { generateTemplate } from "@/lib/template-generator";
+import TablePagination from "@/components/common/TablePagination";
 
 interface KelasItem {
   id: string;
@@ -144,6 +145,15 @@ export default function KelasClient({
   const [filterProdi, setFilterProdi] = useState<string>("ALL");
   const [filterHari, setFilterHari] = useState<string>("ALL");
   const [filterMode, setFilterMode] = useState<string>("ALL");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedSemester, filterProdi, filterHari, filterMode]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -410,6 +420,12 @@ export default function KelasClient({
     }
   });
 
+  // Paginated Sliced Data
+  const paginatedKelas = sortedKelas.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   function handleColumnSort(column: KelasSortColumn) {
     switch (column) {
       case "KODEMK":
@@ -672,7 +688,7 @@ export default function KelasClient({
                   </td>
                 </tr>
               ) : (
-                sortedKelas.map((k, idx) => {
+                paginatedKelas.map((k, idx) => {
                   const filledSessions = k.monitoringSesi?.filter(
                     (s) => s.kehadiran !== "BELUM_DIISI"
                   ).length || 0;
@@ -687,11 +703,11 @@ export default function KelasClient({
                     >
                       {/* No */}
                       <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Kode MK */}
-                      <td className="py-2.5 px-3 font-mono font-bold text-xs w-24 min-w-[85px]">
+                      <td className="py-2.5 px-3 font-mono font-semibold text-xs w-24 min-w-[85px]">
                         <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
                           {k.mataKuliah.kode}
                         </span>
@@ -699,11 +715,11 @@ export default function KelasClient({
 
                       {/* Mata Kuliah & SKS */}
                       <td className="py-2.5 px-3">
-                        <p className="font-bold text-xs text-slate-900 leading-tight">
+                        <p className="font-semibold text-xs text-slate-900 leading-tight">
                           {k.mataKuliah.nama}
                         </p>
                         <div className="mt-1">
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
                             {k.mataKuliah.sks} SKS
                           </span>
                         </div>
@@ -845,6 +861,15 @@ export default function KelasClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedKelas.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Unified Add / Edit Modal (1-Window Form) ─────────────────────────── */}

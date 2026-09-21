@@ -2,7 +2,7 @@
 // src/app/(dashboard)/laporan/dosen/LaporanDosenClient.tsx
 // Laporan Kinerja & Evaluasi Dosen (Standard Table Header, Sorting & Zebra Striping)
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { formatPct } from "@/lib/utils";
+import TablePagination from "@/components/common/TablePagination";
 
 interface DosenReportItem {
   id: string;
@@ -101,6 +102,15 @@ export default function LaporanDosenClient({
   const [expandedDosenId, setExpandedDosenId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<DosenSortKey>("DOSEN_ASC");
 
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus, selectedSemester]);
+
   const filtered = dosenReports.filter((d) => {
     const matchSearch =
       d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,6 +173,12 @@ export default function LaporanDosenClient({
         return 0;
     }
   });
+
+  // Paginated Sliced Data
+  const paginatedDosen = sortedDosen.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   function handleColumnSort(column: DosenSortColumn) {
     switch (column) {
@@ -370,7 +386,7 @@ export default function LaporanDosenClient({
                   </td>
                 </tr>
               ) : (
-                sortedDosen.map((d, idx) => {
+                paginatedDosen.map((d, idx) => {
                   const isExpanded = expandedDosenId === d.id;
                   const isOdd = idx % 2 === 1;
 
@@ -383,7 +399,7 @@ export default function LaporanDosenClient({
                       >
                         {/* No */}
                         <td className="py-3 px-2.5 text-center font-medium text-slate-400 text-xs">
-                          {idx + 1}
+                          {(currentPage - 1) * pageSize + idx + 1}
                         </td>
 
                         {/* Nama Dosen */}
@@ -598,6 +614,15 @@ export default function LaporanDosenClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedDosen.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 // src/app/(dashboard)/master/dosen/DosenClient.tsx
 // Compact & Clean Dosen Management UI (Plus Jakarta Sans & #a80063 Theme)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   GraduationCap,
@@ -24,6 +24,7 @@ import {
 import { createDosen, updateDosen, deleteDosen, getDosenList } from "@/actions/dosen";
 import MasterImportModal from "@/components/master/MasterImportModal";
 import { parseDosenExcel, commitDosenImport } from "@/actions/master-import";
+import TablePagination from "@/components/common/TablePagination";
 
 interface DosenItem {
   id: string;
@@ -59,6 +60,15 @@ export default function DosenClient({
   const [dosenList, setDosenList] = useState<DosenItem[]>(initialDosen);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProdi, setFilterProdi] = useState<string>("ALL");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset ke halaman 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterProdi]);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -221,6 +231,12 @@ export default function DosenClient({
         return 0;
     }
   });
+
+  // Paginated Sliced Data
+  const paginatedDosen = sortedDosen.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   function handleColumnSort(column: DosenSortColumn) {
     switch (column) {
@@ -422,7 +438,7 @@ export default function DosenClient({
                   </td>
                 </tr>
               ) : (
-                sortedDosen.map((d, idx) => {
+                paginatedDosen.map((d, idx) => {
                   const isOdd = idx % 2 === 1;
                   return (
                     <tr
@@ -433,7 +449,7 @@ export default function DosenClient({
                     >
                       {/* No */}
                       <td className="py-2.5 px-2.5 text-center font-medium text-slate-400 text-xs">
-                        {idx + 1}
+                        {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
                       {/* Nama Dosen with Avatar */}
@@ -518,6 +534,15 @@ export default function DosenClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedDosen.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────────── */}

@@ -28,6 +28,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { createUser, updateUser, deleteUser, getUserList } from "@/actions/user";
+import TablePagination from "@/components/common/TablePagination";
 
 export interface UserItem {
   id: string;
@@ -107,6 +108,21 @@ export default function UserManagementClient({
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchRole && matchSearch;
   });
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset page ke 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterRole]);
+
+  // Paginated Sliced Data
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   async function reloadUsers() {
     const res = await getUserList();
@@ -421,28 +437,29 @@ export default function UserManagementClient({
       </div>
 
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
-      <div className="duralux-card bg-white p-5">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-2.5 font-bold">Pengguna</th>
-                <th className="pb-2.5 font-bold">Email</th>
-                <th className="pb-2.5 font-bold">Hak Akses (Role)</th>
-                <th className="pb-2.5 font-bold">Akses Prodi</th>
-                <th className="pb-2.5 font-bold">Terdaftar Sejak</th>
-                <th className="pb-2.5 text-right font-bold">Aksi</th>
+              <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-3 w-10 text-center font-bold">No</th>
+                <th className="py-2.5 px-3 font-bold">Pengguna</th>
+                <th className="py-2.5 px-3 font-bold">Email</th>
+                <th className="py-2.5 px-3 font-bold">Hak Akses (Role)</th>
+                <th className="py-2.5 px-3 font-bold">Akses Prodi</th>
+                <th className="py-2.5 px-3 font-bold">Terdaftar Sejak</th>
+                <th className="py-2.5 px-3 text-right font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
                     Tidak ada data akun pengguna yang sesuai dengan pencarian atau filter.
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => {
+                paginatedUsers.map((user, idx) => {
                   const isCurrent = user.id === currentUserId || user.email === currentUserEmail;
                   const initials = user.name
                     .split(" ")
@@ -458,9 +475,14 @@ export default function UserManagementClient({
                   });
 
                   return (
-                    <tr key={user.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Nama Pengguna & Avatar */}
-                      <td className="py-3 pr-3">
+                    <tr key={user.id} className="hover:bg-[#fdf2f8]/60 transition-colors">
+                      {/* No */}
+                      <td className="py-3 px-3 text-center font-medium text-slate-400 text-xs">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+
+                      {/* Info Pengguna */}
+                      <td className="py-3 px-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
                             {initials}
@@ -559,6 +581,15 @@ export default function UserManagementClient({
             </tbody>
           </table>
         </div>
+
+        {/* ── Table Pagination Bar ────────────────────────────────────────── */}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={filteredUsers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* ── Modal Tambah Akun Baru (Full Screen Portal Blur) ────────────────────────── */}
