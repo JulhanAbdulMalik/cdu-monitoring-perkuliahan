@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     worksheet.mergeCells("A1:R1");
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
-    titleCell.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
+    titleCell.font = { name: "Rockwell", size: 13, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 25;
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     worksheet.mergeCells("A2:R2");
     const subtitleCell = worksheet.getCell("A2");
     subtitleCell.value = `LAPORAN PERFORMA PROGRAM STUDI${subtitleProdi} PER PERIODE (${periodeText.toUpperCase()})`;
-    subtitleCell.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
+    subtitleCell.font = { name: "Rockwell", size: 10.5, bold: true, color: { argb: "FF334155" } };
     subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(2).height = 20;
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | ${rataLabel}: ${formatPct(
       globalSummary.avgKehadiranRentangSemua
     )} | Rata Konten 3P: ${formatPct(globalSummary.avgKontenRentangSemua)} | Live Conf: ${globalSummary.totalConfRentangSemua}`;
-    semCell.font = { name: "Arial", size: 9, italic: true, color: { argb: "FF64748B" } };
+    semCell.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     semCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(3).height = 18;
 
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         pattern: "solid",
         fgColor: { argb: "FFA80063" }, // Brand Magenta
       };
-      cell.font = { name: "Arial", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.font = { name: "Rockwell", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
       cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
       cell.border = {
         top: { style: "thin", color: { argb: "FFCCCCCC" } },
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
       row.height = 20;
 
       row.eachCell((cell, colNumber) => {
-        cell.font = { name: "Arial", size: 9 };
+        cell.font = { name: "Rockwell", size: 9 };
         cell.border = {
           top: { style: "thin", color: { argb: "FFE2E8F0" } },
           left: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -166,11 +166,11 @@ export async function GET(request: NextRequest) {
         // Status highlight
         if (colNumber === 16) {
           if (p.statusKinerjaRentang === "SANGAT_BAIK") {
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF047857" } };
+            cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF047857" } };
           } else if (p.statusKinerjaRentang === "BAIK") {
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF1D4ED8" } };
+            cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF1D4ED8" } };
           } else {
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB91C1C" } };
+            cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB91C1C" } };
           }
         }
       });
@@ -204,14 +204,14 @@ export async function GET(request: NextRequest) {
     sheetKendala.mergeCells("A1:I1");
     const kTitle = sheetKendala.getCell("A1");
     kTitle.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
-    kTitle.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFA80063" } };
+    kTitle.font = { name: "Rockwell", size: 13, bold: true, color: { argb: "FFA80063" } };
     kTitle.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(1).height = 25;
 
     sheetKendala.mergeCells("A2:I2");
     const kSub = sheetKendala.getCell("A2");
     kSub.value = `RINCIAN SESI KENDALA KEHADIRAN DOSEN (ALPHA & BELUM DIISI) - PERIODE (${periodeText.toUpperCase()})`;
-    kSub.font = { name: "Arial", size: 10.5, bold: true, color: { argb: "FF334155" } };
+    kSub.font = { name: "Rockwell", size: 10.5, bold: true, color: { argb: "FF334155" } };
     kSub.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(2).height = 20;
 
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
     kSem.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
     } | Total Sesi Berkendala: ${allKendalaList.length} Sesi (${totalAlphaCount} Alpha, ${totalBelumDiisiCount} Belum Diisi)`;
-    kSem.font = { name: "Arial", size: 9, italic: true, color: { argb: "FF64748B" } };
+    kSem.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     kSem.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(3).height = 18;
 
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
         pattern: "solid",
         fgColor: { argb: "FFA80063" },
       };
-      cell.font = { name: "Arial", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.font = { name: "Rockwell", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
       cell.alignment = { horizontal: "center", vertical: "middle" };
       cell.border = {
         top: { style: "thin", color: { argb: "FFCCCCCC" } },
@@ -268,7 +268,7 @@ export async function GET(request: NextRequest) {
         "Tidak ada sesi yang berkendala (Semua sesi terisi Hadir / Hadir Tidak Lengkap).",
       ]);
       sheetKendala.mergeCells(`B${emptyRow.number}:I${emptyRow.number}`);
-      emptyRow.getCell(2).font = { name: "Arial", size: 9.5, italic: true, color: { argb: "FF047857" } };
+      emptyRow.getCell(2).font = { name: "Rockwell", size: 9.5, italic: true, color: { argb: "FF047857" } };
       emptyRow.getCell(2).alignment = { horizontal: "center", vertical: "middle" };
       emptyRow.height = 24;
     } else {
@@ -287,7 +287,7 @@ export async function GET(request: NextRequest) {
         kRow.height = 20;
 
         kRow.eachCell((cell, colNumber) => {
-          cell.font = { name: "Arial", size: 9 };
+          cell.font = { name: "Rockwell", size: 9 };
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },
             left: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -304,15 +304,15 @@ export async function GET(request: NextRequest) {
           // Highlight status
           if (colNumber === 8) {
             if (k.status === "ALPHA") {
-              cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFB91C1C" } };
+              cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB91C1C" } };
             } else {
-              cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FF64748B" } };
+              cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF64748B" } };
             }
           }
 
           // Highlight catatan
           if (colNumber === 9 && k.catatan) {
-            cell.font = { name: "Arial", size: 9, bold: true, color: { argb: "FFA80063" } };
+            cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFA80063" } };
           }
         });
       });
