@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { createDosen, updateDosen, deleteDosen, getDosenList } from "@/actions/dosen";
 import MasterImportModal from "@/components/master/MasterImportModal";
+import ResetDosenModal from "@/components/master/ResetDosenModal";
 import { parseDosenExcel, commitDosenImport } from "@/actions/master-import";
 import TablePagination from "@/components/common/TablePagination";
 
@@ -73,6 +74,7 @@ export default function DosenClient({
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [editingDosen, setEditingDosen] = useState<DosenItem | null>(null);
   const [nama, setNama] = useState("");
   const [nidn, setNidn] = useState("");
@@ -102,6 +104,13 @@ export default function DosenClient({
   function closeModal() {
     setIsModalOpen(false);
     setEditingDosen(null);
+  }
+
+  async function handleReloadData() {
+    const res = await getDosenList();
+    if (res.success && res.data) {
+      setDosenList(res.data.dosen as any);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -321,6 +330,15 @@ export default function DosenClient({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsResetModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-semibold transition-all cursor-pointer"
+            title="Reset / Bersihkan Data Dosen"
+          >
+            <Trash2 size={14} />
+            <span>Bersihkan Data</span>
+          </button>
+
           <button
             onClick={() => setIsImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer"
@@ -656,11 +674,19 @@ export default function DosenClient({
         parseAction={parseDosenExcel}
         commitAction={commitDosenImport}
         onSuccess={async () => {
-          const res = await getDosenList();
-          if (res.success && res.data) {
-            setDosenList(res.data.dosen as any);
-          }
+          await handleReloadData();
         }}
+      />
+
+      {/* ── Bulk Reset / Cleanup Modal ────────────────────────────────────── */}
+      <ResetDosenModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onSuccess={async () => {
+          await handleReloadData();
+        }}
+        prodiList={prodiList}
+        defaultProdiId={filterProdi !== "ALL" ? filterProdi : "ALL"}
       />
     </div>
   );

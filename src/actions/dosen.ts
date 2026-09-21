@@ -170,3 +170,121 @@ export async function deleteDosen(id: string) {
     return { success: false, error: error.message || "Gagal menghapus dosen" };
   }
 }
+
+export interface ResetDosenStats {
+  totalCount: number;
+  zeroClassCount: number;
+  hasClassCount: number;
+  prodiNama: string;
+}
+
+export async function getResetDosenStats(options: { prodiId?: string }) {
+  try {
+    const whereBase: any = {};
+    if (options.prodiId && options.prodiId !== "ALL") {
+      whereBase.prodiId = options.prodiId;
+    }
+
+    const [totalCount, zeroClassCount, hasClassCount] = await Promise.all([
+      prisma.dosen.count({ where: whereBase }),
+      prisma.dosen.count({
+        where: {
+          ...whereBase,
+          kelas: { none: {} },
+        },
+      }),
+      prisma.dosen.count({
+        where: {
+          ...whereBase,
+          kelas: { some: {} },
+        },
+      }),
+    ]);
+
+    let prodiNama = "Semua Program Studi";
+    if (options.prodiId && options.prodiId !== "ALL") {
+      const p = await prisma.prodi.findUnique({ where: { id: options.prodiId } });
+      if (p) prodiNama = p.nama;
+    }
+
+    return {
+      success: true,
+      data: {
+        totalCount,
+        zeroClassCount,
+        hasClassCount,
+        prodiNama,
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal mengambil statistik dosen" };
+  }
+}
+
+export async function resetDosenData(options: {
+  prodiId?: string;
+  onlyZeroClasses?: boolean;
+}) {
+  try {
+    const whereFilter: any = {};
+    if (options.prodiId && options.prodiId !== "ALL") {
+      whereFilter.prodiId = options.prodiId;
+    }
+
+    if (options.onlyZeroClasses) {
+      whereFilter.kelas = { none: {} };
+    }
+
+    // Ambil list dosen yang sesuai kriteria
+    const targetDosen = await prisma.dosen.findMany({
+      where: whereFilter,
+      select: {
+        id: true,
+        nama: true,
+        _count: { select: { kelas: true } },
+      },
+    });
+
+    if (targetDosen.length === 0) {
+      return {
+        success: true,
+        countDosen: 0,
+        message: "Tidak ada data dosen yang sesuai dengan kriteria yang dipilih.",
+      };
+    }
+
+    // Periksa apakah ada dosen yang masih mengampu kelas (jika onlyZeroClasses = false)
+    const dosenWithClasses = targetDosen.filter((d) => d._count.kelas > 0);
+    if (dosenWithClasses.length > 0 && !options.onlyZeroClasses) {
+      return {
+        success: false,
+        error: `Terdapat ${dosenWithClasses.length} dosen yang masih terhubung ke kelas aktif. Bersihkan data di menu Data Perkuliahan terlebih dahulu, atau pilih opsi 'Hanya hapus dosen tanpa kelas aktif'.`,
+      };
+    }
+
+    const targetIds = targetDosen.map((d) => d.id);
+
+    // Nullify monitoringSesi dosenPengajarId jika ada yang merujuk ke dosen-dosen ini
+    await prisma.monitoringSesi.updateMany({
+      where: { dosenPengajarId: { in: targetIds } },
+      data: { dosenPengajarId: null },
+    });
+
+    // Hapus dosen secara batch
+    const deleteResult = await prisma.dosen.deleteMany({
+      where: { id: { in: targetIds } },
+    });
+
+    revalidatePath("/master/dosen");
+    revalidatePath("/master/kelas");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      countDosen: deleteResult.count,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal membersihkan data dosen" };
+  }
+}
+

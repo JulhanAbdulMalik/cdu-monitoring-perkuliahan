@@ -1,24 +1,23 @@
 "use client";
-// src/components/master/ResetKelasModal.tsx
-// Modal Konfirmasi Cerdas untuk Reset / Pembersihan Data Perkuliahan
+// src/components/master/ResetDosenModal.tsx
+// Modal Konfirmasi Cerdas untuk Reset / Pembersihan Data Master Dosen
 // Sesuai tema Duralux modern (#a80063 magenta, font Plus Jakarta Sans)
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
   Trash2,
   Loader2,
   X,
   School,
-  Calendar,
   Layers,
   CheckSquare,
   Square,
   ShieldAlert,
+  GraduationCap,
 } from "lucide-react";
-import { getResetKelasStats, resetKelasData, ResetKelasStats } from "@/actions/kelas";
+import { getResetDosenStats, resetDosenData, ResetDosenStats } from "@/actions/dosen";
 
 interface ProdiOption {
   id: string;
@@ -26,39 +25,27 @@ interface ProdiOption {
   kode: string;
 }
 
-interface SemesterOption {
-  id: string;
-  tahunAkademik: string;
-  periode: string;
-  aktif: boolean;
-}
-
-interface ResetKelasModalProps {
+interface ResetDosenModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   prodiList: ProdiOption[];
-  semesterList: SemesterOption[];
-  activeSemesterId?: string;
   defaultProdiId?: string;
 }
 
-export default function ResetKelasModal({
+export default function ResetDosenModal({
   isOpen,
   onClose,
   onSuccess,
   prodiList,
-  semesterList,
-  activeSemesterId,
   defaultProdiId = "ALL",
-}: ResetKelasModalProps) {
+}: ResetDosenModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [selectedSemester, setSelectedSemester] = useState<string>(activeSemesterId || "ALL");
   const [selectedProdi, setSelectedProdi] = useState<string>(defaultProdiId);
-  const [cleanupEmptyMk, setCleanupEmptyMk] = useState<boolean>(true);
+  const [onlyZeroClasses, setOnlyZeroClasses] = useState<boolean>(true);
 
   const [confirmationInput, setConfirmationInput] = useState("");
-  const [stats, setStats] = useState<ResetKelasStats | null>(null);
+  const [stats, setStats] = useState<ResetDosenStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -66,25 +53,23 @@ export default function ResetKelasModal({
     setMounted(true);
   }, []);
 
-  // Set default semester & prodi saat modal dibuka
+  // Set default prodi saat modal dibuka
   useEffect(() => {
     if (isOpen) {
-      setSelectedSemester(activeSemesterId || "ALL");
       setSelectedProdi(defaultProdiId || "ALL");
       setConfirmationInput("");
-      setCleanupEmptyMk(true);
+      setOnlyZeroClasses(true);
     }
-  }, [isOpen, activeSemesterId, defaultProdiId]);
+  }, [isOpen, defaultProdiId]);
 
-  // Fetch live statistics setiap kali filter semester atau prodi berubah
+  // Fetch live statistics setiap kali filter prodi berubah
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     setStatsLoading(true);
 
-    getResetKelasStats({
-      semesterId: selectedSemester,
+    getResetDosenStats({
       prodiId: selectedProdi,
     })
       .then((res) => {
@@ -93,7 +78,7 @@ export default function ResetKelasModal({
         }
       })
       .catch((err) => {
-        console.error("Gagal memuat statistik reset:", err);
+        console.error("Gagal memuat statistik reset dosen:", err);
       })
       .finally(() => {
         if (isSubscribed) setStatsLoading(false);
@@ -102,32 +87,28 @@ export default function ResetKelasModal({
     return () => {
       isSubscribed = false;
     };
-  }, [isOpen, selectedSemester, selectedProdi]);
+  }, [isOpen, selectedProdi]);
 
   if (!mounted || !isOpen) return null;
 
   const isConfirmed = confirmationInput.trim().toUpperCase() === "HAPUS";
-  const hasDataToDelete = stats ? stats.kelasCount > 0 : false;
+  const targetDeleteCount = stats ? (onlyZeroClasses ? stats.zeroClassCount : stats.totalCount) : 0;
+  const hasDataToDelete = targetDeleteCount > 0;
 
   async function handleExecuteReset() {
     if (!isConfirmed || isDeleting) return;
 
     setIsDeleting(true);
     try {
-      const res = await resetKelasData({
-        semesterId: selectedSemester,
+      const res = await resetDosenData({
         prodiId: selectedProdi,
-        cleanupEmptyMk,
+        onlyZeroClasses,
       });
 
       if (!res.success) {
-        toast.error(res.error || "Gagal membersihkan data perkuliahan");
+        toast.error(res.error || "Gagal membersihkan data dosen");
       } else {
-        toast.success(
-          `Berhasil membersihkan ${res.countKelas} data kelas dan ${res.countSesi} sesi monitoring!${
-            res.countMk ? ` (${res.countMk} Mata Kuliah kosong turut dibersihkan)` : ""
-          }`
-        );
+        toast.success(`Berhasil membersihkan ${res.countDosen} data dosen!`);
         onSuccess();
         onClose();
       }
@@ -149,13 +130,13 @@ export default function ResetKelasModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>Bersihkan Data Perkuliahan</span>
+                <span>Bersihkan Data Master Dosen</span>
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-700 rounded-full">
                   Tindakan Permanen
                 </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Kosongkan kelas perkuliahan & sesi monitoring.
+                Kosongkan data dosen.
               </p>
             </div>
           </div>
@@ -174,66 +155,43 @@ export default function ResetKelasModal({
           <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
             <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
               <Layers size={13} className="text-[#a80063]" />
-              <span>Pilih Lingkup Pembersihan Data</span>
+              <span>Pilih Lingkup Pembersihan Dosen</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Semester Selector */}
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
-                  <Calendar size={12} className="text-slate-400" />
-                  <span>Semester</span>
-                </label>
-                <select
-                  value={selectedSemester}
-                  onChange={(e) => setSelectedSemester(e.target.value)}
-                  disabled={isDeleting}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-800 outline-none focus:border-[#fbcfe8] focus:ring-1 focus:ring-[#fbcfe8]"
-                >
-                  <option value="ALL">Semua Semester</option>
-                  {semesterList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.tahunAkademik} {s.periode} {s.aktif ? "(Aktif)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Prodi Selector */}
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
-                  <School size={12} className="text-slate-400" />
-                  <span>Program Studi</span>
-                </label>
-                <select
-                  value={selectedProdi}
-                  onChange={(e) => setSelectedProdi(e.target.value)}
-                  disabled={isDeleting}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-800 outline-none focus:border-[#fbcfe8] focus:ring-1 focus:ring-[#fbcfe8]"
-                >
-                  <option value="ALL">Semua Program Studi</option>
-                  {prodiList.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nama}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Prodi Selector */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <School size={12} className="text-slate-400" />
+                <span>Program Studi</span>
+              </label>
+              <select
+                value={selectedProdi}
+                onChange={(e) => setSelectedProdi(e.target.value)}
+                disabled={isDeleting}
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-800 outline-none focus:border-[#fbcfe8] focus:ring-1 focus:ring-[#fbcfe8]"
+              >
+                <option value="ALL">Semua Program Studi</option>
+                {prodiList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.kode} - {p.nama}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Checkbox Bersihkan MK Kosong */}
+            {/* Checkbox Hanya Hapus Dosen 0 Kelas */}
             <div className="pt-1">
               <label
-                onClick={() => !isDeleting && setCleanupEmptyMk(!cleanupEmptyMk)}
+                onClick={() => !isDeleting && setOnlyZeroClasses(!onlyZeroClasses)}
                 className="inline-flex items-center gap-2 text-slate-700 font-medium cursor-pointer select-none hover:text-slate-900"
               >
-                {cleanupEmptyMk ? (
+                {onlyZeroClasses ? (
                   <CheckSquare size={16} className="text-rose-600 shrink-0" />
                 ) : (
                   <Square size={16} className="text-slate-400 shrink-0" />
                 )}
                 <span className="text-[11px]">
-                  Bersihkan juga Master Mata Kuliah yang kosong (0 kelas) pada lingkup ini
+                  Hanya hapus dosen yang tidak mengampu kelas aktif (0 kelas)
                 </span>
               </label>
             </div>
@@ -244,7 +202,7 @@ export default function ResetKelasModal({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-rose-800 font-bold text-xs">
                 <ShieldAlert size={14} />
-                <span>Rincian Data yang Akan Dihapus</span>
+                <span>Rincian Data Dosen</span>
               </div>
               {statsLoading && (
                 <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium">
@@ -256,28 +214,34 @@ export default function ResetKelasModal({
 
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/90 p-2 rounded-lg border border-rose-100 shadow-2xs">
-                <div className="text-[10px] text-slate-500 font-medium">Kelas</div>
-                <div className="text-sm sm:text-base font-extrabold text-rose-600 mt-0.5">
-                  {statsLoading ? "-" : stats?.kelasCount.toLocaleString("id-ID") || 0}
+                <div className="text-[10px] text-slate-500 font-medium">Total Dosen</div>
+                <div className="text-sm sm:text-base font-extrabold text-slate-800 mt-0.5">
+                  {statsLoading ? "-" : stats?.totalCount.toLocaleString("id-ID") || 0}
                 </div>
               </div>
               <div className="bg-white/90 p-2 rounded-lg border border-rose-100 shadow-2xs">
-                <div className="text-[10px] text-slate-500 font-medium">Sesi Monitoring</div>
+                <div className="text-[10px] text-slate-500 font-medium">Siap Dihapus (0 Kelas)</div>
                 <div className="text-sm sm:text-base font-extrabold text-rose-600 mt-0.5">
-                  {statsLoading ? "-" : stats?.sesiCount.toLocaleString("id-ID") || 0}
+                  {statsLoading ? "-" : stats?.zeroClassCount.toLocaleString("id-ID") || 0}
                 </div>
               </div>
               <div className="bg-white/90 p-2 rounded-lg border border-rose-100 shadow-2xs">
-                <div className="text-[10px] text-slate-500 font-medium">Mata Kuliah (0 Kelas)</div>
-                <div className="text-sm sm:text-base font-extrabold text-slate-700 mt-0.5">
-                  {statsLoading ? "-" : cleanupEmptyMk ? stats?.emptyMkCount.toLocaleString("id-ID") || 0 : 0}
+                <div className="text-[10px] text-slate-500 font-medium">Mengampu Kelas</div>
+                <div className="text-sm sm:text-base font-extrabold text-amber-600 mt-0.5">
+                  {statsLoading ? "-" : stats?.hasClassCount.toLocaleString("id-ID") || 0}
                 </div>
               </div>
             </div>
 
+            {stats && stats.hasClassCount > 0 && !onlyZeroClasses && (
+              <div className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200 leading-relaxed font-medium">
+                Perhatian: Terdapat {stats.hasClassCount} dosen yang masih memiliki kelas aktif. Anda disarankan
+                membersihkan Data Perkuliahan terlebih dahulu sebelum menghapus dosen ini.
+              </div>
+            )}
+
             <div className="text-[11px] text-rose-700 leading-relaxed">
-              Peringatan: Seluruh kelas perkuliahan di atas beserta 16 sesi monitoring per kelas akan dihapus
-              secara permanen. <strong>Data Dosen dan Pengaturan Semester tetap aman.</strong>
+              Peringatan: Data dosen yang dihapus tidak dapat dipulihkan kembali. Data program studi dan master lainnya tetap aman.
             </div>
           </div>
 
@@ -332,7 +296,7 @@ export default function ResetKelasModal({
               <>
                 <Trash2 size={14} />
                 <span>
-                  Hapus Permanen ({stats?.kelasCount || 0} Kelas)
+                  Hapus Permanen ({targetDeleteCount} Dosen)
                 </span>
               </>
             )}
