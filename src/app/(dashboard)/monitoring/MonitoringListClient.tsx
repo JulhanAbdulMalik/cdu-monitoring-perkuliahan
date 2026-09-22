@@ -27,10 +27,12 @@ import {
   Calendar,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   getMonitoringKelasPaginated,
   MonitoringPaginatedResponse,
   MonitoringSortKey,
+  bulkSetAttendanceAction,
 } from "@/actions/monitoring";
 import {
   getCurrentActiveSessionNumber,
@@ -140,6 +142,24 @@ export default function MonitoringListClient({
   const [pageSize, setPageSize] = useState(
     initialUrlParams?.pageSize || (searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!, 10) : 20)
   );
+
+  // ── Bulk Selection & Action States ──────────────────────────────────────────
+  const [selectedKelasIds, setSelectedKelasIds] = useState<Set<string>>(new Set());
+  const [isBulkExecuting, setIsBulkExecuting] = useState(false);
+  const [bulkConfirmDialog, setBulkConfirmDialog] = useState<{
+    isOpen: boolean;
+    targetKehadiran: "HADIR" | "ALPHA";
+    count: number;
+  }>({
+    isOpen: false,
+    targetKehadiran: "HADIR",
+    count: 0,
+  });
+
+  // Bersihkan pilihan kelas saat filter, tab, sesi, atau halaman berubah
+  useEffect(() => {
+    setSelectedKelasIds(new Set());
+  }, [currentPage, selectedSesi, monitoringTab, filterProdi, filterMode, filterHari, filterStatus, defaultSemesterId]);
 
   // Helper untuk sinkronisasi filter ke URL tanpa reload halaman (URL-driven state)
   const updateUrlParams = useCallback(
@@ -325,6 +345,85 @@ export default function MonitoringListClient({
   const belumDimonitorCount = data?.tabCounts.belum ?? 0;
   const sudahDimonitorCount = data?.tabCounts.sudah ?? 0;
   const totalFilteredCount = data?.totalCount ?? 0;
+
+  // Helper untuk membuat link detail monitoring dengan mempertahankan konteks filter
+  function getMonitoringDetailUrl(kelasId: string): string {
+    const params = new URLSearchParams();
+    if (filterProdi && filterProdi !== "ALL") params.set("prodiId", filterProdi);
+    if (monitoringTab && monitoringTab !== "ALL") params.set("tab", monitoringTab);
+    if (selectedSesi) params.set("sesi", selectedSesi.toString());
+    const qStr = params.toString();
+    return `/monitoring/${kelasId}${qStr ? `?${qStr}` : ""}`;
+  }
+
+  // ── Bulk Selection Helpers ──────────────────────────────────────────────────
+  const isAllCurrentPageSelected = useMemo(() => {
+    return paginatedList.length > 0 && paginatedList.every((cls) => selectedKelasIds.has(cls.id));
+  }, [paginatedList, selectedKelasIds]);
+
+  function toggleSelectClass(id: string) {
+    setSelectedKelasIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAllCurrentPage() {
+    if (isAllCurrentPageSelected) {
+      setSelectedKelasIds((prev) => {
+        const next = new Set(prev);
+        paginatedList.forEach((cls) => next.delete(cls.id));
+        return next;
+      });
+    } else {
+      setSelectedKelasIds((prev) => {
+        const next = new Set(prev);
+        paginatedList.forEach((cls) => next.add(cls.id));
+        return next;
+      });
+    }
+  }
+
+  function clearSelection() {
+    setSelectedKelasIds(new Set());
+  }
+
+  // ── Bulk Attendance Execution Handler ───────────────────────────────────────
+  async function handleExecuteBulkAttendance(kehadiran: "HADIR" | "ALPHA") {
+    if (selectedKelasIds.size === 0) return;
+    setIsBulkExecuting(true);
+    setBulkConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+
+    try {
+      const ids = Array.from(selectedKelasIds);
+      const res = await bulkSetAttendanceAction({
+        kelasIds: ids,
+        nomorSesi: selectedSesi,
+        kehadiran,
+      });
+
+      if (res.success) {
+        toast.success(
+          `Berhasil mengubah presensi ${res.updatedCount || ids.length} kelas menjadi ${
+            kehadiran === "HADIR" ? "Hadir" : "Alpha"
+          } pada Sesi ${selectedSesi}!`
+        );
+        clearSelection();
+        queryClient.invalidateQueries({ queryKey: ["monitoring-kelas-paginated"] });
+      } else {
+        toast.error(res.error || "Gagal mengubah presensi masal");
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem saat memproses presensi masal");
+    } finally {
+      setIsBulkExecuting(false);
+    }
+  }
 
   // Helper toggle column sort
   function handleColumnSort(
@@ -723,6 +822,19 @@ export default function MonitoringListClient({
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
+                <th className="py-2.5 px-2 text-center w-8">
+                  <input
+                    type="checkbox"
+                    checked={isAllCurrentPageSelected}
+                    onChange={toggleSelectAllCurrentPage}
+                    className={`w-3.5 h-3.5 rounded cursor-pointer transition-all ${
+                      isAllCurrentPageSelected
+                        ? "opacity-100 accent-[#a80063]"
+                        : "border-slate-200 opacity-40 hover:opacity-100"
+                    }`}
+                    title={isAllCurrentPageSelected ? "Batalkan pilih semua di halaman ini" : "Pilih semua di halaman ini"}
+                  />
+                </th>
                 <th className="py-2.5 px-2.5 text-center w-10">No</th>
                 {renderSortHeader("Kelas", "KODE", "left", "w-28 min-w-[110px]")}
                 {renderSortHeader("Mata Kuliah", "MK")}
@@ -739,7 +851,7 @@ export default function MonitoringListClient({
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {paginatedList.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={12} className="py-12 text-center text-slate-400">
                     {monitoringTab === "BELUM" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
                         <CheckCircle2 size={32} className="text-emerald-500" />
@@ -764,14 +876,33 @@ export default function MonitoringListClient({
               ) : (
                 paginatedList.map((cls, idx) => {
                   const isOdd = idx % 2 === 1;
+                  const isSelected = selectedKelasIds.has(cls.id);
 
                   return (
                     <tr
                       key={cls.id}
                       className={`transition-colors border-b border-slate-100/80 ${
-                        isOdd ? "bg-slate-50" : "bg-white"
+                        isSelected
+                          ? "bg-[#fdf2f8]/50"
+                          : isOdd
+                          ? "bg-slate-50"
+                          : "bg-white"
                       } hover:bg-[#fdf2f8]/80`}
                     >
+                      {/* Checkbox Individual */}
+                      <td className="py-2 px-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectClass(cls.id)}
+                          className={`w-3.5 h-3.5 rounded cursor-pointer transition-all ${
+                            isSelected
+                              ? "opacity-100 accent-[#a80063]"
+                              : "border-slate-200 opacity-35 hover:opacity-80"
+                          }`}
+                        />
+                      </td>
+
                       {/* No */}
                       <td className="py-2 px-2 text-center font-medium text-slate-400 text-xs">
                         {(currentPage - 1) * pageSize + idx + 1}
@@ -968,6 +1099,16 @@ export default function MonitoringListClient({
                             <span className="text-[9px] text-slate-400 font-semibold leading-tight">
                               {formatPct(cls.summary.persenKonten)} Lengkap
                             </span>
+
+                            {/* Smart Warning: Presensi Hadir tapi Konten Sesi Kosong */}
+                            {cls.targetSesiNeedsContentCheck && (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border border-amber-300 bg-amber-50 text-amber-800 mt-0.5"
+                                title={`Presensi Sesi ${selectedSesi} sudah diisi, namun konten 3 pilar pada sesi ini masih kosong (perlu diverifikasi di LMS)`}
+                              >
+                                <span>⚠️ S{selectedSesi}: Kosong</span>
+                              </span>
+                            )}
                           </div>
                         )}
                       </td>
@@ -1021,7 +1162,7 @@ export default function MonitoringListClient({
                       {/* Aksi Button (Buka di Tab Baru) */}
                       <td className="py-3 px-2.5 text-right whitespace-nowrap">
                         <Link
-                          href={`/monitoring/${cls.id}`}
+                          href={getMonitoringDetailUrl(cls.id)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn-brand inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md shadow-xs cursor-pointer hover:shadow-sm"
@@ -1056,6 +1197,134 @@ export default function MonitoringListClient({
           }}
         />
       </div>
+
+      {/* ── Floating Bulk Action Dock ───────────────────────────────────────── */}
+      {selectedKelasIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-slate-700/60 ring-1 ring-white/10">
+            <div className="flex items-center gap-2 pr-2 border-r border-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-bold whitespace-nowrap">
+                {selectedKelasIds.size} Kelas Terpilih
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setBulkConfirmDialog({
+                  isOpen: true,
+                  targetKehadiran: "HADIR",
+                  count: selectedKelasIds.size,
+                })
+              }
+              disabled={isBulkExecuting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+              title={`Set status Hadir untuk ${selectedKelasIds.size} kelas pada Sesi ${selectedSesi}`}
+            >
+              {isBulkExecuting ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <CheckCircle2 size={13} />
+              )}
+              <span>Hadirkan (Sesi {selectedSesi})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setBulkConfirmDialog({
+                  isOpen: true,
+                  targetKehadiran: "ALPHA",
+                  count: selectedKelasIds.size,
+                })
+              }
+              disabled={isBulkExecuting}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+              title={`Set status Alpha untuk ${selectedKelasIds.size} kelas pada Sesi ${selectedSesi}`}
+            >
+              <span>Alpha</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={clearSelection}
+              disabled={isBulkExecuting}
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+              title="Batalkan pilihan"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Confirmation Dialog Modal ──────────────────────────────────── */}
+      {bulkConfirmDialog.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  bulkConfirmDialog.targetKehadiran === "HADIR"
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                    : "bg-rose-50 text-rose-600 border border-rose-200"
+                }`}
+              >
+                {bulkConfirmDialog.targetKehadiran === "HADIR" ? (
+                  <CheckCircle2 size={22} />
+                ) : (
+                  <AlertCircle size={22} />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Konfirmasi Presensi Masal
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Sesi {selectedSesi} • {bulkConfirmDialog.count} Kelas
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Apakah Anda yakin ingin mengatur status presensi untuk{" "}
+              <strong className="text-slate-900 font-bold">{bulkConfirmDialog.count} kelas</strong> terpilih menjadi{" "}
+              <span
+                className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${
+                  bulkConfirmDialog.targetKehadiran === "HADIR"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-rose-100 text-rose-800"
+                }`}
+              >
+                {bulkConfirmDialog.targetKehadiran === "HADIR" ? "Hadir" : "Alpha"}
+              </span>{" "}
+              pada <strong className="text-slate-900 font-bold">Sesi {selectedSesi}</strong>?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBulkConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExecuteBulkAttendance(bulkConfirmDialog.targetKehadiran)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all shadow-xs cursor-pointer active:scale-95 ${
+                  bulkConfirmDialog.targetKehadiran === "HADIR"
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                    : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                }`}
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,12 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { parseEdlinkExcel, ParsedSesiData } from "@/lib/excel-parser";
-import { calculateClassSummary, ClassSummaryResult } from "@/lib/score-calculator";
+import {
+  calculateClassSummary,
+  ClassSummaryResult,
+  calculateSessionPillars,
+  SessionPillarResult,
+} from "@/lib/score-calculator";
 import {
   formatTerakhirUpdateParts,
   getCurrentActiveSessionNumber,
@@ -96,6 +101,12 @@ export async function getSimpleKelasList(semesterId?: string, prodiId?: string) 
           select: {
             nama: true,
             kode: true,
+            prodi: {
+              select: {
+                id: true,
+                nama: true,
+              },
+            },
           },
         },
         dosen: {
@@ -265,6 +276,8 @@ export interface MonitoringKelasProcessedItem {
   }>;
   summary: ClassSummaryResult;
   targetSesiData?: any;
+  targetSesiPillars?: SessionPillarResult | null;
+  targetSesiNeedsContentCheck?: boolean;
   isMonitored: boolean;
   targetSesiKehadiranLabel: string;
   targetSesiKehadiranColor: string;
@@ -372,11 +385,25 @@ function mapClassToProcessedItem(
 
   const dosenPengajarList = Array.from(peranMap.values());
   const isSplitPengajar = dosenPengajarList.length > 0;
+  const targetSesiPillars = targetSesiData ? calculateSessionPillars(targetSesiData) : null;
+  const isExam = currentSesi === 8 || currentSesi === 16;
+  const isBimbingan = cls.modePembelajaran === "BIMBINGAN";
+  // Menandai kelas yang sudah diisi presensi (Hadir/HTL) tetapi konten 3 pilar pada sesi tersebut masih kosong
+  const targetSesiNeedsContentCheck = Boolean(
+    isMonitored &&
+      !isExam &&
+      !isBimbingan &&
+      targetSesiData?.kehadiran !== "TIDAK_HADIR" &&
+      targetSesiData?.kehadiran !== "ALPHA" &&
+      (!targetSesiPillars || targetSesiPillars.score === 0)
+  );
 
   return {
     ...cls,
     summary,
     targetSesiData,
+    targetSesiPillars,
+    targetSesiNeedsContentCheck,
     isMonitored,
     targetSesiKehadiranLabel,
     targetSesiKehadiranColor,
@@ -1082,6 +1109,43 @@ export async function quickSetAllPillars(kelasId: string, setComplete: boolean =
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal mengatur 3 pilar massal" };
+  }
+}
+
+export async function bulkSetAttendanceAction(params: {
+  kelasIds: string[];
+  nomorSesi: number;
+  kehadiran: "HADIR" | "TIDAK_HADIR" | "HADIR_TIDAK_LENGKAP" | "BELUM_DIISI" | "ALPHA" | "HADIR_TDK_LENGKAP";
+}) {
+  try {
+    const { kelasIds, nomorSesi, kehadiran } = params;
+    if (!kelasIds || kelasIds.length === 0) {
+      return { success: false, error: "Tidak ada kelas yang dipilih" };
+    }
+    const norm = normalizeKehadiran(kehadiran) || "BELUM_DIISI";
+
+    const updateRes = await prisma.monitoringSesi.updateMany({
+      where: {
+        kelasId: { in: kelasIds },
+        nomorSesi,
+      },
+      data: {
+        kehadiran: norm,
+      },
+    });
+
+    revalidatePath("/monitoring");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/");
+    await invalidateLaporanCache();
+
+    return {
+      success: true,
+      updatedCount: updateRes.count,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal memperbarui presensi masal" };
   }
 }
 

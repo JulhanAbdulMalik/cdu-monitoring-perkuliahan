@@ -128,7 +128,7 @@ interface KelasDetailData {
 interface SimpleKelasItem {
   id: string;
   kodeKelas: string;
-  mataKuliah: { nama: string; kode: string };
+  mataKuliah: { nama: string; kode: string; prodi?: { id: string; nama: string } };
   dosen: { nama: string };
 }
 
@@ -136,12 +136,14 @@ interface MonitoringGridClientProps {
   kelasList: SimpleKelasItem[];
   currentKelas: KelasDetailData | null;
   selectedKelasId: string;
+  filterProdiId?: string;
 }
 
 export default function MonitoringGridClient({
   kelasList,
   currentKelas,
   selectedKelasId,
+  filterProdiId,
 }: MonitoringGridClientProps) {
   const router = useRouter();
   const searchDropdownRef = useRef<HTMLDivElement>(null);
@@ -152,6 +154,22 @@ export default function MonitoringGridClient({
     currentKelas?.monitoringSesi || []
   );
   const [customCatatanIds, setCustomCatatanIds] = useState<Record<string, boolean>>({});
+  const [navigatingNext, setNavigatingNext] = useState(false);
+
+  // Sequential Class Navigation Logic
+  const currentIndex = useMemo(() => {
+    return kelasList.findIndex((k) => k.id === (currentKelas?.id || selectedKelasId));
+  }, [kelasList, currentKelas?.id, selectedKelasId]);
+
+  const prevKelas = currentIndex > 0 ? kelasList[currentIndex - 1] : null;
+  const nextKelas = currentIndex >= 0 && currentIndex < kelasList.length - 1 ? kelasList[currentIndex + 1] : null;
+
+  // Helper untuk membentuk URL kelas tujuan dengan mempertahankan searchParams yang ada
+  function getKelasUrl(targetId: string) {
+    if (typeof window === "undefined") return `/monitoring/${targetId}`;
+    const search = window.location.search;
+    return `/monitoring/${targetId}${search}`;
+  }
 
   // Sync sesiList ONLY when switching to a different class ID
   useEffect(() => {
@@ -470,9 +488,9 @@ export default function MonitoringGridClient({
     });
   }
 
-  // ── Simpan Semua Manual (Force Sync Database) ─────────────────────────────
-  async function handleSaveAll() {
-    if (!currentKelas) return;
+  // ── Core Simpan Data ke Server ─────────────────────────────────────────────
+  async function saveDataInternal(): Promise<boolean> {
+    if (!currentKelas) return false;
     setSaving(true);
 
     try {
@@ -516,7 +534,6 @@ export default function MonitoringGridClient({
 
       const res = await updateBatchMonitoringSesi(currentKelas.id, payload);
       if (res.success) {
-        toast.success("Semua data monitoring berhasil disimpan!");
         setHasUnsavedChanges(false);
 
         // Notifikasi cross-tab real-time ke halaman /monitoring
@@ -530,14 +547,61 @@ export default function MonitoringGridClient({
             }
           }
         } catch {}
+        return true;
       } else {
         toast.error(res.error || "Gagal menyimpan perubahan");
+        return false;
       }
     } catch {
-      toast.error("Terjadi kesalahan sistem");
+      toast.error("Terjadi kesalahan sistem saat menyimpan");
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  // ── Simpan In-Place ───────────────────────────────────────────────────────
+  async function handleSaveAll() {
+    const success = await saveDataInternal();
+    if (success) {
+      toast.success("Semua data monitoring berhasil disimpan!");
+    }
+  }
+
+  // ── Simpan & Lanjut ke Kelas Berikutnya (Next Class Flow) ──────────────────
+  async function handleSaveAndNext() {
+    if (navigatingNext) return;
+
+    // Jika ada perubahan, simpan dulu
+    if (hasUnsavedChanges) {
+      const saved = await saveDataInternal();
+      if (!saved) return;
+    }
+
+    if (nextKelas) {
+      setNavigatingNext(true);
+      toast.success(
+        hasUnsavedChanges
+          ? `Tersimpan! Lanjut ke kelas [${nextKelas.kodeKelas}] ${nextKelas.mataKuliah.nama}`
+          : `Beralih ke kelas [${nextKelas.kodeKelas}] ${nextKelas.mataKuliah.nama}`
+      );
+      router.push(getKelasUrl(nextKelas.id));
+    } else {
+      toast.success("Semua kelas dalam daftar telah selesai dimonitor!");
+      router.push("/monitoring");
+    }
+  }
+
+  // ── Navigasi Cepat Antar Kelas ─────────────────────────────────────────────
+  function handleNavigateKelas(targetKelasItem: SimpleKelasItem | null) {
+    if (!targetKelasItem) return;
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        "Ada perubahan data yang belum disimpan. Yakin ingin berpindah kelas tanpa menyimpan?"
+      );
+      if (!confirmLeave) return;
+    }
+    router.push(getKelasUrl(targetKelasItem.id));
   }
 
   return (
@@ -638,7 +702,7 @@ export default function MonitoringGridClient({
                         onClick={() => {
                           setIsSearchOpen(false);
                           setSearchKelasQuery("");
-                          router.push(`/monitoring/${k.id}`);
+                          handleNavigateKelas(k);
                         }}
                         className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between gap-2 hover:bg-slate-50 cursor-pointer ${
                           isCurrent
@@ -673,6 +737,47 @@ export default function MonitoringGridClient({
             )}
           </div>
 
+          {/* Sequential Class Navigation Controls (Kelas X dari Y) */}
+          {/* {kelasList.length > 0 && currentIndex >= 0 && (
+            <div className="inline-flex items-center gap-0.5 bg-slate-50 p-1 rounded-lg border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleNavigateKelas(prevKelas)}
+                disabled={!prevKelas}
+                className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-[#a80063] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-all cursor-pointer disabled:cursor-not-allowed"
+                title={
+                  prevKelas
+                    ? `Kelas sebelumnya: [${prevKelas.kodeKelas}] ${prevKelas.mataKuliah.nama}`
+                    : "Ini adalah kelas pertama dalam daftar"
+                }
+              >
+                <ArrowLeft size={12} />
+              </button>
+
+              <span
+                className="text-[11px] font-bold text-slate-700 px-1.5 whitespace-nowrap select-none"
+                title={`Kelas ke-${currentIndex + 1} dari total ${kelasList.length} kelas`}
+              >
+                <span className="text-[#a80063]">{currentIndex + 1}</span>
+                <span className="text-slate-400 font-normal">/{kelasList.length}</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => handleNavigateKelas(nextKelas)}
+                disabled={!nextKelas}
+                className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-[#a80063] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-all cursor-pointer disabled:cursor-not-allowed"
+                title={
+                  nextKelas
+                    ? `Kelas berikutnya: [${nextKelas.kodeKelas}] ${nextKelas.mataKuliah.nama}`
+                    : "Ini adalah kelas terakhir dalam daftar"
+                }
+              >
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          )} */}
+
           {/* Import Excel Edlink Button (Direct Popup Modal) */}
           <button
             type="button"
@@ -693,7 +798,7 @@ export default function MonitoringGridClient({
               saving
                 ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-wait"
                 : hasUnsavedChanges
-                ? "bg-[#a80063] hover:bg-[#8e0054] text-white shadow-md shadow-[#a80063]/25 ring-2 ring-[#a80063]/20 animate-pulse active:scale-95 cursor-pointer"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-95 cursor-pointer"
                 : "bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default opacity-85"
             }`}
             title={
@@ -710,7 +815,7 @@ export default function MonitoringGridClient({
             ) : hasUnsavedChanges ? (
               <>
                 <Save size={13} />
-                <span>Simpan Perubahan</span>
+                <span>Simpan</span>
               </>
             ) : (
               <>
@@ -719,6 +824,53 @@ export default function MonitoringGridClient({
               </>
             )}
           </button>
+
+          {/* Tombol Simpan & Lanjut ke Kelas Berikutnya */}
+          {nextKelas ? (
+            <button
+              type="button"
+              onClick={handleSaveAndNext}
+              disabled={saving || navigatingNext}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all shadow-xs cursor-pointer ${
+                hasUnsavedChanges
+                  ? "bg-[#a80063] hover:bg-[#8e0054] text-white shadow-md shadow-[#a80063]/25 ring-2 ring-[#a80063]/20 animate-pulse active:scale-95"
+                  : "bg-slate-800 hover:bg-slate-900 text-white active:scale-95"
+              }`}
+              title={`Simpan perubahan dan langsung lanjut ke kelas berikutnya: [${nextKelas.kodeKelas}] ${nextKelas.mataKuliah.nama}`}
+            >
+              {saving || navigatingNext ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{saving ? "Menyimpan..." : "Membuka..."}</span>
+                </>
+              ) : (
+                <>
+                  <span>Simpan & Lanjut</span>
+                  <ArrowRight size={13} />
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSaveAndNext}
+              disabled={saving || navigatingNext}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/25 transition-all active:scale-95 cursor-pointer"
+              title="Simpan perubahan dan kembali ke daftar monitoring (kelas terakhir dalam daftar)"
+            >
+              {saving || navigatingNext ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={13} />
+                  <span>Simpan & Selesai</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

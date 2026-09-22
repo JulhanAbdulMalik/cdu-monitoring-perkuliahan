@@ -8,6 +8,7 @@ import MonitoringGridClient from "../MonitoringGridClient";
 
 interface MonitoringDetailPageProps {
   params: Promise<{ kelasId: string }>;
+  searchParams?: Promise<{ prodiId?: string; tab?: string; sesi?: string }>;
 }
 
 export async function generateMetadata({
@@ -26,22 +27,34 @@ export async function generateMetadata({
 
 export default async function MonitoringDetailPage({
   params,
+  searchParams,
 }: MonitoringDetailPageProps) {
-  const resolvedParams = await params;
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ? searchParams : Promise.resolve({} as { prodiId?: string; tab?: string; sesi?: string }),
+  ]);
   const detailRes = await getMonitoringKelasDetail(resolvedParams.kelasId);
 
   if (!detailRes.success || !detailRes.data) {
     notFound();
   }
 
-  const listRes = await getSimpleKelasList(detailRes.data.semesterId);
-  const simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
+  const effectiveProdiId = resolvedSearchParams?.prodiId;
+  let listRes = await getSimpleKelasList(detailRes.data.semesterId, effectiveProdiId);
+  let simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
+
+  // Jika filter prodi tidak memuat kelas yang sedang dibuka, fallback ke seluruh kelas di semester aktif
+  if (simpleKelasList.length > 0 && !simpleKelasList.some((k) => k.id === resolvedParams.kelasId)) {
+    listRes = await getSimpleKelasList(detailRes.data.semesterId);
+    simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
+  }
 
   return (
     <MonitoringGridClient
       currentKelas={detailRes.data as any}
       kelasList={simpleKelasList}
       selectedKelasId={resolvedParams.kelasId}
+      filterProdiId={effectiveProdiId}
     />
   );
 }
