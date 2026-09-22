@@ -1,8 +1,9 @@
 // src/app/(dashboard)/monitoring/page.tsx
-// Main List View for All Monitored Classes (Daftar Kelas Monitoring)
+// Main List View for All Monitored Classes (Daftar Kelas Monitoring) with URL Search Params Persistence
 
 import { Metadata } from "next";
-import { getMonitoringFilterOptions, getMonitoringKelasPaginated } from "@/actions/monitoring";
+import { Suspense } from "react";
+import { getMonitoringFilterOptions, getMonitoringKelasPaginated, MonitoringSortKey } from "@/actions/monitoring";
 import MonitoringListClient from "./MonitoringListClient";
 import { auth } from "@/lib/auth";
 
@@ -11,7 +12,19 @@ export const metadata: Metadata = {
 };
 
 interface MonitoringPageProps {
-  searchParams: Promise<{ prodiId?: string; page?: string; pageSize?: string }>;
+  searchParams: Promise<{
+    prodiId?: string;
+    semesterId?: string;
+    tab?: "ALL" | "BELUM" | "SUDAH";
+    sesi?: string;
+    mode?: string;
+    hari?: string;
+    status?: string;
+    q?: string;
+    page?: string;
+    pageSize?: string;
+    sortBy?: string;
+  }>;
 }
 
 export default async function MonitoringPage({ searchParams }: MonitoringPageProps) {
@@ -32,13 +45,31 @@ export default async function MonitoringPage({ searchParams }: MonitoringPagePro
     }
   }
 
-  // Fetch filter options dan halaman pertama (20 data) secara paralel
+  const pageNum = parseInt(resolvedSearchParams.page || "1", 10) || 1;
+  const pageSizeNum = parseInt(resolvedSearchParams.pageSize || "20", 10) || 20;
+  const sesiNum = resolvedSearchParams.sesi ? parseInt(resolvedSearchParams.sesi, 10) : undefined;
+  const monitoringTab = resolvedSearchParams.tab || "ALL";
+  const filterMode = resolvedSearchParams.mode || "ALL";
+  const filterHari = resolvedSearchParams.hari || "ALL";
+  const filterStatus = resolvedSearchParams.status || "ALL";
+  const searchQuery = resolvedSearchParams.q || "";
+  const sortBy = (resolvedSearchParams.sortBy as MonitoringSortKey) || "TERBARU";
+
+  // Fetch filter options dan data halaman sesuai filter URL secara paralel
   const [filterRes, initialDataRes] = await Promise.all([
     getMonitoringFilterOptions(allowedProdiIds),
     getMonitoringKelasPaginated({
+      semesterId: resolvedSearchParams.semesterId,
       prodiId: effectiveProdiId,
-      page: 1,
-      pageSize: 20,
+      filterMode,
+      filterHari,
+      filterStatus,
+      monitoringTab,
+      selectedSesi: sesiNum,
+      searchQuery,
+      sortBy,
+      page: pageNum,
+      pageSize: pageSizeNum,
       allowedProdiIds,
     }),
   ]);
@@ -53,19 +84,34 @@ export default async function MonitoringPage({ searchParams }: MonitoringPagePro
         items: [],
         totalCount: 0,
         tabCounts: { total: 0, belum: 0, sudah: 0 },
-        page: 1,
-        pageSize: 20,
+        page: pageNum,
+        pageSize: pageSizeNum,
         totalPages: 1,
-        defaultActiveSesi: 1,
+        defaultActiveSesi: sesiNum || 1,
       };
 
   return (
-    <MonitoringListClient
-      initialData={initialData}
-      semesters={semesters}
-      prodiList={prodiList}
-      defaultSemesterId={activeSemesterId}
-      initialProdiId={effectiveProdiId}
-    />
+    <Suspense fallback={null}>
+      <MonitoringListClient
+        initialData={initialData}
+        semesters={semesters}
+        prodiList={prodiList}
+        defaultSemesterId={resolvedSearchParams.semesterId || activeSemesterId}
+        initialProdiId={effectiveProdiId}
+        initialUrlParams={{
+          prodiId: effectiveProdiId,
+          semesterId: resolvedSearchParams.semesterId,
+          tab: monitoringTab,
+          sesi: sesiNum,
+          mode: filterMode,
+          hari: filterHari,
+          status: filterStatus,
+          q: searchQuery,
+          page: pageNum,
+          pageSize: pageSizeNum,
+          sortBy,
+        }}
+      />
+    </Suspense>
   );
 }

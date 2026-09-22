@@ -2,8 +2,9 @@
 // src/app/(dashboard)/monitoring/MonitoringListClient.tsx
 // Comprehensive List of All Monitored Classes with Last Updated Timestamp, 3-Pillar Progress & Silent Background Prefetching
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Layers,
   Search,
@@ -52,12 +53,27 @@ interface ProdiOption {
   kode: string;
 }
 
+export interface InitialUrlParams {
+  prodiId?: string;
+  semesterId?: string;
+  tab?: "ALL" | "BELUM" | "SUDAH";
+  sesi?: number;
+  mode?: string;
+  hari?: string;
+  status?: string;
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: MonitoringSortKey;
+}
+
 interface MonitoringListClientProps {
   initialData: MonitoringPaginatedResponse;
   semesters: SemesterOption[];
   prodiList: ProdiOption[];
   defaultSemesterId: string;
   initialProdiId?: string;
+  initialUrlParams?: InitialUrlParams;
 }
 
 export default function MonitoringListClient({
@@ -66,35 +82,18 @@ export default function MonitoringListClient({
   prodiList,
   defaultSemesterId,
   initialProdiId,
+  initialUrlParams,
 }: MonitoringListClientProps) {
-  const [filterProdi, setFilterProdi] = useState<string>(initialProdiId || "ALL");
-  const [filterMode, setFilterMode] = useState<string>("ALL");
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [filterHari, setFilterHari] = useState<string>("ALL");
-  const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "SUDAH">("ALL");
-  const [sortBy, setSortBy] = useState<MonitoringSortKey>("TERBARU");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-
-  // Pagination states (Default 20 per halaman)
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Debounce search query agar tidak spam network request saat mengetik cepat
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const activeSem = useMemo(
     () =>
       semesters.find((s) => s.aktif) ||
-      semesters.find((s) => s.id === defaultSemesterId) ||
+      semesters.find((s) => s.id === (initialUrlParams?.semesterId || defaultSemesterId)) ||
       semesters[0],
-    [semesters, defaultSemesterId]
+    [semesters, initialUrlParams?.semesterId, defaultSemesterId]
   );
 
   const defaultActiveSesi = useMemo(() => {
@@ -104,14 +103,87 @@ export default function MonitoringListClient({
     return getCurrentActiveSessionNumber(semStartStr, activeSem?.hariLibur);
   }, [activeSem]);
 
-  const [selectedSesi, setSelectedSesi] = useState<number>(
-    initialData.defaultActiveSesi || defaultActiveSesi
+  // Inisialisasi state dari initialUrlParams atau URL searchParams (Persistence)
+  const [filterProdi, setFilterProdi] = useState<string>(
+    initialUrlParams?.prodiId || searchParams.get("prodiId") || initialProdiId || "ALL"
   );
+  const [filterMode, setFilterMode] = useState<string>(
+    initialUrlParams?.mode || searchParams.get("mode") || "ALL"
+  );
+  const [filterStatus, setFilterStatus] = useState<string>(
+    initialUrlParams?.status || searchParams.get("status") || "ALL"
+  );
+  const [filterHari, setFilterHari] = useState<string>(
+    initialUrlParams?.hari || searchParams.get("hari") || "ALL"
+  );
+  const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "SUDAH">(
+    initialUrlParams?.tab || (searchParams.get("tab") as "ALL" | "BELUM" | "SUDAH") || "ALL"
+  );
+  const [sortBy, setSortBy] = useState<MonitoringSortKey>(
+    initialUrlParams?.sortBy || (searchParams.get("sortBy") as MonitoringSortKey) || "TERBARU"
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    initialUrlParams?.q || searchParams.get("q") || ""
+  );
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
+    initialUrlParams?.q || searchParams.get("q") || ""
+  );
+  const [selectedSesi, setSelectedSesi] = useState<number>(
+    initialUrlParams?.sesi || (searchParams.get("sesi") ? parseInt(searchParams.get("sesi")!, 10) : (initialData.defaultActiveSesi || defaultActiveSesi))
+  );
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(
+    initialUrlParams?.page || (searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : 1)
+  );
+  const [pageSize, setPageSize] = useState(
+    initialUrlParams?.pageSize || (searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!, 10) : 20)
+  );
+
+  // Helper untuk sinkronisasi filter ke URL tanpa reload halaman (URL-driven state)
+  const updateUrlParams = useCallback(
+    (newParams: Record<string, string | number | null | undefined>) => {
+      const current = new URLSearchParams(searchParams.toString());
+      Object.entries(newParams).forEach(([key, val]) => {
+        if (
+          val === null ||
+          val === undefined ||
+          val === "" ||
+          val === "ALL" ||
+          (key === "page" && Number(val) === 1) ||
+          (key === "pageSize" && Number(val) === 20) ||
+          (key === "sortBy" && val === "TERBARU")
+        ) {
+          current.delete(key);
+        } else {
+          current.set(key, String(val));
+        }
+      });
+      const searchStr = current.toString();
+      const query = searchStr ? `?${searchStr}` : "";
+      router.replace(`${pathname}${query}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
+  // Debounce search query agar tidak spam network request saat mengetik cepat
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      if (searchQuery !== (initialUrlParams?.q || searchParams.get("q") || "")) {
+        setCurrentPage(1);
+        updateUrlParams({ q: searchQuery || null, page: 1 });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, updateUrlParams, initialUrlParams?.q, searchParams]);
 
   // Sinkronisasi selectedSesi bila default sesi berubah karena ganti semester
   useEffect(() => {
-    setSelectedSesi(defaultActiveSesi);
-  }, [defaultActiveSesi]);
+    if (!initialUrlParams?.sesi && !searchParams.get("sesi")) {
+      setSelectedSesi(defaultActiveSesi);
+    }
+  }, [defaultActiveSesi, initialUrlParams?.sesi, searchParams]);
 
   // Object filter aktif untuk TanStack Query key
   const activeFilters = useMemo(
@@ -143,18 +215,18 @@ export default function MonitoringListClient({
 
   // Cek apakah kondisi saat ini adalah kondisi awal default
   const isInitialParams =
-    currentPage === 1 &&
-    filterProdi === (initialProdiId || "ALL") &&
-    filterMode === "ALL" &&
-    filterStatus === "ALL" &&
-    filterHari === "ALL" &&
-    monitoringTab === "ALL" &&
-    sortBy === "TERBARU" &&
-    !debouncedSearchQuery &&
-    selectedSesi === (initialData.defaultActiveSesi || defaultActiveSesi) &&
-    pageSize === 20;
+    currentPage === (initialUrlParams?.page || 1) &&
+    filterProdi === (initialUrlParams?.prodiId || initialProdiId || "ALL") &&
+    filterMode === (initialUrlParams?.mode || "ALL") &&
+    filterStatus === (initialUrlParams?.status || "ALL") &&
+    filterHari === (initialUrlParams?.hari || "ALL") &&
+    monitoringTab === (initialUrlParams?.tab || "ALL") &&
+    sortBy === (initialUrlParams?.sortBy || "TERBARU") &&
+    debouncedSearchQuery === (initialUrlParams?.q || "") &&
+    selectedSesi === (initialUrlParams?.sesi || initialData.defaultActiveSesi || defaultActiveSesi) &&
+    pageSize === (initialUrlParams?.pageSize || 20);
 
-  // TanStack Query dengan Server-Side Pagination
+  // TanStack Query dengan Server-Side Pagination & Auto Re-fetch
   const { data, isFetching } = useQuery<MonitoringPaginatedResponse>({
     queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: currentPage }],
     queryFn: async () => {
@@ -169,13 +241,43 @@ export default function MonitoringListClient({
     },
     initialData: isInitialParams ? initialData : undefined,
     placeholderData: (previousData) => previousData,
-    staleTime: 60 * 1000,
+    staleTime: 5000,
+    refetchOnWindowFocus: "always",
+    refetchOnMount: "always",
   });
 
-  // ── SILENT BACKGROUND PREFETCHING (Pola B Modern & Elegan) ──────────────────
-  // Saat user sedang membaca halaman N, TanStack Query diam-diam memuat halaman N+1 ke RAM cache.
-  // Ketika user mengklik Next, halaman berikutnya langsung muncul 0 ms tanpa loading!
   const queryClient = useQueryClient();
+
+  // ── REAL-TIME CROSS-TAB & CROSS-WINDOW SYNC ────────────────────────────────
+  // Ketika user memonitor & menyimpan data kelas di tab detail, tab ini otomatis
+  // melakukan invalidate & refetch sehingga kelas langsung pindah dari "Belum" ke "Sudah"!
+  useEffect(() => {
+    const handleSync = () => {
+      queryClient.invalidateQueries({ queryKey: ["monitoring-kelas-paginated"] });
+    };
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel("cdu_monitoring_sync");
+      channel.onmessage = (event) => {
+        if (event.data?.type === "MONITORING_UPDATED") {
+          handleSync();
+        }
+      };
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "cdu_monitoring_last_sync") {
+        handleSync();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [queryClient]);
 
   useEffect(() => {
     if (!data) return;
@@ -256,6 +358,7 @@ export default function MonitoringListClient({
     }
     setSortBy(nextSort);
     setCurrentPage(1);
+    updateUrlParams({ sortBy: nextSort, page: 1 });
   }
 
   // Render clickable header column with sort icon
@@ -393,6 +496,7 @@ export default function MonitoringListClient({
                 onClick={() => {
                   setMonitoringTab("ALL");
                   setCurrentPage(1);
+                  updateUrlParams({ tab: "ALL", page: 1 });
                 }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "ALL"
@@ -411,6 +515,7 @@ export default function MonitoringListClient({
                 onClick={() => {
                   setMonitoringTab("BELUM");
                   setCurrentPage(1);
+                  updateUrlParams({ tab: "BELUM", page: 1 });
                 }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "BELUM"
@@ -432,6 +537,7 @@ export default function MonitoringListClient({
                 onClick={() => {
                   setMonitoringTab("SUDAH");
                   setCurrentPage(1);
+                  updateUrlParams({ tab: "SUDAH", page: 1 });
                 }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "SUDAH"
@@ -456,8 +562,10 @@ export default function MonitoringListClient({
             <select
               value={selectedSesi}
               onChange={(e) => {
-                setSelectedSesi(Number(e.target.value));
+                const val = Number(e.target.value);
+                setSelectedSesi(val);
                 setCurrentPage(1);
+                updateUrlParams({ sesi: val, page: 1 });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 selectedSesi !== defaultActiveSesi
@@ -477,8 +585,10 @@ export default function MonitoringListClient({
             <select
               value={filterHari}
               onChange={(e) => {
-                setFilterHari(e.target.value);
+                const val = e.target.value;
+                setFilterHari(val);
                 setCurrentPage(1);
+                updateUrlParams({ hari: val, page: 1 });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterHari !== "ALL"
@@ -501,8 +611,10 @@ export default function MonitoringListClient({
             <select
               value={filterProdi}
               onChange={(e) => {
-                setFilterProdi(e.target.value);
+                const val = e.target.value;
+                setFilterProdi(val);
                 setCurrentPage(1);
+                updateUrlParams({ prodiId: val, page: 1 });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
                 filterProdi !== "ALL"
@@ -523,8 +635,10 @@ export default function MonitoringListClient({
             <select
               value={filterMode}
               onChange={(e) => {
-                setFilterMode(e.target.value);
+                const val = e.target.value;
+                setFilterMode(val);
                 setCurrentPage(1);
+                updateUrlParams({ mode: val, page: 1 });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterMode !== "ALL"
@@ -543,8 +657,10 @@ export default function MonitoringListClient({
             <select
               value={filterStatus}
               onChange={(e) => {
-                setFilterStatus(e.target.value);
+                const val = e.target.value;
+                setFilterStatus(val);
                 setCurrentPage(1);
+                updateUrlParams({ status: val, page: 1 });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterStatus !== "ALL"
@@ -580,6 +696,7 @@ export default function MonitoringListClient({
                   setFilterStatus("ALL");
                   setSortBy("TERBARU");
                   setCurrentPage(1);
+                  router.replace(initialProdiId ? `${pathname}?prodiId=${initialProdiId}` : pathname, { scroll: false });
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
@@ -916,11 +1033,13 @@ export default function MonitoringListClient({
           pageSize={pageSize}
           onPageChange={(p) => {
             setCurrentPage(p);
+            updateUrlParams({ page: p });
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize);
             setCurrentPage(1);
+            updateUrlParams({ pageSize: newSize, page: 1 });
           }}
         />
       </div>

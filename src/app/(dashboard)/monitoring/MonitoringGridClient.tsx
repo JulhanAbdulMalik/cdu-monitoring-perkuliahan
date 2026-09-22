@@ -312,6 +312,18 @@ export default function MonitoringGridClient({
       })
     );
     router.refresh();
+
+    // Notifikasi cross-tab real-time ke halaman /monitoring
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cdu_monitoring_last_sync", Date.now().toString());
+        if (typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("cdu_monitoring_sync");
+          channel.postMessage({ type: "MONITORING_UPDATED", kelasId: currentKelas?.id });
+          channel.close();
+        }
+      }
+    } catch {}
   }
 
   // Deteksi dosen pengajar unik di sesi perkuliahan untuk visual overview
@@ -506,6 +518,18 @@ export default function MonitoringGridClient({
       if (res.success) {
         toast.success("Semua data monitoring berhasil disimpan!");
         setHasUnsavedChanges(false);
+
+        // Notifikasi cross-tab real-time ke halaman /monitoring
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("cdu_monitoring_last_sync", Date.now().toString());
+            if (typeof BroadcastChannel !== "undefined") {
+              const channel = new BroadcastChannel("cdu_monitoring_sync");
+              channel.postMessage({ type: "MONITORING_UPDATED", kelasId: currentKelas.id });
+              channel.close();
+            }
+          }
+        } catch {}
       } else {
         toast.error(res.error || "Gagal menyimpan perubahan");
       }
@@ -521,13 +545,20 @@ export default function MonitoringGridClient({
       {/* ── Class Switcher & Action Top Bar ─────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-3">
-          <Link
-            href="/monitoring"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/monitoring");
+              }
+            }}
             className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-[#fdf2f8] text-slate-500 hover:text-[#a80063] border border-slate-200/80 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs"
             title="Kembali ke Daftar Kelas Monitoring"
           >
             <ArrowLeft size={16} />
-          </Link>
+          </button>
 
           <div>
             <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
