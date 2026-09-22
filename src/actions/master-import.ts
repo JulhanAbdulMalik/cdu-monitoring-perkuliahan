@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 export interface ImportPreviewRow {
   rowIndex: number;
@@ -795,6 +796,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
       count++;
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/kelas");
     revalidatePath("/master/mata-kuliah");
     revalidatePath("/monitoring");

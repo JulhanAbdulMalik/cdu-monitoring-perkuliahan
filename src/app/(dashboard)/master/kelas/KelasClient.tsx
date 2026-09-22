@@ -71,7 +71,7 @@ interface KelasItem {
     id: string;
     nama: string;
   };
-  monitoringSesi: {
+  monitoringSesi?: {
     id: string;
     nomorSesi: number;
     kehadiran: string;

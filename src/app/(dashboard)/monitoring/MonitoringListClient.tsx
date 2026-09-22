@@ -1,6 +1,6 @@
 "use client";
 // src/app/(dashboard)/monitoring/MonitoringListClient.tsx
-// Comprehensive List of All Monitored Classes with Last Updated Timestamp & 3-Pillar Progress
+// Comprehensive List of All Monitored Classes with Last Updated Timestamp, 3-Pillar Progress & Silent Background Prefetching
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
@@ -8,18 +8,13 @@ import {
   Layers,
   Search,
   BarChart3,
-  Calendar,
   Building,
   Laptop,
   ArrowRight,
   Clock,
-  Sparkles,
   CheckCircle2,
-  AlertTriangle,
   AlertCircle,
-  CalendarCheck,
   User,
-  ExternalLink,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -27,9 +22,19 @@ import {
   RotateCcw,
   DoorClosed,
   X,
+  Loader2,
 } from "lucide-react";
-import { calculateClassSummary } from "@/lib/score-calculator";
-import { formatTerakhirUpdateParts, getCurrentActiveSessionNumber, DEFAULT_SEMESTER_START_DATE, formatPct, roundPct } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getMonitoringKelasPaginated,
+  MonitoringPaginatedResponse,
+  MonitoringSortKey,
+} from "@/actions/monitoring";
+import {
+  getCurrentActiveSessionNumber,
+  DEFAULT_SEMESTER_START_DATE,
+  formatPct,
+} from "@/lib/utils";
 import TablePagination from "@/components/common/TablePagination";
 
 interface SemesterOption {
@@ -47,122 +52,48 @@ interface ProdiOption {
   kode: string;
 }
 
-export interface MonitoringKelasItem {
-  id: string;
-  kodeKelas: string;
-  jadwalHari: string | null;
-  jadwalJam: string | null;
-  ruangan?: string | null;
-  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
-  updatedAt: Date | string;
-  semester: {
-    id: string;
-    tahunAkademik: string;
-    periode: string;
-    aktif: boolean;
-  };
-  mataKuliah: {
-    id: string;
-    kode: string;
-    nama: string;
-    sks: number;
-    prodi: {
-      id: string;
-      nama: string;
-      kode: string;
-    };
-  };
-  dosen: {
-    id: string;
-    nama: string;
-    nidn: string | null;
-  };
-  monitoringSesi: Array<{
-    id: string;
-    nomorSesi: number;
-    jenisSesi: "REGULER" | "UTS" | "UAS";
-    kehadiran: string;
-    lectureNote: boolean | null;
-    slide: boolean | null;
-    video: boolean | null;
-    conference: boolean | null;
-    tugas: boolean | null;
-    kuis: boolean | null;
-    dosenPengajarId?: string | null;
-    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
-    catatanGantiDosen?: string | null;
-    dosenPengajar?: {
-      id: string;
-      nama: string;
-      nidn?: string | null;
-    } | null;
-    updatedAt: Date | string;
-  }>;
-}
-
 interface MonitoringListClientProps {
-  kelasList: MonitoringKelasItem[];
+  initialData: MonitoringPaginatedResponse;
   semesters: SemesterOption[];
   prodiList: ProdiOption[];
   defaultSemesterId: string;
+  initialProdiId?: string;
 }
-
-const HARI_ORDER: Record<string, number> = {
-  senin: 1,
-  selasa: 2,
-  rabu: 3,
-  kamis: 4,
-  jumat: 5,
-  sabtu: 6,
-  minggu: 7,
-};
-
-function getDayWeight(hari?: string | null): number {
-  if (!hari) return 99;
-  const h = hari.trim().toLowerCase();
-  return HARI_ORDER[h] ?? 99;
-}
-
-function getJamStart(jam?: string | null): string {
-  if (!jam) return "99:99";
-  const parts = jam.split(/[-–]|(?:s\.d)/i);
-  return parts[0]?.trim() || jam.trim();
-}
-
-export type SortKey =
-  | "TERBARU"
-  | "TERLAMA"
-  | "MK_ASC"
-  | "MK_DESC"
-  | "KODE_ASC"
-  | "KODE_DESC"
-  | "DOSEN_ASC"
-  | "DOSEN_DESC"
-  | "JADWAL_ASC"
-  | "JADWAL_DESC"
-  | "RUANG_ASC"
-  | "RUANG_DESC"
-  | "KEHADIRAN_DESC"
-  | "KEHADIRAN_ASC"
-  | "PILAR_DESC"
-  | "PILAR_ASC";
 
 export default function MonitoringListClient({
-  kelasList,
+  initialData,
   semesters,
   prodiList,
   defaultSemesterId,
+  initialProdiId,
 }: MonitoringListClientProps) {
-  const [filterProdi, setFilterProdi] = useState<string>("ALL");
+  const [filterProdi, setFilterProdi] = useState<string>(initialProdiId || "ALL");
   const [filterMode, setFilterMode] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterHari, setFilterHari] = useState<string>("ALL");
   const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "SUDAH">("ALL");
-  const [sortBy, setSortBy] = useState<SortKey>("TERBARU");
+  const [sortBy, setSortBy] = useState<MonitoringSortKey>("TERBARU");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  // Pagination states (Default 20 per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Debounce search query agar tidak spam network request saat mengetik cepat
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const activeSem = useMemo(
-    () => semesters.find((s) => s.aktif) || semesters.find((s) => s.id === defaultSemesterId) || semesters[0],
+    () =>
+      semesters.find((s) => s.aktif) ||
+      semesters.find((s) => s.id === defaultSemesterId) ||
+      semesters[0],
     [semesters, defaultSemesterId]
   );
 
@@ -173,210 +104,158 @@ export default function MonitoringListClient({
     return getCurrentActiveSessionNumber(semStartStr, activeSem?.hariLibur);
   }, [activeSem]);
 
-  const [selectedSesi, setSelectedSesi] = useState<number>(defaultActiveSesi);
+  const [selectedSesi, setSelectedSesi] = useState<number>(
+    initialData.defaultActiveSesi || defaultActiveSesi
+  );
 
   // Sinkronisasi selectedSesi bila default sesi berubah karena ganti semester
   useEffect(() => {
     setSelectedSesi(defaultActiveSesi);
   }, [defaultActiveSesi]);
 
-  // Pagination states (Default 20 per halaman)
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Reset page ke 1 saat filter atau pencarian berubah
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, monitoringTab, selectedSesi, filterHari, filterProdi, filterMode, filterStatus]);
-
-  // Process and compute stats for every class
-  const processedClasses = kelasList.map((cls) => {
-    const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran, defaultActiveSesi);
-
-    // Evaluasi status monitoring untuk sesi target (selectedSesi)
-    const targetSesiData = cls.monitoringSesi.find((s) => s.nomorSesi === selectedSesi);
-    const isMonitored = targetSesiData ? targetSesiData.kehadiran !== "BELUM_DIISI" : false;
-    let targetSesiKehadiranLabel = "Belum Dicek";
-    let targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
-
-    if (targetSesiData) {
-      if (targetSesiData.kehadiran === "HADIR") {
-        targetSesiKehadiranLabel = "Hadir";
-        targetSesiKehadiranColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
-      } else if (targetSesiData.kehadiran === "HADIR_TIDAK_LENGKAP" || targetSesiData.kehadiran === "HTL") {
-        targetSesiKehadiranLabel = "HTL";
-        targetSesiKehadiranColor = "bg-amber-50 text-amber-700 border-amber-200";
-      } else if (targetSesiData.kehadiran === "TIDAK_HADIR" || targetSesiData.kehadiran === "ALPHA") {
-        targetSesiKehadiranLabel = "Alpha";
-        targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
-      }
-    }
-
-    // Compute true latest update timestamp across class and its sessions
-    let latestTime = new Date(cls.updatedAt).getTime();
-    cls.monitoringSesi.forEach((s) => {
-      const sTime = new Date(s.updatedAt).getTime();
-      if (sTime > latestTime) latestTime = sTime;
-    });
-
-    const updateParts = formatTerakhirUpdateParts(new Date(latestTime));
-
-    // Kumpulkan dosen pengajar per sesi
-    const peranMap = new Map<string, { id: string; nama: string; status: string; sesiList: number[] }>();
-    cls.monitoringSesi.forEach((s) => {
-      const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
-      if (isSub) {
-        const sub = s.dosenPengajar!;
-        if (!peranMap.has(sub.id)) {
-          peranMap.set(sub.id, {
-            id: sub.id,
-            nama: sub.nama,
-            status: s.statusPengajar!,
-            sesiList: [s.nomorSesi],
-          });
-        } else {
-          peranMap.get(sub.id)!.sesiList.push(s.nomorSesi);
-        }
-      }
-    });
-
-    const dosenPengajarList = Array.from(peranMap.values());
-    const isSplitPengajar = dosenPengajarList.length > 0;
-
-    return {
-      ...cls,
-      summary,
-      targetSesiData,
-      isMonitored,
-      targetSesiKehadiranLabel,
-      targetSesiKehadiranColor,
-      latestTime,
-      updateParts,
-      dosenPengajarList,
-      isSplitPengajar,
-    };
-  });
-
-  // 1. Base list: disaring berdasarkan Prodi, Mode, Hari, dan Search Query
-  const baseList = processedClasses.filter((item) => {
-    const matchProdi = filterProdi === "ALL" || item.mataKuliah.prodi.id === filterProdi;
-    const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
-    const matchHari =
-      filterHari === "ALL" ||
-      (item.jadwalHari && item.jadwalHari.trim().toLowerCase() === filterHari.toLowerCase());
-    const q = searchQuery.toLowerCase();
-    const matchPengajar = item.dosenPengajarList?.some((p) =>
-      p.nama.toLowerCase().includes(q)
-    );
-    const matchSearch =
-      item.kodeKelas.toLowerCase().includes(q) ||
-      item.mataKuliah.nama.toLowerCase().includes(q) ||
-      item.mataKuliah.kode.toLowerCase().includes(q) ||
-      item.dosen.nama.toLowerCase().includes(q) ||
-      matchPengajar;
-
-    return matchProdi && matchMode && matchHari && matchSearch;
-  });
-
-  // Metrik untuk Tab & Daily Progress Widget
-  const totalInBase = baseList.length;
-  const sudahDimonitorCount = baseList.filter((c) => c.isMonitored).length;
-  const belumDimonitorCount = baseList.filter((c) => !c.isMonitored).length;
-  const persenSelesai = totalInBase > 0 ? roundPct(sudahDimonitorCount, totalInBase) : 0;
-
-  // 2. Final filtered list: menerapkan monitoringTab dan filterStatus
-  const filteredList = baseList.filter((item) => {
-    const matchStatus = filterStatus === "ALL" || item.summary.statusEvaluasi === filterStatus;
-    const matchTab =
-      monitoringTab === "ALL"
-        ? true
-        : monitoringTab === "BELUM"
-        ? !item.isMonitored
-        : item.isMonitored;
-
-    return matchStatus && matchTab;
-  });
-
-  // Sort list
-  const sortedList = [...filteredList].sort((a, b) => {
-    switch (sortBy) {
-      case "TERBARU":
-        return b.latestTime - a.latestTime;
-      case "TERLAMA":
-        return a.latestTime - b.latestTime;
-      case "MK_ASC":
-        return a.mataKuliah.nama.localeCompare(b.mataKuliah.nama, "id", { sensitivity: "base" });
-      case "MK_DESC":
-        return b.mataKuliah.nama.localeCompare(a.mataKuliah.nama, "id", { sensitivity: "base" });
-      case "KODE_ASC":
-        return a.kodeKelas.localeCompare(b.kodeKelas, "id", { sensitivity: "base" });
-      case "KODE_DESC":
-        return b.kodeKelas.localeCompare(a.kodeKelas, "id", { sensitivity: "base" });
-      case "DOSEN_ASC":
-        return a.dosen.nama.localeCompare(b.dosen.nama, "id", { sensitivity: "base" });
-      case "DOSEN_DESC":
-        return b.dosen.nama.localeCompare(a.dosen.nama, "id", { sensitivity: "base" });
-      case "JADWAL_ASC": {
-        const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
-        if (dayDiff !== 0) return dayDiff;
-        return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
-      }
-      case "JADWAL_DESC": {
-        const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
-        if (dayDiff !== 0) return dayDiff;
-        return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
-      }
-      case "RUANG_ASC":
-        return (a.ruangan || "").localeCompare(b.ruangan || "", "id", { sensitivity: "base" });
-      case "RUANG_DESC":
-        return (b.ruangan || "").localeCompare(a.ruangan || "", "id", { sensitivity: "base" });
-      case "KEHADIRAN_DESC":
-        return b.summary.persenKehadiran - a.summary.persenKehadiran;
-      case "KEHADIRAN_ASC":
-        return a.summary.persenKehadiran - b.summary.persenKehadiran;
-      case "PILAR_DESC":
-        return b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar;
-      case "PILAR_ASC":
-        return a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar;
-      default:
-        return b.latestTime - a.latestTime;
-    }
-  });
-
-  // Paginated Sliced Data
-  const paginatedList = sortedList.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+  // Object filter aktif untuk TanStack Query key
+  const activeFilters = useMemo(
+    () => ({
+      semesterId: activeSem?.id,
+      prodiId: filterProdi,
+      filterMode,
+      filterHari,
+      filterStatus,
+      monitoringTab,
+      selectedSesi,
+      searchQuery: debouncedSearchQuery,
+      sortBy,
+      pageSize,
+    }),
+    [
+      activeSem?.id,
+      filterProdi,
+      filterMode,
+      filterHari,
+      filterStatus,
+      monitoringTab,
+      selectedSesi,
+      debouncedSearchQuery,
+      sortBy,
+      pageSize,
+    ]
   );
 
+  // Cek apakah kondisi saat ini adalah kondisi awal default
+  const isInitialParams =
+    currentPage === 1 &&
+    filterProdi === (initialProdiId || "ALL") &&
+    filterMode === "ALL" &&
+    filterStatus === "ALL" &&
+    filterHari === "ALL" &&
+    monitoringTab === "ALL" &&
+    sortBy === "TERBARU" &&
+    !debouncedSearchQuery &&
+    selectedSesi === (initialData.defaultActiveSesi || defaultActiveSesi) &&
+    pageSize === 20;
+
+  // TanStack Query dengan Server-Side Pagination
+  const { data, isFetching } = useQuery<MonitoringPaginatedResponse>({
+    queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: currentPage }],
+    queryFn: async () => {
+      const res = await getMonitoringKelasPaginated({
+        ...activeFilters,
+        page: currentPage,
+      });
+      if (!res.success || !res.data) {
+        throw new Error(res.error || "Gagal memuat data monitoring kelas");
+      }
+      return res.data;
+    },
+    initialData: isInitialParams ? initialData : undefined,
+    placeholderData: (previousData) => previousData,
+    staleTime: 60 * 1000,
+  });
+
+  // ── SILENT BACKGROUND PREFETCHING (Pola B Modern & Elegan) ──────────────────
+  // Saat user sedang membaca halaman N, TanStack Query diam-diam memuat halaman N+1 ke RAM cache.
+  // Ketika user mengklik Next, halaman berikutnya langsung muncul 0 ms tanpa loading!
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!data) return;
+    const totalPages = data.totalPages;
+
+    // Prefetch Halaman Berikutnya (N + 1)
+    if (currentPage < totalPages) {
+      const nextPage = currentPage + 1;
+      queryClient.prefetchQuery({
+        queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: nextPage }],
+        queryFn: async () => {
+          const res = await getMonitoringKelasPaginated({
+            ...activeFilters,
+            page: nextPage,
+          });
+          if (!res.success || !res.data) throw new Error(res.error);
+          return res.data;
+        },
+        staleTime: 60 * 1000,
+      });
+    }
+
+    // Prefetch Halaman Sebelumnya (N - 1) jika user berada di page > 1
+    if (currentPage > 1) {
+      const prevPage = currentPage - 1;
+      queryClient.prefetchQuery({
+        queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: prevPage }],
+        queryFn: async () => {
+          const res = await getMonitoringKelasPaginated({
+            ...activeFilters,
+            page: prevPage,
+          });
+          if (!res.success || !res.data) throw new Error(res.error);
+          return res.data;
+        },
+        staleTime: 60 * 1000,
+      });
+    }
+  }, [currentPage, data, activeFilters, queryClient]);
+
+  // Ekstrak data hasil query
+  const paginatedList = data?.items || [];
+  const totalInBase = data?.tabCounts.total ?? 0;
+  const belumDimonitorCount = data?.tabCounts.belum ?? 0;
+  const sudahDimonitorCount = data?.tabCounts.sudah ?? 0;
+  const totalFilteredCount = data?.totalCount ?? 0;
+
   // Helper toggle column sort
-  function handleColumnSort(column: "KODE" | "MK" | "DOSEN" | "JADWAL" | "RUANG" | "KEHADIRAN" | "PILAR" | "UPDATE") {
+  function handleColumnSort(
+    column: "KODE" | "MK" | "DOSEN" | "JADWAL" | "RUANG" | "KEHADIRAN" | "PILAR" | "UPDATE"
+  ) {
+    let nextSort: MonitoringSortKey = "TERBARU";
     switch (column) {
       case "KODE":
-        setSortBy(sortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC");
+        nextSort = sortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC";
         break;
       case "MK":
-        setSortBy(sortBy === "MK_ASC" ? "MK_DESC" : "MK_ASC");
+        nextSort = sortBy === "MK_ASC" ? "MK_DESC" : "MK_ASC";
         break;
       case "DOSEN":
-        setSortBy(sortBy === "DOSEN_ASC" ? "DOSEN_DESC" : "DOSEN_ASC");
+        nextSort = sortBy === "DOSEN_ASC" ? "DOSEN_DESC" : "DOSEN_ASC";
         break;
       case "JADWAL":
-        setSortBy(sortBy === "JADWAL_ASC" ? "JADWAL_DESC" : "JADWAL_ASC");
+        nextSort = sortBy === "JADWAL_ASC" ? "JADWAL_DESC" : "JADWAL_ASC";
         break;
       case "RUANG":
-        setSortBy(sortBy === "RUANG_ASC" ? "RUANG_DESC" : "RUANG_ASC");
+        nextSort = sortBy === "RUANG_ASC" ? "RUANG_DESC" : "RUANG_ASC";
         break;
       case "KEHADIRAN":
-        setSortBy(sortBy === "KEHADIRAN_DESC" ? "KEHADIRAN_ASC" : "KEHADIRAN_DESC");
+        nextSort = sortBy === "KEHADIRAN_DESC" ? "KEHADIRAN_ASC" : "KEHADIRAN_DESC";
         break;
       case "PILAR":
-        setSortBy(sortBy === "PILAR_DESC" ? "PILAR_ASC" : "PILAR_DESC");
+        nextSort = sortBy === "PILAR_DESC" ? "PILAR_ASC" : "PILAR_DESC";
         break;
       case "UPDATE":
-        setSortBy(sortBy === "TERBARU" ? "TERLAMA" : "TERBARU");
+        nextSort = sortBy === "TERBARU" ? "TERLAMA" : "TERBARU";
         break;
     }
+    setSortBy(nextSort);
+    setCurrentPage(1);
   }
 
   // Render clickable header column with sort icon
@@ -434,8 +313,6 @@ export default function MonitoringListClient({
     );
   }
 
-  const totalClasses = filteredList.length;
-
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar ──────────────────────────────────────────────────── */}
@@ -447,6 +324,12 @@ export default function MonitoringListClient({
             {activeSem && (
               <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                 {activeSem.tahunAkademik} ({activeSem.periode})
+              </span>
+            )}
+            {isFetching && (
+              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] px-2 py-0.5 rounded-full">
+                <Loader2 size={10} className="animate-spin" />
+                <span>Memuat data...</span>
               </span>
             )}
           </h1>
@@ -467,9 +350,6 @@ export default function MonitoringListClient({
           </Link>
         </div>
       </div>
-
-
-
 
       {/* ── Standardized Single-Row Filter Toolbar ─────────────────────────── */}
       <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
@@ -510,7 +390,10 @@ export default function MonitoringListClient({
             <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70">
               <button
                 type="button"
-                onClick={() => setMonitoringTab("ALL")}
+                onClick={() => {
+                  setMonitoringTab("ALL");
+                  setCurrentPage(1);
+                }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "ALL"
                     ? "bg-white text-slate-900 shadow-2xs border border-slate-200/60"
@@ -525,7 +408,10 @@ export default function MonitoringListClient({
 
               <button
                 type="button"
-                onClick={() => setMonitoringTab("BELUM")}
+                onClick={() => {
+                  setMonitoringTab("BELUM");
+                  setCurrentPage(1);
+                }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "BELUM"
                     ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs"
@@ -543,7 +429,10 @@ export default function MonitoringListClient({
 
               <button
                 type="button"
-                onClick={() => setMonitoringTab("SUDAH")}
+                onClick={() => {
+                  setMonitoringTab("SUDAH");
+                  setCurrentPage(1);
+                }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   monitoringTab === "SUDAH"
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs"
@@ -566,7 +455,10 @@ export default function MonitoringListClient({
             {/* Sesi Selector (1-16) */}
             <select
               value={selectedSesi}
-              onChange={(e) => setSelectedSesi(Number(e.target.value))}
+              onChange={(e) => {
+                setSelectedSesi(Number(e.target.value));
+                setCurrentPage(1);
+              }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 selectedSesi !== defaultActiveSesi
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
@@ -584,7 +476,10 @@ export default function MonitoringListClient({
             {/* Hari Filter */}
             <select
               value={filterHari}
-              onChange={(e) => setFilterHari(e.target.value)}
+              onChange={(e) => {
+                setFilterHari(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterHari !== "ALL"
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
@@ -605,7 +500,10 @@ export default function MonitoringListClient({
             {/* Prodi Filter */}
             <select
               value={filterProdi}
-              onChange={(e) => setFilterProdi(e.target.value)}
+              onChange={(e) => {
+                setFilterProdi(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
                 filterProdi !== "ALL"
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
@@ -624,7 +522,10 @@ export default function MonitoringListClient({
             {/* Mode Pembelajaran Filter */}
             <select
               value={filterMode}
-              onChange={(e) => setFilterMode(e.target.value)}
+              onChange={(e) => {
+                setFilterMode(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterMode !== "ALL"
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
@@ -641,7 +542,10 @@ export default function MonitoringListClient({
             {/* Status Evaluasi Filter */}
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterStatus !== "ALL"
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
@@ -655,17 +559,27 @@ export default function MonitoringListClient({
             </select>
 
             {/* Reset All Filters Button */}
-            {(searchQuery || monitoringTab !== "ALL" || selectedSesi !== defaultActiveSesi || filterHari !== "ALL" || filterProdi !== "ALL" || filterMode !== "ALL" || filterStatus !== "ALL") && (
+            {(searchQuery ||
+              monitoringTab !== "ALL" ||
+              selectedSesi !== defaultActiveSesi ||
+              filterHari !== "ALL" ||
+              filterProdi !== (initialProdiId || "ALL") ||
+              filterMode !== "ALL" ||
+              filterStatus !== "ALL" ||
+              sortBy !== "TERBARU") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
+                  setDebouncedSearchQuery("");
                   setMonitoringTab("ALL");
                   setSelectedSesi(defaultActiveSesi);
                   setFilterHari("ALL");
-                  setFilterProdi("ALL");
+                  setFilterProdi(initialProdiId || "ALL");
                   setFilterMode("ALL");
                   setFilterStatus("ALL");
+                  setSortBy("TERBARU");
+                  setCurrentPage(1);
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
@@ -679,7 +593,14 @@ export default function MonitoringListClient({
       </div>
 
       {/* ── Monitored Class Table Card ───────────────────────────────────────── */}
-      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs">
+      <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs relative">
+        {/* Subtle Background Loading Line */}
+        {isFetching && (
+          <div className="h-0.5 w-full bg-slate-100 overflow-hidden relative">
+            <div className="h-full bg-gradient-to-r from-[#a80063]/40 via-[#a80063] to-[#a80063]/40 animate-pulse w-full" />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
@@ -698,20 +619,24 @@ export default function MonitoringListClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 text-xs">
-              {sortedList.length === 0 ? (
+              {paginatedList.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
                     {monitoringTab === "BELUM" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
                         <CheckCircle2 size={32} className="text-emerald-500" />
                         <p className="font-bold text-sm">Semua kelas sudah selesai dimonitor!</p>
-                        <p className="text-xs text-slate-400">Tidak ada antrean kelas yang belum dicek pada kriteria filter ini.</p>
+                        <p className="text-xs text-slate-400">
+                          Tidak ada antrean kelas yang belum dicek pada kriteria filter ini.
+                        </p>
                       </div>
                     ) : monitoringTab === "SUDAH" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400">
                         <AlertCircle size={32} className="text-slate-300" />
                         <p className="font-bold text-sm">Belum ada kelas yang selesai dimonitor</p>
-                        <p className="text-xs text-slate-400">Silakan lakukan pengecekan kelas pada tab "Belum Dimonitor".</p>
+                        <p className="text-xs text-slate-400">
+                          Silakan lakukan pengecekan kelas pada tab &quot;Belum Dimonitor&quot;.
+                        </p>
                       </div>
                     ) : (
                       "Tidak ada kelas yang sesuai dengan kriteria filter."
@@ -788,7 +713,10 @@ export default function MonitoringListClient({
                         <div>
                           <div className="flex items-center gap-1.5 font-medium text-slate-800">
                             <User size={12} className="text-[#a80063] shrink-0" />
-                            <span className="font-semibold truncate max-w-[250px] text-xs leading-tight" title={cls.dosen.nama}>
+                            <span
+                              className="font-semibold truncate max-w-[250px] text-xs leading-tight"
+                              title={cls.dosen.nama}
+                            >
                               {cls.dosen.nama}
                             </span>
                           </div>
@@ -808,7 +736,8 @@ export default function MonitoringListClient({
                                         : "bg-amber-50 text-amber-700 border-amber-200"
                                     }`}
                                   >
-                                    {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                    {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S
+                                    {Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
                                   </span>
                                   <span className="truncate max-w-[110px] text-slate-600 font-medium" title={p.nama}>
                                     {p.nama}
@@ -866,7 +795,9 @@ export default function MonitoringListClient({
                                 title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
                               >
                                 <CheckCircle2 size={8.5} className="shrink-0" />
-                                <span>S{selectedSesi}: {cls.targetSesiKehadiranLabel}</span>
+                                <span>
+                                  S{selectedSesi}: {cls.targetSesiKehadiranLabel}
+                                </span>
                               </span>
                             ) : (
                               <span
@@ -885,7 +816,10 @@ export default function MonitoringListClient({
                       <td className="py-3 px-2.5 text-center">
                         {cls.modePembelajaran === "BIMBINGAN" ? (
                           <div className="inline-flex flex-col items-center justify-center">
-                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-purple-200" title="Kelas Bimbingan bebas dari kewajiban 3 pilar konten LMS">
+                            <span
+                              className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-purple-200"
+                              title="Kelas Bimbingan bebas dari kewajiban 3 pilar konten LMS"
+                            >
                               Bebas Konten
                             </span>
                             <span className="text-[8px] text-slate-400 mt-0.5">SCP / Skripsi</span>
@@ -912,7 +846,10 @@ export default function MonitoringListClient({
                       <td className="py-3 px-2.5 text-center">
                         {cls.modePembelajaran === "LURING" ? (
                           <div className="inline-flex flex-col items-center justify-center">
-                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80" title="Kelas Tatap Muka (Offline) tidak memiliki kewajiban kuota Live Conference">
+                            <span
+                              className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80"
+                              title="Kelas Tatap Muka (Offline) tidak memiliki kewajiban kuota Live Conference"
+                            >
                               Bebas Conf
                             </span>
                             <span className="text-[8px] text-slate-400 mt-0.5">Tatap Muka</span>
@@ -975,10 +912,16 @@ export default function MonitoringListClient({
         {/* ── Table Pagination Bar ────────────────────────────────────────── */}
         <TablePagination
           currentPage={currentPage}
-          totalItems={sortedList.length}
+          totalItems={totalFilteredCount}
           pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
+          onPageChange={(p) => {
+            setCurrentPage(p);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
         />
       </div>
     </div>

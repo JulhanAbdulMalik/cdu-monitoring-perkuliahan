@@ -175,6 +175,7 @@ export default function Sidebar() {
       >
         <Link
           href="/"
+          prefetch={true}
           className="flex items-center gap-2.5 min-w-0"
           title="CDU PORTAL - Nusa Putra University"
         >
@@ -227,6 +228,7 @@ export default function Sidebar() {
                   <div key={item.href} className="relative">
                     <Link
                       href={hasChildren ? item.children![0].href : item.href}
+                      prefetch={true}
                       title={item.label}
                       className={cn(
                         "flex items-center rounded-lg text-xs transition-all duration-150 relative cursor-pointer overflow-hidden",
@@ -283,6 +285,7 @@ export default function Sidebar() {
                           <Link
                             key={child.href}
                             href={child.href}
+                            prefetch={true}
                             className={cn(
                               "block px-2.5 py-1 rounded text-[11px] transition-colors truncate",
                               pathname === child.href

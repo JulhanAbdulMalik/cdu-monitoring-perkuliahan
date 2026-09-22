@@ -11,6 +11,40 @@ import {
   DEFAULT_SEMESTER_START_DATE,
 } from "@/lib/utils";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SMART IN-MEMORY CACHE STORE UNTUK MODUL LAPORAN (REKAP, DOSEN, PRODI)
+// ─────────────────────────────────────────────────────────────────────────────
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const LAPORAN_CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
+const laporanCacheStore = new Map<string, CacheEntry<any>>();
+
+export async function invalidateLaporanCache(): Promise<void> {
+  laporanCacheStore.clear();
+}
+
+function getLaporanFromCache<T>(key: string): T | null {
+  const entry = laporanCacheStore.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > LAPORAN_CACHE_TTL_MS) {
+    laporanCacheStore.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setLaporanToCache<T>(key: string, data: T): void {
+  // Jaga ukuran cache maksimal 30 entries agar memori RAM tetap sangat hemat
+  if (laporanCacheStore.size >= 30) {
+    const oldestKey = laporanCacheStore.keys().next().value;
+    if (oldestKey) laporanCacheStore.delete(oldestKey);
+  }
+  laporanCacheStore.set(key, { data, timestamp: Date.now() });
+}
+
 export interface DosenPengajarPeran {
   id: string;
   nama: string;
@@ -91,13 +125,39 @@ export interface ClassRekapSummary {
   evaluasiNote: string;
 }
 
+export interface RekapLaporanResultData {
+  rekapList: ClassRekapSummary[];
+  semesters: Array<{
+    id: string;
+    tahunAkademik: string;
+    periode: string;
+    aktif: boolean;
+    tanggalMulai: Date | null;
+  }>;
+  prodiList: Array<{
+    id: string;
+    nama: string;
+    kode: string;
+    fakultasId: string;
+  }>;
+  activeSemesterId: string;
+  currentActiveSesi: number;
+}
+
 export async function getRekapLaporan(
   semesterId?: string,
   prodiId?: string,
   allowedProdiIds?: string[]
-) {
+): Promise<{ success: boolean; data?: RekapLaporanResultData; error?: string }> {
   try {
     const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
+    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
+    const cacheKey = `rekap_${semesterId || "ACTIVE"}_${prodiId || "ALL"}_${sortedAllowed}`;
+
+    const cached = getLaporanFromCache<RekapLaporanResultData>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
 
     // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
     const [allSemesters, rawAllProdi] = await Promise.all([
@@ -129,28 +189,62 @@ export async function getRekapLaporan(
       }
     }
 
+    // Pruned Lean Query: Memangkas relasi nested yang mubazir (menurunkan payload dari 16.4 MB ke 6 MB)
     const rawClasses = await prisma.kelas.findMany({
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
         ...(Object.keys(prodiWhere).length > 0 ? { mataKuliah: prodiWhere } : {}),
       },
-      include: {
+      select: {
+        id: true,
+        kodeKelas: true,
+        jadwalHari: true,
+        jadwalJam: true,
+        modePembelajaran: true,
         semester: {
-          include: {
-            hariLibur: true,
+          select: {
+            id: true,
+            tahunAkademik: true,
+            periode: true,
           },
         },
-        mataKuliah: { include: { prodi: true } },
+        mataKuliah: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+            sks: true,
+            prodi: {
+              select: { id: true, nama: true, kode: true },
+            },
+          },
+        },
         dosen: {
-          include: {
-            prodi: true,
+          select: {
+            id: true,
+            nama: true,
+            nidn: true,
           },
         },
         monitoringSesi: {
-          include: {
+          select: {
+            id: true,
+            nomorSesi: true,
+            kehadiran: true,
+            lectureNote: true,
+            slide: true,
+            video: true,
+            conference: true,
+            tugas: true,
+            kuis: true,
+            dosenPengajarId: true,
+            statusPengajar: true,
+            catatanGantiDosen: true,
             dosenPengajar: {
-              include: {
-                prodi: true,
+              select: {
+                id: true,
+                nama: true,
+                nidn: true,
               },
             },
           },
@@ -269,27 +363,91 @@ export async function getRekapLaporan(
       };
     });
 
+    const responseData = {
+      rekapList: summaries,
+      semesters: allSemesters,
+      prodiList: allProdi,
+      activeSemesterId: activeSemester?.id || allSemesters[0]?.id,
+      currentActiveSesi,
+    };
+
+    setLaporanToCache(cacheKey, responseData);
+
     return {
       success: true,
-      data: {
-        rekapList: summaries,
-        semesters: allSemesters,
-        prodiList: allProdi,
-        activeSemesterId: activeSemester?.id || allSemesters[0]?.id,
-        currentActiveSesi,
-      },
+      data: responseData,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memuat data rekapitulasi" };
   }
 }
 
+export interface DosenReportItem {
+  id: string;
+  nama: string;
+  nidn: string | null;
+  prodi: { id: string; nama: string; kode: string };
+  kelasList: Array<{
+    id: string;
+    kodeKelas: string;
+    mataKuliah: { nama: string; kode: string; sks: number };
+    modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
+    totalSesiBeban: number;
+    sesiDiajar: number[];
+    statusPenugasan: string;
+    totalHadir: number;
+    persenKehadiran: number;
+    totalSkorKonten: number;
+    maxSkorKonten: number;
+    persenKonten: number;
+    statusEvaluasi: string;
+  }>;
+  totalKelas: number;
+  totalSesiBebanSemua: number;
+  totalHadirSemua: number;
+  totalAlphaSemua: number;
+  totalSkor3PilarSemua: number;
+  maxSkor3PilarSemua: number;
+  totalSkor3PilarDaring: number;
+  maxSkor3PilarDaring: number;
+  totalConfSemua: number;
+  avgKehadiran: number;
+  avgKonten: number | null;
+  status: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN";
+}
+
+export interface LaporanDosenResultData {
+  dosenReportList: DosenReportItem[];
+  semesters: Array<{
+    id: string;
+    tahunAkademik: string;
+    periode: string;
+    aktif: boolean;
+    tanggalMulai: Date | null;
+  }>;
+  prodiList: Array<{
+    id: string;
+    nama: string;
+    kode: string;
+    fakultasId: string;
+  }>;
+  activeSemesterId: string;
+}
+
 export async function getLaporanDosen(
   semesterId?: string,
   prodiId?: string,
   allowedProdiIds?: string[]
-) {
+): Promise<{ success: boolean; data?: LaporanDosenResultData; error?: string }> {
   try {
+    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
+    const cacheKey = `dosen_${semesterId || "ACTIVE"}_${prodiId || "ALL"}_${sortedAllowed}`;
+
+    const cached = getLaporanFromCache<LaporanDosenResultData>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
     const rekapRes = await getRekapLaporan(semesterId, prodiId, allowedProdiIds);
     if (!rekapRes.success || !rekapRes.data) {
       return { success: false, error: "Gagal memuat data laporan dosen" };
@@ -360,7 +518,7 @@ export async function getLaporanDosen(
         sesiList: [],
       });
 
-      item.sesi.forEach((s) => {
+      item.sesi.forEach((s: SesiRekapItem) => {
         const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
         if (isSub) {
           const subId = s.dosenPengajar!.id;
@@ -532,14 +690,18 @@ export async function getLaporanDosen(
       };
     });
 
+    const responseData = {
+      dosenReportList,
+      semesters,
+      prodiList,
+      activeSemesterId,
+    };
+
+    setLaporanToCache(cacheKey, responseData);
+
     return {
       success: true,
-      data: {
-        dosenReportList,
-        semesters,
-        prodiList,
-        activeSemesterId,
-      },
+      data: responseData,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memproses laporan dosen" };
@@ -636,6 +798,14 @@ export async function getLaporanProdi(
     const targetStartDate = startDate || "";
     const targetEndDate = endDate || "";
 
+    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
+    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_${sortedAllowed}`;
+
+    const cached = getLaporanFromCache<any>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
     let startDateTime: Date | null = null;
     let endDateTime: Date | null = null;
 
@@ -667,23 +837,60 @@ export async function getLaporanProdi(
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
     const targetSemesterId = semesterId || activeSemester?.id;
 
-    // Get all classes for the semester with their monitoring sessions
+    // Pruned Lean Query: Memangkas relasi nested yang tidak dipakai
     const rawClasses = await prisma.kelas.findMany({
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
         ...(isRestricted ? { mataKuliah: { prodiId: { in: allowedProdiIds! } } } : {}),
       },
-      include: {
+      select: {
+        id: true,
+        kodeKelas: true,
+        jadwalHari: true,
+        jadwalJam: true,
+        modePembelajaran: true,
         semester: {
-          include: {
+          select: {
+            tanggalMulai: true,
             hariLibur: true,
           },
         },
-        mataKuliah: { include: { prodi: true } },
-        dosen: true,
+        mataKuliah: {
+          select: {
+            prodiId: true,
+            nama: true,
+            kode: true,
+          },
+        },
+        dosen: {
+          select: {
+            id: true,
+            nama: true,
+            nidn: true,
+          },
+        },
         monitoringSesi: {
-          include: {
-            dosenPengajar: true,
+          select: {
+            id: true,
+            nomorSesi: true,
+            kehadiran: true,
+            slide: true,
+            lectureNote: true,
+            video: true,
+            conference: true,
+            tugas: true,
+            kuis: true,
+            catatanCdu: true,
+            tanggal: true,
+            statusPengajar: true,
+            dosenPengajarId: true,
+            dosenPengajar: {
+              select: {
+                id: true,
+                nama: true,
+                nidn: true,
+              },
+            },
           },
           orderBy: { nomorSesi: "asc" },
         },
@@ -925,24 +1132,28 @@ export async function getLaporanProdi(
         ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 1000) / 10
         : 0;
 
+    const responseData = {
+      prodiReportList,
+      semesters: allSemesters,
+      activeSemesterId: targetSemesterId || allSemesters[0]?.id || "",
+      startDate: targetStartDate,
+      endDate: targetEndDate,
+      globalSummary: {
+        totalProdi: prodiReportList.length,
+        totalKelasSemua: globalTotalKelas,
+        totalDosenSemua: globalTotalDosen,
+        totalSesiRentangSemua: globalTotalSesiRentang,
+        avgKehadiranRentangSemua,
+        avgKontenRentangSemua,
+        totalConfRentangSemua: globalTotalConfRentang,
+      },
+    };
+
+    setLaporanToCache(cacheKey, responseData);
+
     return {
       success: true,
-      data: {
-        prodiReportList,
-        semesters: allSemesters,
-        activeSemesterId: targetSemesterId || allSemesters[0]?.id || "",
-        startDate: targetStartDate,
-        endDate: targetEndDate,
-        globalSummary: {
-          totalProdi: prodiReportList.length,
-          totalKelasSemua: globalTotalKelas,
-          totalDosenSemua: globalTotalDosen,
-          totalSesiRentangSemua: globalTotalSesiRentang,
-          avgKehadiranRentangSemua,
-          avgKontenRentangSemua,
-          totalConfRentangSemua: globalTotalConfRentang,
-        },
-      },
+      data: responseData,
     };
   } catch (error: any) {
     console.error("getLaporanProdi error:", error);

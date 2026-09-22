@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 const kelasSchema = z.object({
   kodeKelas: z.string().min(1, "Kode kelas wajib diisi").toUpperCase(),
@@ -47,9 +48,6 @@ export async function getKelasList(semesterId?: string) {
           include: { prodi: true },
         },
         dosen: true,
-        monitoringSesi: {
-          orderBy: { nomorSesi: "asc" },
-        },
       },
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
     });
@@ -223,6 +221,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
       });
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/kelas");
     revalidatePath("/monitoring");
     revalidatePath("/");
@@ -340,6 +339,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/kelas");
     revalidatePath("/monitoring");
     revalidatePath("/");
@@ -356,6 +356,7 @@ export async function deleteKelas(id: string) {
       where: { id },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/kelas");
     revalidatePath("/monitoring");
     revalidatePath("/");
@@ -508,6 +509,7 @@ export async function resetKelasData(options: {
       countMk = deletedMks.count;
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/kelas");
     revalidatePath("/master/mata-kuliah");
     revalidatePath("/monitoring");
