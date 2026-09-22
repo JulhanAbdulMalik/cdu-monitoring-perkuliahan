@@ -268,6 +268,7 @@ export interface MonitoringKelasProcessedItem {
   isMonitored: boolean;
   targetSesiKehadiranLabel: string;
   targetSesiKehadiranColor: string;
+  targetSesiIsCatatan?: boolean;
   latestTime: number;
   updateParts: { waktu: string; tanggal: string };
   dosenPengajarList: Array<{ id: string; nama: string; status: string; sesiList: number[] }>;
@@ -318,9 +319,12 @@ function mapClassToProcessedItem(
   const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran, defaultActiveSesi);
 
   const targetSesiData = cls.monitoringSesi.find((s: any) => s.nomorSesi === currentSesi);
-  const isMonitored = targetSesiData ? targetSesiData.kehadiran !== "BELUM_DIISI" : false;
+  const rawCatatan = (targetSesiData?.catatanCdu ?? targetSesiData?.catatan ?? "").trim();
+  const hasCatatan = rawCatatan !== "";
+  const isMonitored = targetSesiData ? (targetSesiData.kehadiran !== "BELUM_DIISI" || hasCatatan) : false;
   let targetSesiKehadiranLabel = "Belum Dicek";
   let targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
+  let targetSesiIsCatatan = false;
 
   if (targetSesiData) {
     if (targetSesiData.kehadiran === "HADIR") {
@@ -332,6 +336,11 @@ function mapClassToProcessedItem(
     } else if (targetSesiData.kehadiran === "TIDAK_HADIR" || targetSesiData.kehadiran === "ALPHA") {
       targetSesiKehadiranLabel = "Alpha";
       targetSesiKehadiranColor = "bg-rose-50 text-rose-700 border-rose-200";
+    } else if (hasCatatan) {
+      targetSesiKehadiranLabel = rawCatatan;
+      // Warna kuning seperti status ganti hari pada halaman /monitoring/[id]
+      targetSesiKehadiranColor = "border-amber-400 bg-amber-50 text-amber-900 font-bold";
+      targetSesiIsCatatan = true;
     }
   }
 
@@ -371,6 +380,7 @@ function mapClassToProcessedItem(
     isMonitored,
     targetSesiKehadiranLabel,
     targetSesiKehadiranColor,
+    targetSesiIsCatatan,
     latestTime,
     updateParts,
     dosenPengajarList,
@@ -483,13 +493,22 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         some: {
           nomorSesi: currentSesi,
           kehadiran: "BELUM_DIISI",
+          OR: [{ catatanCdu: null }, { catatanCdu: "" }],
         },
       };
     } else if (params.monitoringTab === "SUDAH") {
       finalWhere.monitoringSesi = {
         some: {
           nomorSesi: currentSesi,
-          kehadiran: { not: "BELUM_DIISI" },
+          OR: [
+            { kehadiran: { not: "BELUM_DIISI" } },
+            {
+              AND: [
+                { catatanCdu: { not: null } },
+                { catatanCdu: { not: "" } },
+              ],
+            },
+          ],
         },
       };
     }
@@ -510,13 +529,32 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         prisma.kelas.count({
           where: {
             ...baseWhere,
-            monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "BELUM_DIISI" } },
+            monitoringSesi: {
+              some: {
+                nomorSesi: currentSesi,
+                kehadiran: "BELUM_DIISI",
+                OR: [{ catatanCdu: null }, { catatanCdu: "" }],
+              },
+            },
           },
         }),
         prisma.kelas.count({
           where: {
             ...baseWhere,
-            monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: { not: "BELUM_DIISI" } } },
+            monitoringSesi: {
+              some: {
+                nomorSesi: currentSesi,
+                OR: [
+                  { kehadiran: { not: "BELUM_DIISI" } },
+                  {
+                    AND: [
+                      { catatanCdu: { not: null } },
+                      { catatanCdu: { not: "" } },
+                    ],
+                  },
+                ],
+              },
+            },
           },
         }),
         prisma.kelas.findMany({
@@ -611,13 +649,32 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
       prisma.kelas.count({
         where: {
           ...baseWhere,
-          monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "BELUM_DIISI" } },
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "BELUM_DIISI",
+              OR: [{ catatanCdu: null }, { catatanCdu: "" }],
+            },
+          },
         },
       }),
       prisma.kelas.count({
         where: {
           ...baseWhere,
-          monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: { not: "BELUM_DIISI" } } },
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              OR: [
+                { kehadiran: { not: "BELUM_DIISI" } },
+                {
+                  AND: [
+                    { catatanCdu: { not: null } },
+                    { catatanCdu: { not: "" } },
+                  ],
+                },
+              ],
+            },
+          },
         },
       }),
       prisma.kelas.findMany({

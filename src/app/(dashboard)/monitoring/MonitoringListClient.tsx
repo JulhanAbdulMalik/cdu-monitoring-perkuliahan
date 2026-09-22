@@ -24,6 +24,7 @@ import {
   DoorClosed,
   X,
   Loader2,
+  Calendar,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -907,15 +908,27 @@ export default function MonitoringListClient({
                           {/* Status Monitoring Sesi Terpilih */}
                           <div className="mt-0.5">
                             {cls.isMonitored ? (
-                              <span
-                                className={`inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border ${cls.targetSesiKehadiranColor}`}
-                                title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
-                              >
-                                <CheckCircle2 size={8.5} className="shrink-0" />
-                                <span>
-                                  S{selectedSesi}: {cls.targetSesiKehadiranLabel}
+                              cls.targetSesiIsCatatan ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded border ${cls.targetSesiKehadiranColor} shadow-2xs`}
+                                  title={`Status Sesi ${selectedSesi}: ${cls.targetSesiKehadiranLabel}`}
+                                >
+                                  <Calendar size={8.5} className="shrink-0 text-amber-700" />
+                                  <span className="truncate max-w-[120px]">
+                                    S{selectedSesi}: {cls.targetSesiKehadiranLabel}
+                                  </span>
                                 </span>
-                              </span>
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border ${cls.targetSesiKehadiranColor}`}
+                                  title={`Presensi Sesi ${selectedSesi} sudah diisi: ${cls.targetSesiKehadiranLabel}`}
+                                >
+                                  <CheckCircle2 size={8.5} className="shrink-0" />
+                                  <span>
+                                    S{selectedSesi}: {cls.targetSesiKehadiranLabel}
+                                  </span>
+                                </span>
+                              )
                             ) : (
                               <span
                                 className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border bg-rose-50 text-rose-700 border-rose-200"
