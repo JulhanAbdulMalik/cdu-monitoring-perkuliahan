@@ -262,16 +262,16 @@ export default function MonitoringListClient({
     },
     initialData: isInitialParams ? initialData : undefined,
     placeholderData: (previousData) => previousData,
-    staleTime: 5000,
-    refetchOnWindowFocus: "always",
-    refetchOnMount: "always",
+    staleTime: 60 * 1000, // Data valid selama 1 menit, tidak perlu spam query
+    refetchOnWindowFocus: false, // JANGAN query ulang hanya karena user Alt-Tab / ganti jendela
+    refetchOnMount: false,
   });
 
   const queryClient = useQueryClient();
 
   // ── REAL-TIME CROSS-TAB & CROSS-WINDOW SYNC ────────────────────────────────
-  // Ketika user memonitor & menyimpan data kelas di tab detail, tab ini otomatis
-  // melakukan invalidate & refetch sehingga kelas langsung pindah dari "Belum" ke "Sudah"!
+  // Ketika user memonitor & menyimpan data kelas di tab detail / bulk action,
+  // tab ini otomatis melakukan invalidate & refetch berbasis EVENT!
   useEffect(() => {
     const handleSync = () => {
       queryClient.invalidateQueries({ queryKey: ["monitoring-kelas-paginated"] });
@@ -299,45 +299,6 @@ export default function MonitoringListClient({
       window.removeEventListener("storage", handleStorage);
     };
   }, [queryClient]);
-
-  useEffect(() => {
-    if (!data) return;
-    const totalPages = data.totalPages;
-
-    // Prefetch Halaman Berikutnya (N + 1)
-    if (currentPage < totalPages) {
-      const nextPage = currentPage + 1;
-      queryClient.prefetchQuery({
-        queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: nextPage }],
-        queryFn: async () => {
-          const res = await getMonitoringKelasPaginated({
-            ...activeFilters,
-            page: nextPage,
-          });
-          if (!res.success || !res.data) throw new Error(res.error);
-          return res.data;
-        },
-        staleTime: 60 * 1000,
-      });
-    }
-
-    // Prefetch Halaman Sebelumnya (N - 1) jika user berada di page > 1
-    if (currentPage > 1) {
-      const prevPage = currentPage - 1;
-      queryClient.prefetchQuery({
-        queryKey: ["monitoring-kelas-paginated", { ...activeFilters, page: prevPage }],
-        queryFn: async () => {
-          const res = await getMonitoringKelasPaginated({
-            ...activeFilters,
-            page: prevPage,
-          });
-          if (!res.success || !res.data) throw new Error(res.error);
-          return res.data;
-        },
-        staleTime: 60 * 1000,
-      });
-    }
-  }, [currentPage, data, activeFilters, queryClient]);
 
   // Ekstrak data hasil query
   const paginatedList = data?.items || [];

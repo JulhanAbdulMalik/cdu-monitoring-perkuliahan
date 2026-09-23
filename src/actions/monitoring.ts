@@ -324,6 +324,46 @@ function getJamStart(jam?: string | null): string {
   return parts[0]?.trim() || jam.trim();
 }
 
+// Proyeksi kolom ramping untuk menghemat kuota transfer jaringan (Network Egress) hingga 80%+
+const LEAN_KELAS_INCLUDE = {
+  semester: {
+    select: { id: true, tahunAkademik: true, periode: true },
+  },
+  mataKuliah: {
+    select: {
+      id: true,
+      kode: true,
+      nama: true,
+      sks: true,
+      prodi: { select: { id: true, nama: true, kode: true } },
+    },
+  },
+  dosen: {
+    select: { id: true, nama: true, nidn: true },
+  },
+  monitoringSesi: {
+    select: {
+      id: true,
+      nomorSesi: true,
+      kehadiran: true,
+      conference: true,
+      slide: true,
+      tugas: true,
+      video: true,
+      lectureNote: true,
+      kuis: true,
+      catatanCdu: true,
+      catatanGantiDosen: true,
+      statusPengajar: true,
+      updatedAt: true,
+      dosenPengajar: {
+        select: { id: true, nama: true },
+      },
+    },
+    orderBy: { nomorSesi: "asc" as const },
+  },
+};
+
 function mapClassToProcessedItem(
   cls: any,
   currentSesi: number,
@@ -586,15 +626,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         }),
         prisma.kelas.findMany({
           where: finalWhere,
-          include: {
-            semester: true,
-            mataKuliah: { include: { prodi: true } },
-            dosen: true,
-            monitoringSesi: {
-              include: { dosenPengajar: true },
-              orderBy: { nomorSesi: "asc" },
-            },
-          },
+          include: LEAN_KELAS_INCLUDE,
         }),
       ]);
 
@@ -708,15 +740,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         where: finalWhere,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: {
-          semester: true,
-          mataKuliah: { include: { prodi: true } },
-          dosen: true,
-          monitoringSesi: {
-            include: { dosenPengajar: true },
-            orderBy: { nomorSesi: "asc" },
-          },
-        },
+        include: LEAN_KELAS_INCLUDE,
         orderBy,
       }),
     ]);
