@@ -12,7 +12,6 @@ import {
   Building,
   Laptop,
   ArrowRight,
-  Clock,
   CheckCircle2,
   AlertCircle,
   User,
@@ -805,14 +804,13 @@ export default function MonitoringListClient({
                 {renderSortHeader("Kehadiran", "KEHADIRAN", "center")}
                 {renderSortHeader("Skor 3 Pilar", "PILAR", "center")}
                 <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold">Live Conf</th>
-                {renderSortHeader("Terakhir Update", "UPDATE", "center")}
                 <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {paginatedList.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     {monitoringTab === "BELUM" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
                         <CheckCircle2 size={32} className="text-emerald-500" />
@@ -1105,19 +1103,6 @@ export default function MonitoringListClient({
                             </span>
                           </div>
                         )}
-                      </td>
-
-                      {/* Terakhir Update (2 Baris: Jam & Tanggal) */}
-                      <td className="py-3 px-2.5 text-center whitespace-nowrap">
-                        <div className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded-md bg-white border border-slate-200/80 shadow-2xs">
-                          <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-800 leading-tight">
-                            <Clock size={10} className="text-[#a80063] shrink-0" />
-                            <span>{cls.updateParts.waktu}</span>
-                          </div>
-                          <span className="text-[9px] font-medium text-slate-500 mt-0.5 leading-tight">
-                            {cls.updateParts.tanggal}
-                          </span>
-                        </div>
                       </td>
 
                       {/* Aksi Button (Buka di Tab Baru) */}
