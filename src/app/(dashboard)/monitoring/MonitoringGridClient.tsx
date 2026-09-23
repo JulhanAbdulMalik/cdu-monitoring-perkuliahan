@@ -46,7 +46,7 @@ import {
   quickSetAllPillars,
   gantiDosenSesiAction,
 } from "@/actions/monitoring";
-import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
+import { calculateClassSummary } from "@/lib/score-calculator";
 import ImportEdlinkModal from "@/components/monitoring/ImportEdlinkModal";
 import GantiDosenModal, { DosenItemOption } from "@/components/monitoring/GantiDosenModal";
 import { ParsedSesiData } from "@/lib/excel-parser";
@@ -1216,36 +1216,19 @@ export default function MonitoringGridClient({
                     Klik tombol kehadiran atau aktifkan chip pilar (cukup 1 dari tiap pilar untuk memenuhi pilar tersebut)
                   </p>
                 </div>
-
-                {/* Legend Help */}
-                <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-slate-500 font-medium">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>Skor 3 (Sempurna)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span>Skor 2 (Baik)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>Skor 1 (Sebagian)</span>
-                  </div>
-                </div>
               </div>
 
               <div className="overflow-x-auto w-full">
                 <table style={{ width: "100%" }} className="w-full min-w-[1000px] table-fixed text-left border-collapse">
                   <colgroup>
-                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "5%" }} />
                     <col style={{ width: "13%" }} />
-                    <col style={{ width: "15%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "11%" }} />
-                    <col style={{ width: "11%" }} />
                     <col style={{ width: "13%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/70">
@@ -1262,30 +1245,28 @@ export default function MonitoringGridClient({
                       <th className="py-2.5 px-3 font-bold">Kehadiran Dosen</th>
                       
                       {/* Pilar 1: L/S */}
-                      <th className="py-2.5 px-2 text-center font-bold" title="Lecture Note ATAU Slide">
-                        <div className="flex items-center justify-center gap-1">
+                      <th className="py-2.5 px-3 font-bold text-left" title="Lecture Note ATAU Slide">
+                        <div className="flex items-center gap-1">
                           <FileText size={12} className="text-[#a80063]" />
                           <span>Pilar 1: L/S</span>
                         </div>
                       </th>
 
                       {/* Pilar 2: Q/T */}
-                      <th className="py-2.5 px-2 text-center font-bold" title="Quiz ATAU Tugas">
-                        <div className="flex items-center justify-center gap-1">
+                      <th className="py-2.5 px-3 font-bold text-left" title="Quiz ATAU Tugas">
+                        <div className="flex items-center gap-1">
                           <CheckSquare size={12} className="text-[#a80063]" />
                           <span>Pilar 2: T/Q</span>
                         </div>
                       </th>
 
                       {/* Pilar 3: T/V */}
-                      <th className="py-2.5 px-2 text-center font-bold" title="Temu Virtual ATAU Video">
-                        <div className="flex items-center justify-center gap-1">
+                      <th className="py-2.5 px-3 font-bold text-left" title="Temu Virtual ATAU Video">
+                        <div className="flex items-center gap-1">
                           <VideoIcon size={12} className="text-[#a80063]" />
                           <span>Pilar 3: V/C</span>
                         </div>
                       </th>
-
-                      <th className="py-2.5 px-3 text-center font-bold">Skor Pilar</th>
 
                       {/* Tanggal */}
                       <th className="py-2.5 px-3 font-bold">
@@ -1307,7 +1288,6 @@ export default function MonitoringGridClient({
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {sesiList.map((sesi) => {
                       const isExam = sesi.nomorSesi === 8 || sesi.nomorSesi === 16;
-                      const pilar = calculateSessionPillars(sesi);
                       const semStartStr = currentKelas?.semester?.tanggalMulai
                         ? new Date(currentKelas.semester.tanggalMulai).toISOString().split("T")[0]
                         : DEFAULT_SEMESTER_START_DATE;
@@ -1497,11 +1477,11 @@ export default function MonitoringGridClient({
                           </td>
 
                           {/* 3. Pilar 1: L/S (Lecture Note / Slide) */}
-                          <td className="py-2.5 px-2 text-center">
+                          <td className="py-2.5 px-3 text-left">
                             {isExam ? (
                               <span className="text-slate-300 text-xs">-</span>
                             ) : (
-                              <div className="flex items-center justify-center gap-1">
+                              <div className="flex items-center gap-1">
                                 <button
                                   type="button"
                                   onClick={() => handleContentToggle(sesi.id, "lectureNote")}
@@ -1547,11 +1527,11 @@ export default function MonitoringGridClient({
                           </td>
 
                           {/* 4. Pilar 2: Q/T (Quiz / Tugas) */}
-                          <td className="py-2.5 px-2 text-center">
+                          <td className="py-2.5 px-3 text-left">
                             {isExam ? (
                               <span className="text-slate-300 text-xs">-</span>
                             ) : (
-                              <div className="flex items-center justify-center gap-1">
+                              <div className="flex items-center gap-1">
                                 <button
                                   type="button"
                                   onClick={() => handleContentToggle(sesi.id, "tugas")}
@@ -1597,11 +1577,11 @@ export default function MonitoringGridClient({
                           </td>
 
                           {/* 5. Pilar 3: T/V (Temu Virtual / Video) */}
-                          <td className="py-2.5 px-2 text-center">
+                          <td className="py-2.5 px-3 text-left">
                             {isExam && currentKelas.modePembelajaran !== "BIMBINGAN" ? (
                               <span className="text-slate-300 text-xs">-</span>
                             ) : (
-                              <div className="flex items-center justify-center gap-1">
+                              <div className="flex items-center gap-1">
                                 {currentKelas.modePembelajaran !== "BIMBINGAN" && (
                                   <button
                                     type="button"
@@ -1650,37 +1630,8 @@ export default function MonitoringGridClient({
                             )}
                           </td>
 
-                          {/* 6. Skor Pilar (0, 1, 2, 3) */}
-                          <td className="py-2.5 px-3 text-center">
-                            {currentKelas.modePembelajaran === "BIMBINGAN" ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200" title="Bebas kewajiban 3 pilar konten LMS">
-                                Bebas Konten
-                              </span>
-                            ) : isExam ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                Ujian
-                              </span>
-                            ) : pilar.score === 3 ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                3/3 Sempurna
-                              </span>
-                            ) : pilar.score === 2 ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                2/3 Baik
-                              </span>
-                            ) : pilar.score === 1 ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                1/3 Sebagian
-                              </span>
-                            ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                0/3 Kosong
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 7. Tanggal Pelaksanaan & Ganti Hari */}
-                          <td className="py-2.5 px-2.5">
+                          {/* 6. Tanggal Pelaksanaan & Ganti Hari */}
+                          <td className="py-2.5 px-3">
                             <div className="flex flex-col gap-1">
                               <input
                                 type="date"
