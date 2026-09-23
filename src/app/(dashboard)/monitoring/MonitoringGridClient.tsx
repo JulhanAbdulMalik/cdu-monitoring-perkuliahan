@@ -25,6 +25,7 @@ import {
   Presentation,
   Video,
   CheckSquare,
+  CheckCheck,
   HelpCircle as QuizIcon,
   Video as VideoIcon,
   Zap,
@@ -389,6 +390,47 @@ export default function MonitoringGridClient({
         if (s.id === sesiId && (!s.isKhadiranOnly || (currentKelas?.modePembelajaran === "BIMBINGAN" && field === "conference"))) {
           return { ...s, [field]: !s[field] };
         }
+        return s;
+      })
+    );
+    setHasUnsavedChanges(true);
+  }
+
+  // ── Handler Klaim 1 Pilar Sekaligus (Dua-duanya Terceklis) ──────────────────
+  function handleTogglePilar(sesiId: string, pilarNumber: 1 | 2 | 3) {
+    setSesiList((prev) =>
+      prev.map((s) => {
+        if (s.id !== sesiId || s.isKhadiranOnly) return s;
+
+        if (pilarNumber === 1) {
+          const bothActive = Boolean(s.lectureNote && s.slide);
+          return {
+            ...s,
+            lectureNote: !bothActive,
+            slide: !bothActive,
+          };
+        } else if (pilarNumber === 2) {
+          const bothActive = Boolean(s.tugas && s.kuis);
+          return {
+            ...s,
+            tugas: !bothActive,
+            kuis: !bothActive,
+          };
+        } else if (pilarNumber === 3) {
+          if (currentKelas?.modePembelajaran === "BIMBINGAN") {
+            return {
+              ...s,
+              conference: !s.conference,
+            };
+          }
+          const bothActive = Boolean(s.video && s.conference);
+          return {
+            ...s,
+            video: !bothActive,
+            conference: !bothActive,
+          };
+        }
+
         return s;
       })
     );
@@ -1484,6 +1526,22 @@ export default function MonitoringGridClient({
                                 >
                                   Slide
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePilar(sesi.id, 1)}
+                                  className={`w-5 h-5 flex items-center justify-center rounded transition-all cursor-pointer ${
+                                    sesi.lectureNote && sesi.slide
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-slate-100 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200/80"
+                                  }`}
+                                  title={
+                                    sesi.lectureNote && sesi.slide
+                                      ? "Batalkan klaim Pilar 1 (Reset LN & Slide)"
+                                      : "Klaim Pilar 1 Lengkap (Ceklis LN & Slide sekaligus)"
+                                  }
+                                >
+                                  <CheckCheck size={11} />
+                                </button>
                               </div>
                             )}
                           </td>
@@ -1517,6 +1575,22 @@ export default function MonitoringGridClient({
                                   title="Kuis / Evaluasi"
                                 >
                                   Kuis
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePilar(sesi.id, 2)}
+                                  className={`w-5 h-5 flex items-center justify-center rounded transition-all cursor-pointer ${
+                                    sesi.tugas && sesi.kuis
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-slate-100 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200/80"
+                                  }`}
+                                  title={
+                                    sesi.tugas && sesi.kuis
+                                      ? "Batalkan klaim Pilar 2 (Reset Tugas & Kuis)"
+                                      : "Klaim Pilar 2 Lengkap (Ceklis Tugas & Kuis sekaligus)"
+                                  }
+                                >
+                                  <CheckCheck size={11} />
                                 </button>
                               </div>
                             )}
@@ -1554,6 +1628,24 @@ export default function MonitoringGridClient({
                                 >
                                   Conf 📡
                                 </button>
+                                {currentKelas.modePembelajaran !== "BIMBINGAN" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePilar(sesi.id, 3)}
+                                    className={`w-5 h-5 flex items-center justify-center rounded transition-all cursor-pointer ${
+                                      sesi.video && sesi.conference
+                                        ? "bg-emerald-600 text-white shadow-2xs"
+                                        : "bg-slate-100 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200/80"
+                                    }`}
+                                    title={
+                                      sesi.video && sesi.conference
+                                        ? "Batalkan klaim Pilar 3 (Reset Video & Conf)"
+                                        : "Klaim Pilar 3 Lengkap (Ceklis Video & Conf sekaligus)"
+                                    }
+                                  >
+                                    <CheckCheck size={11} />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>
