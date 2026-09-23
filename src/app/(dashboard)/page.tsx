@@ -11,7 +11,11 @@ import MonitoringTrendChart, {
   TrendItem,
   WeeklyTrendItem,
 } from "@/components/dashboard/MonitoringTrendChart";
-import StatusDonutChart, { DonutStatusItem } from "@/components/dashboard/StatusDonutChart";
+import StatusDonutChart, {
+  DonutStatusItem,
+  DonutClassMode,
+  ModeDistributionData,
+} from "@/components/dashboard/StatusDonutChart";
 import RecentClassesTable from "@/components/dashboard/RecentClassesTable";
 import { calculateClassSummary, calculateSessionPillars } from "@/lib/score-calculator";
 import {
@@ -47,6 +51,7 @@ export default async function DashboardPage() {
   let trendData: TrendItem[] = [];
   let weeklyTrendData: WeeklyTrendItem[] = [];
   let donutData: DonutStatusItem[] = [];
+  let distributionByMode: Record<DonutClassMode, ModeDistributionData> | undefined = undefined;
 
   let sparklineClassData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
   let sparklineKehadiranData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
@@ -300,40 +305,72 @@ export default async function DashboardPage() {
       };
     });
 
-    // Donut Chart Data
-    const hadirLengkapPersen =
-      totalSesiTerlaksana > 0
-        ? roundPct(totalHadirLengkap, totalSesiTerlaksana)
-        : 0;
-    const hadirTdkLengkapPersen =
-      totalSesiTerlaksana > 0
-        ? roundPct(totalHadirTdkLengkap, totalSesiTerlaksana)
-        : 0;
-    const alphaPersen =
-      totalSesiTerlaksana > 0
-        ? roundPct(totalAlpha, totalSesiTerlaksana)
-        : 0;
+    // Donut Chart Data (Distribution per Mode Pembelajaran)
+    function calculateDistributionForClasses(classList: typeof rawClasses): ModeDistributionData {
+      let hLengkap = 0;
+      let hTdkLengkap = 0;
+      let alphaCount = 0;
+      let sesiTerlaksana = 0;
 
-    donutData = [
-      {
-        name: "Hadir Lengkap",
-        value: hadirLengkapPersen,
-        count: totalHadirLengkap,
-        color: "#10b981",
-      },
-      {
-        name: "Hadir Tidak Lengkap",
-        value: hadirTdkLengkapPersen,
-        count: totalHadirTdkLengkap,
-        color: "#f59e0b",
-      },
-      {
-        name: "Alpha / Tidak Hadir",
-        value: alphaPersen,
-        count: totalAlpha,
-        color: "#ef4444",
-      },
-    ];
+      for (const cls of classList) {
+        for (const s of cls.monitoringSesi) {
+          if (s.kehadiran === "HADIR") {
+            hLengkap++;
+            sesiTerlaksana++;
+          } else if (s.kehadiran === "HADIR_TIDAK_LENGKAP") {
+            hTdkLengkap++;
+            sesiTerlaksana++;
+          } else if (s.kehadiran === "TIDAK_HADIR") {
+            alphaCount++;
+            sesiTerlaksana++;
+          }
+        }
+      }
+
+      const hLengkapPct = sesiTerlaksana > 0 ? roundPct(hLengkap, sesiTerlaksana) : 0;
+      const hTdkLengkapPct = sesiTerlaksana > 0 ? roundPct(hTdkLengkap, sesiTerlaksana) : 0;
+      const alphaPct = sesiTerlaksana > 0 ? roundPct(alphaCount, sesiTerlaksana) : 0;
+
+      return {
+        totalSesi: sesiTerlaksana,
+        totalKelas: classList.length,
+        data: [
+          {
+            name: "Hadir Lengkap",
+            value: hLengkapPct,
+            count: hLengkap,
+            color: "#10b981",
+          },
+          {
+            name: "Hadir Tidak Lengkap",
+            value: hTdkLengkapPct,
+            count: hTdkLengkap,
+            color: "#f59e0b",
+          },
+          {
+            name: "Alpha / Tidak Hadir",
+            value: alphaPct,
+            count: alphaCount,
+            color: "#ef4444",
+          },
+        ],
+      };
+    }
+
+    distributionByMode = {
+      ALL: calculateDistributionForClasses(rawClasses),
+      OFFLINE: calculateDistributionForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "LURING")
+      ),
+      ONLINE: calculateDistributionForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "DARING")
+      ),
+      BIMBINGAN: calculateDistributionForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "BIMBINGAN")
+      ),
+    };
+
+    donutData = distributionByMode.ALL.data;
 
     // Recent Classes
     recentClassesList = rawClasses.slice(0, 6).map((cls) => {
@@ -534,7 +571,11 @@ export default async function DashboardPage() {
         </div>
 
         <div className="lg:col-span-1">
-          <StatusDonutChart data={donutData} totalSesi={totalSesiTerlaksana} />
+          <StatusDonutChart
+            distributionByMode={distributionByMode}
+            data={donutData}
+            totalSesi={totalSesiTerlaksana}
+          />
         </div>
       </div>
 
