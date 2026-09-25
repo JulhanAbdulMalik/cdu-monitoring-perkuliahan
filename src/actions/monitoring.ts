@@ -775,6 +775,338 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
   }
 }
 
+export interface SequentialKelasFilterParams {
+  semesterId?: string;
+  prodiId?: string;
+  filterMode?: string;
+  filterHari?: string;
+  filterStatus?: string;
+  monitoringTab?: "ALL" | "BELUM" | "SUDAH";
+  selectedSesi?: number;
+  searchQuery?: string;
+  sortBy?: MonitoringSortKey;
+  allowedProdiIds?: string[];
+  currentKelasId?: string;
+}
+
+export async function getFilteredSequentialKelasList(params: SequentialKelasFilterParams = {}) {
+  try {
+    let effectiveAllowedProdiIds = params.allowedProdiIds;
+    if (!effectiveAllowedProdiIds) {
+      try {
+        const session = await auth();
+        const userRole = (session?.user as any)?.role;
+        const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+        if (userRole === "DOSEN") {
+          effectiveAllowedProdiIds = userProdiIds;
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+
+    let targetSemester: any = null;
+    if (params.semesterId) {
+      targetSemester = await prisma.semester.findUnique({
+        where: { id: params.semesterId },
+        include: {
+          hariLibur: { orderBy: { tanggalMulai: "asc" } },
+        },
+      });
+    }
+
+    if (!targetSemester) {
+      targetSemester = await prisma.semester.findFirst({
+        where: { aktif: true },
+        include: {
+          hariLibur: { orderBy: { tanggalMulai: "asc" } },
+        },
+      });
+    }
+
+    if (!targetSemester) {
+      targetSemester = await prisma.semester.findFirst({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+        include: {
+          hariLibur: { orderBy: { tanggalMulai: "asc" } },
+        },
+      });
+    }
+
+    const targetSemesterId = targetSemester?.id;
+    const semStartStr = targetSemester?.tanggalMulai
+      ? new Date(targetSemester.tanggalMulai).toISOString().split("T")[0]
+      : DEFAULT_SEMESTER_START_DATE;
+    const defaultActiveSesi = getCurrentActiveSessionNumber(semStartStr, targetSemester?.hariLibur);
+    const currentSesi =
+      params.selectedSesi && params.selectedSesi >= 1 && params.selectedSesi <= 16
+        ? params.selectedSesi
+        : defaultActiveSesi;
+
+    const baseWhere: any = {};
+    if (targetSemesterId) {
+      baseWhere.semesterId = targetSemesterId;
+    }
+
+    if (effectiveAllowedProdiIds && effectiveAllowedProdiIds.length > 0) {
+      if (params.prodiId && params.prodiId !== "ALL" && effectiveAllowedProdiIds.includes(params.prodiId)) {
+        baseWhere.mataKuliah = { prodiId: params.prodiId };
+      } else {
+        baseWhere.mataKuliah = { prodiId: { in: effectiveAllowedProdiIds } };
+      }
+    } else if (params.prodiId && params.prodiId !== "ALL") {
+      baseWhere.mataKuliah = { prodiId: params.prodiId };
+    }
+
+    if (params.filterMode && params.filterMode !== "ALL") {
+      baseWhere.modePembelajaran = params.filterMode;
+    }
+
+    if (params.filterHari && params.filterHari !== "ALL") {
+      baseWhere.jadwalHari = { equals: params.filterHari, mode: "insensitive" };
+    }
+
+    if (params.searchQuery && params.searchQuery.trim()) {
+      const q = params.searchQuery.trim();
+      baseWhere.OR = [
+        { kodeKelas: { contains: q, mode: "insensitive" } },
+        { mataKuliah: { nama: { contains: q, mode: "insensitive" } } },
+        { mataKuliah: { kode: { contains: q, mode: "insensitive" } } },
+        { dosen: { nama: { contains: q, mode: "insensitive" } } },
+        {
+          monitoringSesi: {
+            some: {
+              dosenPengajar: {
+                nama: { contains: q, mode: "insensitive" },
+              },
+            },
+          },
+        },
+      ];
+    }
+
+    let tabCondition: any = null;
+    if (params.monitoringTab === "BELUM") {
+      tabCondition = {
+        monitoringSesi: {
+          some: {
+            nomorSesi: currentSesi,
+            kehadiran: "BELUM_DIISI",
+            OR: [{ catatanCdu: null }, { catatanCdu: "" }],
+          },
+        },
+      };
+    } else if (params.monitoringTab === "SUDAH") {
+      tabCondition = {
+        monitoringSesi: {
+          some: {
+            nomorSesi: currentSesi,
+            OR: [
+              { kehadiran: { not: "BELUM_DIISI" } },
+              {
+                AND: [
+                  { catatanCdu: { not: null } },
+                  { catatanCdu: { not: "" } },
+                ],
+              },
+            ],
+          },
+        },
+      };
+    }
+
+    const finalWhere: any = { ...baseWhere };
+    if (tabCondition) {
+      if (params.currentKelasId) {
+        finalWhere.OR = [
+          tabCondition,
+          { id: params.currentKelasId },
+        ];
+      } else {
+        Object.assign(finalWhere, tabCondition);
+      }
+    }
+
+    const sort = params.sortBy || "TERBARU";
+    const isCustomSortOrFilter =
+      Boolean(params.filterStatus && params.filterStatus !== "ALL") ||
+      sort === "KEHADIRAN_DESC" ||
+      sort === "KEHADIRAN_ASC" ||
+      sort === "PILAR_DESC" ||
+      sort === "PILAR_ASC" ||
+      sort === "JADWAL_ASC" ||
+      sort === "JADWAL_DESC";
+
+    let resultList: Array<{
+      id: string;
+      kodeKelas: string;
+      mataKuliah: { nama: string; kode: string; prodi?: { id: string; nama: string } };
+      dosen: { nama: string };
+      jadwalHari?: string | null;
+      jadwalJam?: string | null;
+    }> = [];
+
+    if (isCustomSortOrFilter) {
+      const allMatchingClasses = await prisma.kelas.findMany({
+        where: finalWhere,
+        include: LEAN_KELAS_INCLUDE,
+      });
+
+      let processed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+
+      if (params.filterStatus && params.filterStatus !== "ALL") {
+        processed = processed.filter(
+          (c) => c.summary.statusEvaluasi === params.filterStatus || c.id === params.currentKelasId
+        );
+      }
+
+      if (sort === "KEHADIRAN_DESC") {
+        processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
+      } else if (sort === "KEHADIRAN_ASC") {
+        processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
+      } else if (sort === "PILAR_DESC") {
+        processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
+      } else if (sort === "PILAR_ASC") {
+        processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
+      } else if (sort === "JADWAL_ASC") {
+        processed.sort((a, b) => {
+          const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
+          if (dayDiff !== 0) return dayDiff;
+          return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
+        });
+      } else if (sort === "JADWAL_DESC") {
+        processed.sort((a, b) => {
+          const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
+          if (dayDiff !== 0) return dayDiff;
+          return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
+        });
+      }
+
+      resultList = processed.map((c) => ({
+        id: c.id,
+        kodeKelas: c.kodeKelas,
+        mataKuliah: {
+          nama: c.mataKuliah.nama,
+          kode: c.mataKuliah.kode,
+          prodi: c.mataKuliah.prodi ? {
+            id: c.mataKuliah.prodi.id,
+            nama: c.mataKuliah.prodi.nama,
+          } : undefined,
+        },
+        dosen: {
+          nama: c.dosen.nama,
+        },
+        jadwalHari: c.jadwalHari,
+        jadwalJam: c.jadwalJam,
+      }));
+    } else {
+      let orderBy: any = [{ updatedAt: "desc" }];
+      if (sort === "TERBARU") {
+        orderBy = [{ updatedAt: "desc" }];
+      } else if (sort === "TERLAMA") {
+        orderBy = [{ updatedAt: "asc" }];
+      } else if (sort === "KODE_ASC") {
+        orderBy = [{ kodeKelas: "asc" }];
+      } else if (sort === "KODE_DESC") {
+        orderBy = [{ kodeKelas: "desc" }];
+      } else if (sort === "MK_ASC") {
+        orderBy = [{ mataKuliah: { nama: "asc" } }];
+      } else if (sort === "MK_DESC") {
+        orderBy = [{ mataKuliah: { nama: "desc" } }];
+      } else if (sort === "DOSEN_ASC") {
+        orderBy = [{ dosen: { nama: "asc" } }];
+      } else if (sort === "DOSEN_DESC") {
+        orderBy = [{ dosen: { nama: "desc" } }];
+      } else if (sort === "RUANG_ASC") {
+        orderBy = [{ ruangan: "asc" }];
+      } else if (sort === "RUANG_DESC") {
+        orderBy = [{ ruangan: "desc" }];
+      }
+
+      const rawClasses = await prisma.kelas.findMany({
+        where: finalWhere,
+        orderBy,
+        select: {
+          id: true,
+          kodeKelas: true,
+          jadwalHari: true,
+          jadwalJam: true,
+          mataKuliah: {
+            select: {
+              nama: true,
+              kode: true,
+              prodi: {
+                select: {
+                  id: true,
+                  nama: true,
+                },
+              },
+            },
+          },
+          dosen: {
+            select: {
+              nama: true,
+            },
+          },
+        },
+      });
+
+      resultList = rawClasses.map((c) => ({
+        id: c.id,
+        kodeKelas: c.kodeKelas,
+        mataKuliah: {
+          nama: c.mataKuliah.nama,
+          kode: c.mataKuliah.kode,
+          prodi: c.mataKuliah.prodi ? {
+            id: c.mataKuliah.prodi.id,
+            nama: c.mataKuliah.prodi.nama,
+          } : undefined,
+        },
+        dosen: {
+          nama: c.dosen.nama,
+        },
+        jadwalHari: c.jadwalHari,
+        jadwalJam: c.jadwalJam,
+      }));
+    }
+
+    // Safety fallback: pastikan currentKelasId tetap ada di daftar jika disediakan
+    if (params.currentKelasId && !resultList.some((k) => k.id === params.currentKelasId)) {
+      const currentK = await prisma.kelas.findUnique({
+        where: { id: params.currentKelasId },
+        select: {
+          id: true,
+          kodeKelas: true,
+          jadwalHari: true,
+          jadwalJam: true,
+          mataKuliah: {
+            select: {
+              nama: true,
+              kode: true,
+              prodi: { select: { id: true, nama: true } },
+            },
+          },
+          dosen: { select: { nama: true } },
+        },
+      });
+      if (currentK) {
+        resultList.push(currentK);
+      }
+    }
+
+    return {
+      success: true,
+      data: resultList,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Gagal memuat daftar kelas sekuensial",
+      data: [],
+    };
+  }
+}
+
 export async function getMonitoringKelasDetail(kelasId: string) {
   try {
     // Optimasi Waterfall: Jalankan query detail kelas dan daftar seluruh dosen secara paralel

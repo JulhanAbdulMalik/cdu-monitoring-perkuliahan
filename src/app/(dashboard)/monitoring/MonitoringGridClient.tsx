@@ -157,13 +157,55 @@ export default function MonitoringGridClient({
   const [customCatatanIds, setCustomCatatanIds] = useState<Record<string, boolean>>({});
   const [navigatingNext, setNavigatingNext] = useState(false);
 
+  // Navigation list state initialized with server-provided kelasList
+  // and synchronized with client queue to keep sequence steady across saves
+  const [activeQueueList, setActiveQueueList] = useState<SimpleKelasItem[]>(kelasList);
+
+  useEffect(() => {
+    setActiveQueueList(kelasList);
+  }, [kelasList]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const currentSearch = window.location.search;
+      const stored = localStorage.getItem("cdu_monitoring_nav_queue");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (
+          parsed &&
+          parsed.search === currentSearch &&
+          Array.isArray(parsed.items) &&
+          parsed.items.length > 0 &&
+          parsed.items.some((item: any) => item.id === (currentKelas?.id || selectedKelasId))
+        ) {
+          setActiveQueueList(parsed.items);
+          return;
+        }
+      }
+
+      if (kelasList && kelasList.length > 0) {
+        localStorage.setItem(
+          "cdu_monitoring_nav_queue",
+          JSON.stringify({
+            search: currentSearch,
+            items: kelasList,
+            timestamp: Date.now(),
+          })
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentKelas?.id, selectedKelasId, kelasList]);
+
   // Sequential Class Navigation Logic
   const currentIndex = useMemo(() => {
-    return kelasList.findIndex((k) => k.id === (currentKelas?.id || selectedKelasId));
-  }, [kelasList, currentKelas?.id, selectedKelasId]);
+    return activeQueueList.findIndex((k) => k.id === (currentKelas?.id || selectedKelasId));
+  }, [activeQueueList, currentKelas?.id, selectedKelasId]);
 
-  const prevKelas = currentIndex > 0 ? kelasList[currentIndex - 1] : null;
-  const nextKelas = currentIndex >= 0 && currentIndex < kelasList.length - 1 ? kelasList[currentIndex + 1] : null;
+  const prevKelas = currentIndex > 0 ? activeQueueList[currentIndex - 1] : null;
+  const nextKelas = currentIndex >= 0 && currentIndex < activeQueueList.length - 1 ? activeQueueList[currentIndex + 1] : null;
 
   // Helper untuk membentuk URL kelas tujuan dengan mempertahankan searchParams yang ada
   function getKelasUrl(targetId: string) {
@@ -195,7 +237,7 @@ export default function MonitoringGridClient({
   }, []);
 
   // Filter kelasList based on search query
-  const filteredKelasList = kelasList.filter((k) => {
+  const filteredKelasList = activeQueueList.filter((k) => {
     if (!searchKelasQuery.trim()) return true;
     const q = searchKelasQuery.toLowerCase();
     return (
@@ -630,7 +672,11 @@ export default function MonitoringGridClient({
       router.push(getKelasUrl(nextKelas.id));
     } else {
       toast.success("Semua kelas dalam daftar telah selesai dimonitor!");
-      router.push("/monitoring");
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      try {
+        localStorage.removeItem("cdu_monitoring_nav_queue");
+      } catch {}
+      router.push(`/monitoring${search}`);
     }
   }
 
@@ -657,7 +703,8 @@ export default function MonitoringGridClient({
               if (typeof window !== "undefined" && window.history.length > 1) {
                 router.back();
               } else {
-                router.push("/monitoring");
+                const search = typeof window !== "undefined" ? window.location.search : "";
+                router.push(`/monitoring${search}`);
               }
             }}
             className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-[#fdf2f8] text-slate-500 hover:text-[#a80063] border border-slate-200/80 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs"
@@ -780,7 +827,7 @@ export default function MonitoringGridClient({
           </div>
 
           {/* Sequential Class Navigation Controls (Kelas X dari Y) */}
-          {/* {kelasList.length > 0 && currentIndex >= 0 && (
+          {activeQueueList.length > 0 && currentIndex >= 0 && (
             <div className="inline-flex items-center gap-0.5 bg-slate-50 p-1 rounded-lg border border-slate-200 shadow-2xs">
               <button
                 type="button"
@@ -798,10 +845,10 @@ export default function MonitoringGridClient({
 
               <span
                 className="text-[11px] font-bold text-slate-700 px-1.5 whitespace-nowrap select-none"
-                title={`Kelas ke-${currentIndex + 1} dari total ${kelasList.length} kelas`}
+                title={`Kelas ke-${currentIndex + 1} dari total ${activeQueueList.length} kelas`}
               >
                 <span className="text-[#a80063]">{currentIndex + 1}</span>
-                <span className="text-slate-400 font-normal">/{kelasList.length}</span>
+                <span className="text-slate-400 font-normal">/{activeQueueList.length}</span>
               </span>
 
               <button
@@ -818,7 +865,7 @@ export default function MonitoringGridClient({
                 <ArrowRight size={12} />
               </button>
             </div>
-          )} */}
+          )}
 
           {/* Import Excel Edlink Button (Direct Popup Modal) */}
           <button

@@ -3,12 +3,22 @@
 
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSimpleKelasList, getMonitoringKelasDetail } from "@/actions/monitoring";
+import { getMonitoringKelasDetail, getFilteredSequentialKelasList } from "@/actions/monitoring";
 import MonitoringGridClient from "../MonitoringGridClient";
 
 interface MonitoringDetailPageProps {
   params: Promise<{ kelasId: string }>;
-  searchParams?: Promise<{ prodiId?: string; tab?: string; sesi?: string }>;
+  searchParams?: Promise<{
+    prodiId?: string;
+    semesterId?: string;
+    tab?: "ALL" | "BELUM" | "SUDAH";
+    sesi?: string;
+    mode?: string;
+    hari?: string;
+    status?: string;
+    q?: string;
+    sortBy?: string;
+  }>;
 }
 
 export async function generateMetadata({
@@ -31,7 +41,7 @@ export default async function MonitoringDetailPage({
 }: MonitoringDetailPageProps) {
   const [resolvedParams, resolvedSearchParams] = await Promise.all([
     params,
-    searchParams ? searchParams : Promise.resolve({} as { prodiId?: string; tab?: string; sesi?: string }),
+    searchParams ? searchParams : Promise.resolve({} as any),
   ]);
   const detailRes = await getMonitoringKelasDetail(resolvedParams.kelasId);
 
@@ -40,14 +50,22 @@ export default async function MonitoringDetailPage({
   }
 
   const effectiveProdiId = resolvedSearchParams?.prodiId;
-  let listRes = await getSimpleKelasList(detailRes.data.semesterId, effectiveProdiId);
-  let simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
+  const sesiNum = resolvedSearchParams?.sesi ? parseInt(resolvedSearchParams.sesi, 10) : undefined;
 
-  // Jika filter prodi tidak memuat kelas yang sedang dibuka, fallback ke seluruh kelas di semester aktif
-  if (simpleKelasList.length > 0 && !simpleKelasList.some((k) => k.id === resolvedParams.kelasId)) {
-    listRes = await getSimpleKelasList(detailRes.data.semesterId);
-    simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
-  }
+  const listRes = await getFilteredSequentialKelasList({
+    semesterId: resolvedSearchParams?.semesterId || detailRes.data.semesterId,
+    prodiId: effectiveProdiId,
+    filterMode: resolvedSearchParams?.mode,
+    filterHari: resolvedSearchParams?.hari,
+    filterStatus: resolvedSearchParams?.status,
+    monitoringTab: resolvedSearchParams?.tab,
+    selectedSesi: sesiNum,
+    searchQuery: resolvedSearchParams?.q,
+    sortBy: resolvedSearchParams?.sortBy as any,
+    currentKelasId: resolvedParams.kelasId,
+  });
+
+  const simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
 
   return (
     <MonitoringGridClient

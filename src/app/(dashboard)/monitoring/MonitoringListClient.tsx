@@ -309,9 +309,15 @@ export default function MonitoringListClient({
   // Helper untuk membuat link detail monitoring dengan mempertahankan konteks filter
   function getMonitoringDetailUrl(kelasId: string): string {
     const params = new URLSearchParams();
+    if (activeSem?.id) params.set("semesterId", activeSem.id);
     if (filterProdi && filterProdi !== "ALL") params.set("prodiId", filterProdi);
     if (monitoringTab && monitoringTab !== "ALL") params.set("tab", monitoringTab);
     if (selectedSesi) params.set("sesi", selectedSesi.toString());
+    if (filterMode && filterMode !== "ALL") params.set("mode", filterMode);
+    if (filterHari && filterHari !== "ALL") params.set("hari", filterHari);
+    if (filterStatus && filterStatus !== "ALL") params.set("status", filterStatus);
+    if (debouncedSearchQuery && debouncedSearchQuery.trim()) params.set("q", debouncedSearchQuery.trim());
+    if (sortBy && sortBy !== "TERBARU") params.set("sortBy", sortBy);
     const qStr = params.toString();
     return `/monitoring/${kelasId}${qStr ? `?${qStr}` : ""}`;
   }
