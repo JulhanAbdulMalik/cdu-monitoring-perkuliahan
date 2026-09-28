@@ -160,22 +160,11 @@ export function calculateClassSummary(
   let statusEvaluasi: "TERLAKSANA" | "PERHATIAN" = "TERLAKSANA";
   let evaluasiNote = "Perkuliahan berjalan lancar dan memenuhi standar CDU.";
 
-  // Aturan Evaluasi Baru:
-  // 1. Alpa >= 2 sesi -> PERHATIAN
-  // 2. Materi Kosong (0/3) >= 2 sesi pada sesi berjalan -> PERHATIAN (khusus Non-Bimbingan)
-  // Di luar kondisi di atas -> TERLAKSANA
   const isAlphaExceeded = totalAlpha >= 2;
-  const isKontenEmpty = modePembelajaran !== "BIMBINGAN" && sesiMateriKosongCount >= 2;
 
-  if (isAlphaExceeded && isKontenEmpty) {
+  if (isAlphaExceeded) {
     statusEvaluasi = "PERHATIAN";
-    evaluasiNote = `Perhatian: Terdapat ${totalAlpha} sesi Alpa dan ${sesiMateriKosongCount} sesi tanpa materi 3 pilar pada sesi berjalan.`;
-  } else if (isAlphaExceeded) {
-    statusEvaluasi = "PERHATIAN";
-    evaluasiNote = `Perhatian: Terdapat ${totalAlpha} sesi Alpa (tidak hadir).`;
-  } else if (isKontenEmpty) {
-    statusEvaluasi = "PERHATIAN";
-    evaluasiNote = `Perhatian: Terdapat ${sesiMateriKosongCount} sesi tanpa materi 3 pilar sama sekali pada sesi berjalan.`;
+    evaluasiNote = `Perhatian: Terdapat ${totalAlpha} sesi Alpa (dosen tidak hadir).`;
   } else {
     statusEvaluasi = "TERLAKSANA";
     evaluasiNote = "Perkuliahan berjalan lancar dan memenuhi standar CDU.";

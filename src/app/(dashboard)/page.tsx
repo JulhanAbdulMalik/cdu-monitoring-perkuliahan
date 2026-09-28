@@ -180,7 +180,7 @@ export default async function DashboardPage() {
             sesiAggregates[aggIndex].totalTerisi++;
             sesiAggregates[aggIndex].totalHadir++;
           }
-        } else if (s.kehadiran === "TIDAK_HADIR") {
+        } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
           totalAlpha++;
           totalSesiTerlaksana++;
 
@@ -320,7 +320,7 @@ export default async function DashboardPage() {
           } else if (s.kehadiran === "HADIR_TIDAK_LENGKAP") {
             hTdkLengkap++;
             sesiTerlaksana++;
-          } else if (s.kehadiran === "TIDAK_HADIR") {
+          } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
             alphaCount++;
             sesiTerlaksana++;
           }
@@ -427,11 +427,12 @@ export default async function DashboardPage() {
       ];
     }
 
-    const alphaBlok1 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 1 && s.nomorSesi <= 3 && s.kehadiran === "TIDAK_HADIR")).length;
-    const alphaBlok2 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 4 && s.nomorSesi <= 6 && s.kehadiran === "TIDAK_HADIR")).length;
-    const alphaBlok3 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 7 && s.nomorSesi <= 9 && s.kehadiran === "TIDAK_HADIR")).length;
-    const alphaBlok4 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 10 && s.nomorSesi <= 12 && s.kehadiran === "TIDAK_HADIR")).length;
-    const alphaBlok5 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 13 && s.nomorSesi <= 16 && s.kehadiran === "TIDAK_HADIR")).length;
+    const isSesiAlpha = (s: any) => s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA";
+    const alphaBlok1 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 1 && s.nomorSesi <= 3 && isSesiAlpha(s))).length;
+    const alphaBlok2 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 4 && s.nomorSesi <= 6 && isSesiAlpha(s))).length;
+    const alphaBlok3 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 7 && s.nomorSesi <= 9 && isSesiAlpha(s))).length;
+    const alphaBlok4 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 10 && s.nomorSesi <= 12 && isSesiAlpha(s))).length;
+    const alphaBlok5 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 13 && s.nomorSesi <= 16 && isSesiAlpha(s))).length;
 
     sparklineAlphaData = [
       { val: alphaBlok1 },

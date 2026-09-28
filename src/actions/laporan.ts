@@ -591,17 +591,12 @@ export async function getLaporanDosen(
 
         const confCount = data.sesiList.filter((s) => s.conference).length;
 
-        // Evaluasi kelas: Jika 1 dosen penuh, gunakan statusEvaluasi kelas yang sudah dihitung; jika pengajar terpisah, evaluasi sesi berjalan
+        // Evaluasi kelas: Jika 1 dosen penuh, gunakan statusEvaluasi kelas yang sudah dihitung; jika pengajar terpisah, evaluasi kehadiran alpa dosen
         let classEvaluasi: "TERLAKSANA" | "PERHATIAN" = "TERLAKSANA";
         if (!item.isSplitPengajar) {
           classEvaluasi = item.statusEvaluasi;
         } else {
-          const emptySesiCount = isBimbingan
-            ? 0
-            : regularSesi.filter(
-                (s) => s.nomorSesi <= currentActiveSesi && (s.contentScore || 0) === 0
-              ).length;
-          if (alphaCount >= 2 || (!isBimbingan && emptySesiCount >= 2)) {
+          if (alphaCount >= 2) {
             classEvaluasi = "PERHATIAN";
           } else {
             classEvaluasi = "TERLAKSANA";
