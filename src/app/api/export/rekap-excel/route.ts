@@ -24,6 +24,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const semesterId = searchParams.get("semesterId") || undefined;
     const prodiId = searchParams.get("prodiId") || undefined;
+    const filterMode = searchParams.get("mode") || "ALL";
+    const filterHari = searchParams.get("hari") || "ALL";
+    const filterStatus = searchParams.get("status") || "ALL";
+    const searchQuery = (searchParams.get("q") || searchParams.get("search") || "").trim().toLowerCase();
+    const sortBy = searchParams.get("sort") || "PRODI_ASC";
 
     let targetProdiId = prodiId;
     let allowedProdiIds: string[] | undefined = undefined;
@@ -51,6 +56,103 @@ export async function GET(request: NextRequest) {
         ? prodiList.find((p) => p.id === targetProdiId)
         : undefined;
 
+    // Filter rekapList sesuai filter aktif
+    const filteredRekap = rekapList.filter((item) => {
+      const matchProdi =
+        !targetProdiId || targetProdiId === "ALL" || item.mataKuliah.prodi.id === targetProdiId;
+      const matchStatus = filterStatus === "ALL" || item.statusEvaluasi === filterStatus;
+      const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
+      const matchHari =
+        filterHari === "ALL" ||
+        (item.jadwalHari && item.jadwalHari.trim().toLowerCase() === filterHari.toLowerCase());
+      const matchPengajar = item.dosenPengajarList?.some((p) =>
+        p.nama.toLowerCase().includes(searchQuery)
+      );
+      const matchSearch =
+        !searchQuery ||
+        item.kodeKelas.toLowerCase().includes(searchQuery) ||
+        item.mataKuliah.nama.toLowerCase().includes(searchQuery) ||
+        item.mataKuliah.kode.toLowerCase().includes(searchQuery) ||
+        item.dosen.nama.toLowerCase().includes(searchQuery) ||
+        Boolean(matchPengajar);
+
+      return matchProdi && matchStatus && matchMode && matchHari && matchSearch;
+    });
+
+    // Urutkan rekapList sesuai sortBy aktif
+    const sortedRekap = [...filteredRekap].sort((a, b) => {
+      switch (sortBy) {
+        case "PRODI_ASC":
+          return a.mataKuliah.prodi.nama.localeCompare(b.mataKuliah.prodi.nama);
+        case "PRODI_DESC":
+          return b.mataKuliah.prodi.nama.localeCompare(a.mataKuliah.prodi.nama);
+        case "KODE_ASC":
+          return a.kodeKelas.localeCompare(b.kodeKelas);
+        case "KODE_DESC":
+          return b.kodeKelas.localeCompare(a.kodeKelas);
+        case "HARI_ASC": {
+          const HARI_ORDER: Record<string, number> = {
+            senin: 1, selasa: 2, rabu: 3, kamis: 4, jumat: 5, sabtu: 6, minggu: 7,
+          };
+          const aOrder = HARI_ORDER[(a.jadwalHari || "").trim().toLowerCase()] ?? 99;
+          const bOrder = HARI_ORDER[(b.jadwalHari || "").trim().toLowerCase()] ?? 99;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return (a.jadwalJam || "").localeCompare(b.jadwalJam || "");
+        }
+        case "HARI_DESC": {
+          const HARI_ORDER: Record<string, number> = {
+            senin: 1, selasa: 2, rabu: 3, kamis: 4, jumat: 5, sabtu: 6, minggu: 7,
+          };
+          const aOrder = HARI_ORDER[(a.jadwalHari || "").trim().toLowerCase()] ?? 99;
+          const bOrder = HARI_ORDER[(b.jadwalHari || "").trim().toLowerCase()] ?? 99;
+          if (aOrder !== bOrder) return bOrder - aOrder;
+          return (b.jadwalJam || "").localeCompare(a.jadwalJam || "");
+        }
+        case "MK_ASC":
+          return a.mataKuliah.nama.localeCompare(b.mataKuliah.nama);
+        case "MK_DESC":
+          return b.mataKuliah.nama.localeCompare(a.mataKuliah.nama);
+        case "DOSEN_ASC":
+          return a.dosen.nama.localeCompare(b.dosen.nama);
+        case "DOSEN_DESC":
+          return b.dosen.nama.localeCompare(a.dosen.nama);
+        case "HADIR_ASC":
+          return a.persenKehadiran - b.persenKehadiran;
+        case "HADIR_DESC":
+          return b.persenKehadiran - a.persenKehadiran;
+        case "PILAR_ASC":
+          return a.persenKonten - b.persenKonten;
+        case "PILAR_DESC":
+          return b.persenKonten - a.persenKonten;
+        case "CONF_ASC": {
+          const aConf = a.confPraUTS + a.confPraUAS;
+          const bConf = b.confPraUTS + b.confPraUAS;
+          return aConf - bConf;
+        }
+        case "CONF_DESC": {
+          const aConf = a.confPraUTS + a.confPraUAS;
+          const bConf = b.confPraUTS + b.confPraUAS;
+          return bConf - aConf;
+        }
+        case "STATUS_ASC": {
+          const rankMap: Record<string, number> = {
+            PERHATIAN: 1,
+            TERLAKSANA: 2,
+          };
+          return (rankMap[a.statusEvaluasi] || 0) - (rankMap[b.statusEvaluasi] || 0);
+        }
+        case "STATUS_DESC": {
+          const rankMap: Record<string, number> = {
+            PERHATIAN: 1,
+            TERLAKSANA: 2,
+          };
+          return (rankMap[b.statusEvaluasi] || 0) - (rankMap[a.statusEvaluasi] || 0);
+        }
+        default:
+          return 0;
+      }
+    });
+
     // Buat Workbook ExcelJS
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "CDU Nusa Putra University";
@@ -64,25 +166,33 @@ export async function GET(request: NextRequest) {
     });
 
     // ── 1. Title Header ──────────────────────────────────────────────────────
-    worksheet.mergeCells("A1:AD1");
+    worksheet.mergeCells("A1:AE1");
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Rockwell", size: 14, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 26;
 
-    worksheet.mergeCells("A2:AD2");
+    const filterInfoParts: string[] = [];
+    if (selectedProdiObj) filterInfoParts.push(`Prodi: ${selectedProdiObj.nama}`);
+    if (filterMode !== "ALL") filterInfoParts.push(`Mode: ${filterMode}`);
+    if (filterHari !== "ALL") filterInfoParts.push(`Hari: ${filterHari}`);
+    if (filterStatus !== "ALL") filterInfoParts.push(`Status: ${filterStatus}`);
+    if (searchQuery) filterInfoParts.push(`Pencarian: "${searchQuery}"`);
+    const filterText = filterInfoParts.length > 0 ? ` [${filterInfoParts.join(" | ")}]` : "";
+
+    worksheet.mergeCells("A2:AE2");
     const subtitleCell = worksheet.getCell("A2");
     subtitleCell.value = `LAPORAN REKAPITULASI MONITORING PERKULIAHAN (3 PILAR)${
       selectedProdiObj ? ` - PRODI ${selectedProdiObj.nama.toUpperCase()}` : ""
     } - SEMESTER ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : ""
-    }`;
+    }${filterText}`;
     subtitleCell.font = { name: "Rockwell", size: 11, bold: true, color: { argb: "FF334155" } };
     subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(2).height = 20;
 
-    worksheet.mergeCells("A3:AD3");
+    worksheet.mergeCells("A3:AE3");
     const dateCell = worksheet.getCell("A3");
     dateCell.value = `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID", {
       day: "numeric",
@@ -94,7 +204,7 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(3).height = 18;
 
     // ── 1.5 Legend Bar (Row 4) ──────────────────────────────────────────────
-    worksheet.mergeCells("A4:AD4");
+    worksheet.mergeCells("A4:AE4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
       "KETERANGAN KEHADIRAN (WARNA): [H] Hadir (Hijau)  •  [T] HTL (Kuning)  •  [A] Alpa (Merah)   |   SKOR 3 PILAR (ANGKA): [3] Lengkap (3/3)  •  [2] Baik (2/3)  •  [1] Sebagian (1/3)  •  [0] Kosong   |   PENGAJAR: Dosen Baru (Border Ungu)  •  Dosen Pengganti (Border Amber)";
@@ -120,6 +230,7 @@ export async function GET(request: NextRequest) {
       "No",
       "Kode Kelas",
       "Mode",
+      "Jadwal Kuliah",
       "Program Studi",
       "Mata Kuliah",
       "SKS",
@@ -169,7 +280,7 @@ export async function GET(request: NextRequest) {
     });
 
     // ── 3. Data Rows ─────────────────────────────────────────────────────────
-    rekapList.forEach((cls, idx) => {
+    sortedRekap.forEach((cls, idx) => {
       // 1. Nilai Teks Tiap Sesi (Sama persis dengan matriks Web)
       const sesiValues = cls.sesi.map((s) => {
         const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
@@ -219,7 +330,17 @@ export async function GET(request: NextRequest) {
         dosenDisplayText = lines.join("\n");
       }
 
-      // 3. Format Ringkasan Pergantian Dosen (Kolom 30)
+      // 3. Format Teks Jadwal Kuliah (Hari & Jam Compact)
+      let jadwalKuliahText = "-";
+      if (cls.jadwalHari && cls.jadwalJam) {
+        jadwalKuliahText = `${cls.jadwalHari}\n${cls.jadwalJam}`;
+      } else if (cls.jadwalHari) {
+        jadwalKuliahText = cls.jadwalHari;
+      } else if (cls.jadwalJam) {
+        jadwalKuliahText = cls.jadwalJam;
+      }
+
+      // 4. Format Ringkasan Pergantian Dosen (Kolom 31)
       let statusPengajarText = "Normal (1 Dosen Penuh)";
       if (cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1) {
         const lines: string[] = [];
@@ -242,6 +363,7 @@ export async function GET(request: NextRequest) {
         idx + 1,
         cls.kodeKelas,
         cls.modePembelajaran === "BIMBINGAN" ? "Bimbingan" : cls.modePembelajaran === "LURING" ? "Offline" : "Online",
+        jadwalKuliahText,
         cls.mataKuliah.prodi.nama,
         cls.mataKuliah.nama,
         cls.mataKuliah.sks,
@@ -263,7 +385,7 @@ export async function GET(request: NextRequest) {
       ];
 
       const row = worksheet.addRow(rowValues);
-      row.height = cls.isSplitPengajar ? 36 : 20;
+      row.height = cls.isSplitPengajar ? 36 : (cls.jadwalHari && cls.jadwalJam ? 28 : 20);
 
       row.eachCell((cell, colNumber) => {
         cell.font = { name: "Rockwell", size: 9 };
@@ -276,21 +398,23 @@ export async function GET(request: NextRequest) {
 
         // Alignments
         if (
-          colNumber === 1 ||
-          colNumber === 3 ||
-          colNumber === 6 ||
-          (colNumber >= 8 && colNumber <= 28)
+          colNumber === 1 || // No
+          colNumber === 3 || // Mode
+          colNumber === 7 || // SKS
+          (colNumber >= 9 && colNumber <= 29) // S1-S16 (9-24), Total Hadir (25), % Hadir (26), Skor 3P (27), % Konten (28), Live Conf (29)
         ) {
           cell.alignment = { horizontal: "center", vertical: "middle" };
-        } else if (colNumber === 7 || colNumber === 30) {
+        } else if (colNumber === 4) { // Jadwal Kuliah
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        } else if (colNumber === 8 || colNumber === 31) { // Dosen Pengampu & Status Pengajar
           cell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
         } else {
           cell.alignment = { horizontal: "left", vertical: "middle" };
         }
 
-        // Color coding untuk kolom Sesi (Col 8 s/d 23)
-        if (colNumber >= 8 && colNumber <= 23) {
-          const sesiIndex = colNumber - 8;
+        // Color coding untuk kolom Sesi (Col 9 s/d 24)
+        if (colNumber >= 9 && colNumber <= 24) {
+          const sesiIndex = colNumber - 9;
           const s = cls.sesi[sesiIndex];
           const isHadir = s.kehadiran === "HADIR";
           const isHTL = s.kehadiran === "HADIR_TIDAK_LENGKAP" || s.kehadiran === "HADIR_TDK_LENGKAP";
@@ -338,8 +462,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Styling kolom 26 (Skor 3 Pilar)
-        if (colNumber === 26) {
+        // Styling kolom 27 (Skor 3 Pilar)
+        if (colNumber === 27) {
           if (cls.modePembelajaran === "BIMBINGAN") {
             cell.fill = {
               type: "pattern",
@@ -352,8 +476,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Color coding for Status Evaluasi (Column 29)
-        if (colNumber === 29) {
+        // Color coding for Status Evaluasi (Column 30)
+        if (colNumber === 30) {
           if (cls.statusEvaluasi === "TERLAKSANA") {
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF047857" } };
           } else {
@@ -361,8 +485,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Styling kolom 30 (Status Pengajar & Pergantian)
-        if (colNumber === 30) {
+        // Styling kolom 31 (Status Pengajar & Pergantian)
+        if (colNumber === 31) {
           if (cls.isSplitPengajar) {
             cell.fill = {
               type: "pattern",
@@ -377,24 +501,45 @@ export async function GET(request: NextRequest) {
       });
     });
 
+    // Jika tidak ada data rekap yang sesuai filter
+    if (sortedRekap.length === 0) {
+      const emptyRow = worksheet.addRow([
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "Tidak ada data rekapitulasi yang sesuai dengan kriteria filter.",
+      ]);
+      worksheet.mergeCells(`A${emptyRow.number}:AE${emptyRow.number}`);
+      emptyRow.height = 24;
+      const mergedCell = worksheet.getCell(`A${emptyRow.number}`);
+      mergedCell.font = { name: "Rockwell", size: 10, italic: true, color: { argb: "FF94A3B8" } };
+      mergedCell.alignment = { horizontal: "center", vertical: "middle" };
+    }
+
     // Adjust column widths Sheet 1
     worksheet.getColumn(1).width = 5; // No
     worksheet.getColumn(2).width = 12; // Kode Kelas
     worksheet.getColumn(3).width = 10; // Mode
-    worksheet.getColumn(4).width = 22; // Prodi
-    worksheet.getColumn(5).width = 28; // Mata Kuliah
-    worksheet.getColumn(6).width = 6; // SKS
-    worksheet.getColumn(7).width = 32; // Dosen Pengampu (Lebar cukup untuk multi-line)
-    for (let c = 8; c <= 23; c++) {
+    worksheet.getColumn(4).width = 16; // Jadwal Kuliah (Hari & Jam)
+    worksheet.getColumn(5).width = 22; // Prodi
+    worksheet.getColumn(6).width = 28; // Mata Kuliah
+    worksheet.getColumn(7).width = 6; // SKS
+    worksheet.getColumn(8).width = 32; // Dosen Pengampu (Lebar cukup untuk multi-line)
+    for (let c = 9; c <= 24; c++) {
       worksheet.getColumn(c).width = 9; // Sesi 1-16
     }
-    worksheet.getColumn(24).width = 12; // Total Hadir
-    worksheet.getColumn(25).width = 10; // % Hadir
-    worksheet.getColumn(26).width = 13; // Skor 3 Pilar (Max 42)
-    worksheet.getColumn(27).width = 10; // % Konten
-    worksheet.getColumn(28).width = 20; // Live Conf
-    worksheet.getColumn(29).width = 16; // Status Evaluasi
-    worksheet.getColumn(30).width = 38; // Status Pengajar & Pergantian
+    worksheet.getColumn(25).width = 12; // Total Hadir
+    worksheet.getColumn(26).width = 10; // % Hadir
+    worksheet.getColumn(27).width = 13; // Skor 3 Pilar (Max 42)
+    worksheet.getColumn(28).width = 10; // % Konten
+    worksheet.getColumn(29).width = 20; // Live Conf
+    worksheet.getColumn(30).width = 16; // Status Evaluasi
+    worksheet.getColumn(31).width = 38; // Status Pengajar & Pergantian
 
     // ═════════════════════════════════════════════════════════════════════════
     // SHEET 2: LOG DAFTAR PERGANTIAN DOSEN
@@ -466,7 +611,7 @@ export async function GET(request: NextRequest) {
 
     // Kumpulkan seluruh sesi yang digantikan di semester ini
     let logCounter = 1;
-    rekapList.forEach((cls) => {
+    sortedRekap.forEach((cls) => {
       cls.sesi.forEach((s) => {
         const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
         if (isSub) {
@@ -564,12 +709,14 @@ export async function GET(request: NextRequest) {
     // Return as downloadable Excel file
     const buffer = await workbook.xlsx.writeBuffer();
     const prodiSuffix = selectedProdiObj ? `_${selectedProdiObj.kode}` : "";
+    const hariSuffix = filterHari !== "ALL" ? `_${filterHari}` : "";
+    const modeSuffix = filterMode !== "ALL" ? `_${filterMode}` : "";
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Rekap_Monitoring_3Pilar_CDU${prodiSuffix}_${
+        "Content-Disposition": `attachment; filename="Rekap_Monitoring_3Pilar_CDU${prodiSuffix}${hariSuffix}${modeSuffix}_${
           currentSem ? currentSem.tahunAkademik.replace("/", "-") : "2025-2026"
         }.xlsx"`,
       },

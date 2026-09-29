@@ -353,7 +353,16 @@ export default function RekapClient({
   }
 
   function handleExportExcel() {
-    window.location.href = `/api/export/rekap-excel?semesterId=${selectedSemester}&prodiId=${filterProdi}`;
+    const params = new URLSearchParams();
+    if (selectedSemester) params.set("semesterId", selectedSemester);
+    if (filterProdi) params.set("prodiId", filterProdi);
+    if (filterMode && filterMode !== "ALL") params.set("mode", filterMode);
+    if (filterHari && filterHari !== "ALL") params.set("hari", filterHari);
+    if (filterStatus && filterStatus !== "ALL") params.set("status", filterStatus);
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    if (sortBy) params.set("sort", sortBy);
+
+    window.location.href = `/api/export/rekap-excel?${params.toString()}`;
   }
 
   return (
