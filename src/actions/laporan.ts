@@ -734,6 +734,7 @@ export interface ProdiReportItem {
 
   // Semester Total (Referensi)
   totalKelas: number;
+  totalKelasNonBimbingan?: number;
   totalDosen: number;
   avgKehadiranSemester: number;
   avgKontenSemester: number;
@@ -901,6 +902,7 @@ export async function getLaporanProdi(
         kode: p.kode,
         fakultasNama: p.fakultas?.nama,
         totalKelas: 0,
+        totalKelasNonBimbingan: 0,
         totalDosen: p.dosen.length,
 
         // Range stats
@@ -932,10 +934,17 @@ export async function getLaporanProdi(
       const entry = prodiMap.get(prodiId);
       entry.totalKelas++;
 
+      const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
+      if (!isBimbingan) {
+        entry.totalKelasNonBimbingan++;
+      }
+
       const classSummary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran as any);
       entry.totalHadirSemester += classSummary.totalHadir;
       entry.totalAlphaSemester += classSummary.totalAlpha;
-      entry.totalSkor3PilarSemester += classSummary.totalSkor3Pilar;
+      if (!isBimbingan) {
+        entry.totalSkor3PilarSemester += classSummary.totalSkor3Pilar;
+      }
 
       // Cari sesi berjalan tertinggi di kelas ini (sesi terisi atau ada catatan khusus)
       const filledOrNotedSessions = cls.monitoringSesi.filter(
@@ -1033,7 +1042,7 @@ export async function getLaporanProdi(
           }
 
           const pilar = calculateSessionPillars(s);
-          if (!pilar.isExam) {
+          if (!isBimbingan && !pilar.isExam) {
             entry.totalRegularSesiRentang++;
             if (pilar.score !== null) entry.totalSkor3PilarRentang += pilar.score;
             if (pilar.hasSL) entry.totalPilar1Rentang++;
@@ -1063,19 +1072,28 @@ export async function getLaporanProdi(
       const avgKontenRentang =
         p.totalRegularSesiRentang > 0
           ? Math.round((p.totalSkor3PilarRentang / (p.totalRegularSesiRentang * 3)) * 1000) / 10
-          : 0;
+          : (p.totalKelasNonBimbingan === 0 ? 100 : 0);
 
       const avgKehadiranSemester =
         p.totalKelas > 0 ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 1000) / 10 : 0;
       const avgKontenSemester =
-        p.totalKelas > 0 ? Math.round((p.totalSkor3PilarSemester / (p.totalKelas * 42)) * 1000) / 10 : 0;
+        p.totalKelasNonBimbingan > 0
+          ? Math.round((p.totalSkor3PilarSemester / (p.totalKelasNonBimbingan * 42)) * 1000) / 10
+          : 100;
 
       let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
       if (p.totalSesiRentang === 0) {
         statusKinerjaRentang = "BAIK";
-      } else if (avgKehadiranRentang < 75 || avgKontenRentang < 60 || p.totalAlphaRentang >= 2) {
+      } else if (
+        avgKehadiranRentang < 75 ||
+        (p.totalKelasNonBimbingan > 0 && avgKontenRentang < 60) ||
+        p.totalAlphaRentang >= 2
+      ) {
         statusKinerjaRentang = "PERLU_PEMBINAAN";
-      } else if (avgKehadiranRentang < 90 || avgKontenRentang < 80) {
+      } else if (
+        avgKehadiranRentang < 90 ||
+        (p.totalKelasNonBimbingan > 0 && avgKontenRentang < 80)
+      ) {
         statusKinerjaRentang = "BAIK";
       }
 
@@ -1111,6 +1129,7 @@ export async function getLaporanProdi(
         kendalaList: p.kendalaList,
 
         totalKelas: p.totalKelas,
+        totalKelasNonBimbingan: p.totalKelasNonBimbingan,
         totalDosen: p.totalDosen,
         avgKehadiranSemester,
         avgKontenSemester,
@@ -1125,7 +1144,7 @@ export async function getLaporanProdi(
     const avgKontenRentangSemua =
       globalTotalRegularSesiRentang > 0
         ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 1000) / 10
-        : 0;
+        : 100;
 
     const responseData = {
       prodiReportList,

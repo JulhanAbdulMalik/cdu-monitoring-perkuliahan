@@ -2,7 +2,7 @@
 // src/app/(dashboard)/laporan/prodi/LaporanProdiClient.tsx
 // Laporan Performa per Program Studi dengan Filter Rentang Tanggal (Senin - Minggu)
 
-import { useState, useTransition, Fragment } from "react";
+import { useState, useEffect, useTransition, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -79,6 +79,11 @@ export default function LaporanProdiClient({
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemesterId);
+
+  useEffect(() => {
+    setStartDate(initialStartDate);
+    setEndDate(initialEndDate);
+  }, [initialStartDate, initialEndDate]);
 
   // View & Filter States (Default: TABLE Komparasi)
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
@@ -312,25 +317,42 @@ export default function LaporanProdiClient({
   }
 
   function handleExportExcel() {
-    window.location.href = `/api/export/prodi-excel?startDate=${startDate}&endDate=${endDate}&semesterId=${selectedSemester}`;
+    window.location.href = `/api/export/prodi-excel?startDate=${initialStartDate}&endDate=${initialEndDate}&semesterId=${selectedSemester}`;
   }
 
   // Active Filter Helpers
-  const isAllTime = !startDate && !endDate;
+  const appliedStartDate = initialStartDate;
+  const appliedEndDate = initialEndDate;
+  const isAppliedAllTime = !appliedStartDate && !appliedEndDate;
 
   const thisWeek = getWeekDates(new Date());
-  const isThisWeek = !isAllTime && startDate === thisWeek.mondayStr && endDate === thisWeek.sundayStr;
+  const isThisWeekApplied =
+    !isAppliedAllTime &&
+    appliedStartDate === thisWeek.mondayStr &&
+    appliedEndDate === thisWeek.sundayStr;
 
   const lastWeekBase = new Date();
   lastWeekBase.setDate(lastWeekBase.getDate() - 7);
   const lastWeek = getWeekDates(lastWeekBase);
-  const isLastWeek = !isAllTime && startDate === lastWeek.mondayStr && endDate === lastWeek.sundayStr;
+  const isLastWeekApplied =
+    !isAppliedAllTime &&
+    appliedStartDate === lastWeek.mondayStr &&
+    appliedEndDate === lastWeek.sundayStr;
 
-  const isCustomDate = !isAllTime && !isThisWeek && !isLastWeek;
+  const isCustomDateApplied =
+    !isAppliedAllTime && !isThisWeekApplied && !isLastWeekApplied;
+
+  const isDateDirty =
+    startDate !== appliedStartDate || endDate !== appliedEndDate;
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveStatus = filterStatus !== "ALL";
   const hasActiveSort = sortBy !== "nama_asc";
-  const hasAnyFilterActive = hasActiveSearch || hasActiveStatus || hasActiveSort || !isAllTime;
+  const hasAnyFilterActive =
+    hasActiveSearch ||
+    hasActiveStatus ||
+    hasActiveSort ||
+    !isAppliedAllTime ||
+    isDateDirty;
 
   return (
     <div className="space-y-4">
@@ -377,7 +399,7 @@ export default function LaporanProdiClient({
           Laporan Performa Program Studi per Periode Tanggal
         </h3>
         <p className="text-xs font-medium text-slate-600 mt-0.5">
-          Periode: {isAllTime ? "Semua Waktu (1 Semester)" : formatTanggalRange(startDate, endDate)} | Semester: {currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"}
+          Periode: {isAppliedAllTime ? "Semua Waktu (1 Semester)" : formatTanggalRange(appliedStartDate, appliedEndDate)} | Semester: {currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"}
         </p>
         <p className="text-[10px] text-slate-500 mt-1">
           Dicetak pada: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
@@ -407,7 +429,7 @@ export default function LaporanProdiClient({
         {/* Card 2: Rata Kehadiran Univ */}
         <div className="duralux-card p-4 bg-white">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {isAllTime ? "Rata Kehadiran (Semua)" : "Rata Kehadiran (Rentang)"}
+            {isAppliedAllTime ? "Rata Kehadiran (Semua)" : "Rata Kehadiran (Rentang)"}
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <h3 className="text-2xl font-bold text-emerald-600 leading-none">
@@ -425,7 +447,7 @@ export default function LaporanProdiClient({
         {/* Card 3: Rata Konten 3 Pilar */}
         <div className="duralux-card p-4 bg-white">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {isAllTime ? "Kelengkapan 3 Pilar (Semua)" : "Kelengkapan 3 Pilar (Rentang)"}
+            {isAppliedAllTime ? "Kelengkapan 3 Pilar (Semua)" : "Kelengkapan 3 Pilar (Rentang)"}
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <h3 className="text-2xl font-bold text-[#a80063] leading-none">
@@ -485,7 +507,7 @@ export default function LaporanProdiClient({
                 type="button"
                 onClick={() => applyPreset("all_time")}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isAllTime
+                  isAppliedAllTime && !isDateDirty
                     ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
                     : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                 }`}
@@ -496,7 +518,7 @@ export default function LaporanProdiClient({
                 type="button"
                 onClick={() => applyPreset("this_week")}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isThisWeek
+                  isThisWeekApplied && !isDateDirty
                     ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
                     : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                 }`}
@@ -507,7 +529,7 @@ export default function LaporanProdiClient({
                 type="button"
                 onClick={() => applyPreset("last_week")}
                 className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isLastWeek
+                  isLastWeekApplied && !isDateDirty
                     ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
                     : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                 }`}
@@ -525,7 +547,7 @@ export default function LaporanProdiClient({
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
-                  isCustomDate
+                  (isCustomDateApplied || isDateDirty) && startDate
                     ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
                     : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
                 }`}
@@ -536,18 +558,23 @@ export default function LaporanProdiClient({
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
-                  isCustomDate
+                  (isCustomDateApplied || isDateDirty) && endDate
                     ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
                     : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
                 }`}
               />
               <button
                 type="submit"
-                disabled={isPending || (!startDate && !endDate)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#a80063] hover:bg-[#8c0052] text-white text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50"
+                disabled={isPending || (!startDate && !endDate) || !isDateDirty}
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                  isDateDirty && (startDate || endDate)
+                    ? "bg-[#a80063] hover:bg-[#8c0052] text-white shadow-xs ring-2 ring-[#a80063]/30 animate-pulse"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-default"
+                }`}
+                title={isDateDirty ? "Klik untuk menerapkan rentang tanggal ini" : "Rentang tanggal sudah diterapkan"}
               >
                 <RefreshCw size={10} className={isPending ? "animate-spin" : ""} />
-                <span>{isPending ? "..." : "Terapkan"}</span>
+                <span>{isPending ? "Memuat..." : "Terapkan"}</span>
               </button>
             </form>
           </div>
@@ -698,7 +725,7 @@ export default function LaporanProdiClient({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-slate-500 font-medium text-[11px]">
-                        {isAllTime ? "Kehadiran Dosen:" : "Kehadiran Dosen (Rentang):"}
+                        {isAppliedAllTime ? "Kehadiran Dosen:" : "Kehadiran Dosen (Rentang):"}
                       </span>
                       <span className="font-bold text-emerald-600">
                         {formatPct(p.avgKehadiranRentang)}
@@ -720,7 +747,7 @@ export default function LaporanProdiClient({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-slate-500 font-medium text-[11px]">
-                        {isAllTime ? "Konten 3 Pilar:" : "Konten 3 Pilar (Rentang):"}
+                        {isAppliedAllTime ? "Konten 3 Pilar:" : "Konten 3 Pilar (Rentang):"}
                       </span>
                       <span className="font-bold text-[#a80063]">
                         {formatPct(p.avgKontenRentang)}
@@ -914,9 +941,9 @@ export default function LaporanProdiClient({
                                         Rincian Sesi Alpha & Belum Diisi - {p.nama}
                                       </h4>
                                       <p className="text-[10.5px] text-slate-500 font-normal">
-                                        {isAllTime
+                                        {isAppliedAllTime
                                           ? "Periode: Semua Waktu (1 Semester)"
-                                          : `Periode: ${formatTanggalRange(startDate, endDate)}`}
+                                          : `Periode: ${formatTanggalRange(appliedStartDate, appliedEndDate)}`}
                                       </p>
                                     </div>
                                   </div>
