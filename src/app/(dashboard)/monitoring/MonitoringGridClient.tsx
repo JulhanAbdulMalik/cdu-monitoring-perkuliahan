@@ -38,6 +38,8 @@ import {
   ArrowRightLeft,
   GraduationCap,
   DoorClosed,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   updateSingleMonitoringSesi,
@@ -252,6 +254,34 @@ export default function MonitoringGridClient({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [copiedDosen, setCopiedDosen] = useState(false);
+
+  const handleCopyDosenName = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!currentKelas?.dosen?.nama) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(currentKelas.dosen.nama);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = currentKelas.dosen.nama;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopiedDosen(true);
+      toast.success(`Nama dosen berhasil disalin: "${currentKelas.dosen.nama}"`, {
+        duration: 2000,
+      });
+      setTimeout(() => setCopiedDosen(false), 2000);
+    } catch {
+      toast.error("Gagal menyalin nama dosen");
+    }
+  };
 
   // State Dialog Konfirmasi Aksi Cepat
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -1035,11 +1065,29 @@ export default function MonitoringGridClient({
 
               {/* Dosen & Jadwal/Ruang (Sejajar & Compact) */}
               <div className="pt-2 border-t border-slate-100 space-y-1 text-[10.5px] text-slate-600 font-medium mt-2">
-                <div className="flex items-center gap-1.5 truncate">
+                <div className="flex items-center gap-1.5 truncate min-w-0">
                   <User size={12} className="text-[#a80063] shrink-0" />
-                  <span className="truncate font-semibold text-slate-800 text-xs" title={currentKelas.dosen.nama}>
-                    {currentKelas.dosen.nama}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyDosenName}
+                    className="group inline-flex items-center gap-1 text-left truncate font-semibold text-slate-800 hover:text-[#a80063] text-xs transition-colors cursor-pointer select-none rounded px-1 -mx-1 py-0.5 hover:bg-[#fdf2f8]"
+                    title={`Klik untuk salin nama: ${currentKelas.dosen.nama}`}
+                  >
+                    <span className="truncate">
+                      {currentKelas.dosen.nama}
+                    </span>
+                    {copiedDosen ? (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 shrink-0">
+                        <Check size={9} />
+                        <span>Tersalin</span>
+                      </span>
+                    ) : (
+                      <Copy
+                        size={10}
+                        className="text-slate-400 group-hover:text-[#a80063] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      />
+                    )}
+                  </button>
                   <span className="text-[8.5px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200 shrink-0">
                     Utama
                   </span>
