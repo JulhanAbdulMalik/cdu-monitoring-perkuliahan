@@ -66,12 +66,15 @@ export type RekapSortKey =
   | "PILAR_DESC"
   | "CONF_ASC"
   | "CONF_DESC"
+  | "HARI_ASC"
+  | "HARI_DESC"
   | "STATUS_ASC"
   | "STATUS_DESC";
 
 export type RekapSortColumn =
   | "PRODI"
   | "KODE"
+  | "HARI"
   | "MK"
   | "DOSEN"
   | "HADIR"
@@ -93,6 +96,7 @@ export default function RekapClient({
   const [filterProdi, setFilterProdi] = useState<string>(defaultProdiVal);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterMode, setFilterMode] = useState<string>("ALL");
+  const [filterHari, setFilterHari] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<RekapSortKey>("PRODI_ASC");
 
@@ -103,13 +107,16 @@ export default function RekapClient({
   // Reset page ke 1 saat filter atau pencarian berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterProdi, filterStatus, filterMode, selectedSemester]);
+  }, [searchQuery, filterProdi, filterStatus, filterMode, filterHari, selectedSemester]);
 
   // Filter rekap list
   const filteredRekap = initialRekap.filter((item) => {
     const matchProdi = filterProdi === "ALL" || item.mataKuliah.prodi.id === filterProdi;
     const matchStatus = filterStatus === "ALL" || item.statusEvaluasi === filterStatus;
     const matchMode = filterMode === "ALL" || item.modePembelajaran === filterMode;
+    const matchHari =
+      filterHari === "ALL" ||
+      (item.jadwalHari && item.jadwalHari.trim().toLowerCase() === filterHari.toLowerCase());
     const q = searchQuery.toLowerCase();
     const matchPengajar = item.dosenPengajarList?.some((p) =>
       p.nama.toLowerCase().includes(q)
@@ -121,7 +128,7 @@ export default function RekapClient({
       item.dosen.nama.toLowerCase().includes(q) ||
       Boolean(matchPengajar);
 
-    return matchProdi && matchStatus && matchMode && matchSearch;
+    return matchProdi && matchStatus && matchMode && matchHari && matchSearch;
   });
 
   // Sort rekap list
@@ -201,6 +208,24 @@ export default function RekapClient({
         const bConf = b.confPraUTS + b.confPraUAS;
         return bConf - aConf;
       }
+      case "HARI_ASC": {
+        const HARI_ORDER: Record<string, number> = {
+          senin: 1, selasa: 2, rabu: 3, kamis: 4, jumat: 5, sabtu: 6, minggu: 7,
+        };
+        const aOrder = HARI_ORDER[(a.jadwalHari || "").trim().toLowerCase()] ?? 99;
+        const bOrder = HARI_ORDER[(b.jadwalHari || "").trim().toLowerCase()] ?? 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return (a.jadwalJam || "").localeCompare(b.jadwalJam || "");
+      }
+      case "HARI_DESC": {
+        const HARI_ORDER: Record<string, number> = {
+          senin: 1, selasa: 2, rabu: 3, kamis: 4, jumat: 5, sabtu: 6, minggu: 7,
+        };
+        const aOrder = HARI_ORDER[(a.jadwalHari || "").trim().toLowerCase()] ?? 99;
+        const bOrder = HARI_ORDER[(b.jadwalHari || "").trim().toLowerCase()] ?? 99;
+        if (aOrder !== bOrder) return bOrder - aOrder;
+        return (b.jadwalJam || "").localeCompare(a.jadwalJam || "");
+      }
       case "STATUS_ASC": {
         const rankMap: Record<string, number> = {
           PERHATIAN: 1,
@@ -239,6 +264,9 @@ export default function RekapClient({
       case "KODE":
         setSortBy(sortBy === "KODE_ASC" ? "KODE_DESC" : "KODE_ASC");
         break;
+      case "HARI":
+        setSortBy(sortBy === "HARI_ASC" ? "HARI_DESC" : "HARI_ASC");
+        break;
       case "MK":
         setSortBy(sortBy === "MK_ASC" ? "MK_DESC" : "MK_ASC");
         break;
@@ -270,6 +298,7 @@ export default function RekapClient({
     const isCurrent =
       (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
       (columnKey === "KODE" && (sortBy === "KODE_ASC" || sortBy === "KODE_DESC")) ||
+      (columnKey === "HARI" && (sortBy === "HARI_ASC" || sortBy === "HARI_DESC")) ||
       (columnKey === "MK" && (sortBy === "MK_ASC" || sortBy === "MK_DESC")) ||
       (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
       (columnKey === "HADIR" && (sortBy === "HADIR_ASC" || sortBy === "HADIR_DESC")) ||
@@ -280,6 +309,7 @@ export default function RekapClient({
     const isAsc =
       sortBy === "PRODI_ASC" ||
       sortBy === "KODE_ASC" ||
+      sortBy === "HARI_ASC" ||
       sortBy === "MK_ASC" ||
       sortBy === "DOSEN_ASC" ||
       sortBy === "HADIR_ASC" ||
@@ -454,6 +484,27 @@ export default function RekapClient({
               <option value="BIMBINGAN">Bimbingan</option>
             </select>
 
+            {/* Hari */}
+            <select
+              value={filterHari}
+              onChange={(e) => setFilterHari(e.target.value)}
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                filterHari !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Filter Hari Perkuliahan"
+            >
+              <option value="ALL">Semua Hari</option>
+              <option value="Senin">Senin</option>
+              <option value="Selasa">Selasa</option>
+              <option value="Rabu">Rabu</option>
+              <option value="Kamis">Kamis</option>
+              <option value="Jumat">Jumat</option>
+              <option value="Sabtu">Sabtu</option>
+              <option value="Minggu">Minggu</option>
+            </select>
+
             {/* Status */}
             <select
               value={filterStatus}
@@ -471,13 +522,14 @@ export default function RekapClient({
             </select>
 
             {/* Reset Button */}
-            {(searchQuery || filterProdi !== defaultProdiVal || filterMode !== "ALL" || filterStatus !== "ALL") && (
+            {(searchQuery || filterProdi !== defaultProdiVal || filterMode !== "ALL" || filterHari !== "ALL" || filterStatus !== "ALL") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setFilterProdi(defaultProdiVal);
                   setFilterMode("ALL");
+                  setFilterHari("ALL");
                   setFilterStatus("ALL");
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
@@ -557,6 +609,7 @@ export default function RekapClient({
                 <th className="py-2.5 px-2 text-center w-9 text-slate-700 font-bold">No</th>
                 {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[130px]")}
                 {renderSortHeader("Kelas", "KODE", "left", "w-20 min-w-[75px]")}
+                {renderSortHeader("Jadwal Kuliah", "HARI", "left", "w-20 min-w-[75px]")}
                 {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[160px]")}
                 {renderSortHeader("Dosen Pengampu", "DOSEN", "left", "min-w-[200px]")}
                 {/* 16 Session Headers */}
@@ -579,7 +632,7 @@ export default function RekapClient({
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedRekap.length === 0 ? (
                 <tr>
-                  <td colSpan={25} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={26} className="py-10 text-center text-xs text-slate-400">
                     Tidak ada data rekapitulasi yang sesuai dengan kriteria filter.
                   </td>
                 </tr>
@@ -642,6 +695,16 @@ export default function RekapClient({
                             )}
                           </span>
                         </div>
+                      </td>
+
+                      {/* Jadwal Kuliah (Hari & Jam Compact) */}
+                      <td className="py-2 px-2 whitespace-nowrap w-20 min-w-[75px]">
+                        <p className="font-semibold text-xs text-slate-800 leading-tight">
+                          {cls.jadwalHari || "-"}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                          {cls.jadwalJam || "-"}
+                        </p>
                       </td>
 
                       {/* Mata Kuliah */}
