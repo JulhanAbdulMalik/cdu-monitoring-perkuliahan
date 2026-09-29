@@ -510,7 +510,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         : defaultActiveSesi;
 
     const page = Math.max(1, params.page || 1);
-    const pageSize = Math.max(1, Math.min(100, params.pageSize || 20));
+    const pageSize = Math.max(1, Math.min(1000, params.pageSize || 20));
 
     const baseWhere: any = {};
     if (targetSemesterId) {
