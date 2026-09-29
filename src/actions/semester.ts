@@ -35,6 +35,38 @@ export async function getSemesters() {
   }
 }
 
+export async function getActiveSemester() {
+  try {
+    let active = await prisma.semester.findFirst({
+      where: { aktif: true },
+      select: {
+        id: true,
+        tahunAkademik: true,
+        periode: true,
+        tanggalMulai: true,
+        aktif: true,
+      },
+    });
+
+    if (!active) {
+      active = await prisma.semester.findFirst({
+        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+        select: {
+          id: true,
+          tahunAkademik: true,
+          periode: true,
+          tanggalMulai: true,
+          aktif: true,
+        },
+      });
+    }
+
+    return { success: true, data: active };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal memuat semester aktif" };
+  }
+}
+
 export async function createSemester(formData: {
   tahunAkademik: string;
   periode: "GANJIL" | "GENAP";
@@ -81,6 +113,7 @@ export async function createSemester(formData: {
     revalidatePath("/master/semester");
     revalidatePath("/laporan/prodi");
     revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
     revalidatePath("/");
     return { success: true, data: semester };
   } catch (error: any) {
@@ -141,6 +174,7 @@ export async function updateSemester(
     revalidatePath("/master/semester");
     revalidatePath("/laporan/prodi");
     revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
     revalidatePath("/");
     return { success: true, data: semester };
   } catch (error: any) {
@@ -165,6 +199,7 @@ export async function toggleSemesterAktif(id: string) {
     });
 
     revalidatePath("/master/semester");
+    revalidatePath("/", "layout");
     revalidatePath("/");
     return { success: true, data: semester };
   } catch (error: any) {

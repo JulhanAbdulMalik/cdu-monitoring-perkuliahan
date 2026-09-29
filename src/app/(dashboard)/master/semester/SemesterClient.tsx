@@ -3,6 +3,7 @@
 // Compact & Clean Semester Management UI (Plus Jakarta Sans & #a80063 Theme)
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -62,6 +63,7 @@ interface SemesterClientProps {
 }
 
 export default function SemesterClient({ initialData }: SemesterClientProps) {
+  const router = useRouter();
   const [semesters, setSemesters] = useState<SemesterData[]>(initialData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -85,14 +87,14 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
   const [isDeletingLibur, setIsDeletingLibur] = useState(false);
 
   // Form states
-  const [tahunAkademik, setTahunAkademik] = useState("2025/2026");
+  const [tahunAkademik, setTahunAkademik] = useState("2026/2027");
   const [periode, setPeriode] = useState<"GANJIL" | "GENAP">("GANJIL");
   const [aktif, setAktif] = useState(false);
   const [tanggalMulai, setTanggalMulai] = useState("2026-09-21");
 
   function openCreateModal() {
     setEditingSemester(null);
-    setTahunAkademik("2025/2026");
+    setTahunAkademik("2026/2027");
     setPeriode("GANJIL");
     setAktif(false);
     setTanggalMulai("2026-09-21");
@@ -175,6 +177,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
           });
         }
       }
+      router.refresh();
     } catch {
       toast.error("Terjadi kesalahan sistem");
     } finally {
@@ -197,6 +200,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
           aktif: s.id === id,
         }))
       );
+      router.refresh();
     }
   }
 
@@ -714,13 +718,13 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: 2025/2026"
+                  placeholder="Contoh: 2026/2027"
                   value={tahunAkademik}
                   onChange={(e) => setTahunAkademik(e.target.value)}
                   required
                   className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
                 />
-                <span className="text-[10px] text-slate-400">Format: YYYY/YYYY (contoh: 2025/2026)</span>
+                <span className="text-[10px] text-slate-400">Format: YYYY/YYYY (contoh: 2026/2027)</span>
               </div>
 
               {/* Periode */}

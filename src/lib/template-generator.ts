@@ -118,9 +118,9 @@ export function generateTemplate(type: "dosen" | "mata-kuliah" | "kelas" | "prod
   } else if (type === "semester") {
     const data = [
       ["Tahun Akademik", "Periode", "Aktif"],
-      ["2025/2026", "GANJIL", "YA"],
+      ["2026/2027", "GANJIL", "YA"],
+      ["2026/2027", "GENAP", "TIDAK"],
       ["2025/2026", "GENAP", "TIDAK"],
-      ["2024/2025", "GENAP", "TIDAK"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws["!cols"] = [{ wch: 16 }, { wch: 10 }, { wch: 8 }];

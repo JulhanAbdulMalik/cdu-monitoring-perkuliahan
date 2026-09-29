@@ -988,8 +988,8 @@ export default function MonitoringListClient({
                       {/* Kehadiran */}
                       <td className="py-3 px-2.5 text-center">
                         <div className="flex flex-col items-center gap-0.5">
-                          <span className="font-bold text-xs text-slate-800 leading-tight">
-                            {cls.summary.totalHadir}/16 Sesi
+                          <span className="font-bold text-xs text-emerald-600 leading-tight">
+                            {cls.summary.totalHadir} / 16 Sesi
                           </span>
                           <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                             <div
@@ -997,7 +997,7 @@ export default function MonitoringListClient({
                               style={{ width: `${cls.summary.persenKehadiran}%` }}
                             />
                           </div>
-                          <span className="text-[9px] text-emerald-600 font-bold leading-tight">
+                          <span className="text-[9px] text-slate-400 font-bold leading-tight">
                             {formatPct(cls.summary.persenKehadiran)}
                           </span>
 
@@ -1062,7 +1062,7 @@ export default function MonitoringListClient({
                               />
                             </div>
                             <span className="text-[9px] text-slate-400 font-semibold leading-tight">
-                              {formatPct(cls.summary.persenKonten)} Lengkap
+                              {formatPct(cls.summary.persenKonten)}
                             </span>
 
                             {/* Smart Warning: Presensi Hadir tapi Konten Sesi Kosong */}

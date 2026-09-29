@@ -21,6 +21,11 @@ import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   initialProdis?: { id: string; nama: string; kode: string }[];
+  activeSemester?: {
+    id?: string;
+    tahunAkademik: string;
+    periode: string;
+  } | null;
 }
 
 function extractProdiFromName(name?: string | null): string | null {
@@ -33,7 +38,7 @@ function extractProdiFromName(name?: string | null): string | null {
   return null;
 }
 
-export default function Header({ initialProdis = [] }: HeaderProps) {
+export default function Header({ initialProdis = [], activeSemester }: HeaderProps) {
   const { data: session } = useSession();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -179,7 +184,7 @@ export default function Header({ initialProdis = [] }: HeaderProps) {
                     Semester Aktif
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    Tahun Akademik 2025/2026 Ganjil telah aktif.
+                    Tahun Akademik {activeSemester ? `${activeSemester.tahunAkademik} ${activeSemester.periode.charAt(0).toUpperCase() + activeSemester.periode.slice(1).toLowerCase()}` : "2026/2027 Ganjil"} telah aktif.
                   </p>
                 </div>
               </div>

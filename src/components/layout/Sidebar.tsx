@@ -137,7 +137,15 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  activeSemester?: {
+    id?: string;
+    tahunAkademik: string;
+    periode: string;
+  } | null;
+}
+
+export default function Sidebar({ activeSemester }: SidebarProps = {}) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { isCollapsed, toggleSidebar } = useSidebar();
@@ -315,7 +323,9 @@ export default function Sidebar() {
               </span>
             </div>
             <p className="text-[11px] font-bold text-slate-800">
-              2025/2026 Ganjil
+              {activeSemester
+                ? `${activeSemester.tahunAkademik} ${activeSemester.periode.charAt(0).toUpperCase() + activeSemester.periode.slice(1).toLowerCase()}`
+                : "2026/2027 Ganjil"}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
               Sesi 1–16 siap dimonitor
