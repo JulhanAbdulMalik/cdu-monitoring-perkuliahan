@@ -429,7 +429,12 @@ export default function MonitoringGridClient({
   ) {
     setSesiList((prev) =>
       prev.map((s) => {
-        if (s.id === sesiId && (!s.isKhadiranOnly || (currentKelas?.modePembelajaran === "BIMBINGAN" && field === "conference"))) {
+        if (
+          s.id === sesiId &&
+          (!s.isKhadiranOnly ||
+            (currentKelas?.modePembelajaran === "BIMBINGAN" &&
+              (field === "conference" || field === "video")))
+        ) {
           return { ...s, [field]: !s[field] };
         }
         return s;
@@ -442,7 +447,11 @@ export default function MonitoringGridClient({
   function handleTogglePilar(sesiId: string, pilarNumber: 1 | 2 | 3) {
     setSesiList((prev) =>
       prev.map((s) => {
-        if (s.id !== sesiId || s.isKhadiranOnly) return s;
+        if (
+          s.id !== sesiId ||
+          (s.isKhadiranOnly && currentKelas?.modePembelajaran !== "BIMBINGAN")
+        )
+          return s;
 
         if (pilarNumber === 1) {
           const bothActive = Boolean(s.lectureNote && s.slide);
@@ -459,12 +468,6 @@ export default function MonitoringGridClient({
             kuis: !bothActive,
           };
         } else if (pilarNumber === 3) {
-          if (currentKelas?.modePembelajaran === "BIMBINGAN") {
-            return {
-              ...s,
-              conference: !s.conference,
-            };
-          }
           const bothActive = Boolean(s.video && s.conference);
           return {
             ...s,
@@ -1629,20 +1632,18 @@ export default function MonitoringGridClient({
                               <span className="text-slate-300 text-xs">-</span>
                             ) : (
                               <div className="flex items-center gap-1">
-                                {currentKelas.modePembelajaran !== "BIMBINGAN" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleContentToggle(sesi.id, "video")}
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                                      sesi.video
-                                        ? "bg-[#a80063] text-white shadow-xs"
-                                        : "bg-white text-slate-500 hover:bg-slate-100 border border-slate-200"
-                                    }`}
-                                    title="Video Pembelajaran (YouTube / Edlink)"
-                                  >
-                                    Video
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleContentToggle(sesi.id, "video")}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                    sesi.video
+                                      ? "bg-[#a80063] text-white shadow-xs"
+                                      : "bg-white text-slate-500 hover:bg-slate-100 border border-slate-200"
+                                  }`}
+                                  title="Video Pembelajaran (YouTube / Edlink)"
+                                >
+                                  Video
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleContentToggle(sesi.id, "conference")}
@@ -1655,24 +1656,22 @@ export default function MonitoringGridClient({
                                 >
                                   Conf 📡
                                 </button>
-                                {currentKelas.modePembelajaran !== "BIMBINGAN" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTogglePilar(sesi.id, 3)}
-                                    className={`w-5 h-5 flex items-center justify-center rounded transition-all cursor-pointer ${
-                                      sesi.video && sesi.conference
-                                        ? "bg-emerald-600 text-white shadow-2xs"
-                                        : "bg-slate-100 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200/80"
-                                    }`}
-                                    title={
-                                      sesi.video && sesi.conference
-                                        ? "Batalkan klaim Pilar 3 (Reset Video & Conf)"
-                                        : "Klaim Pilar 3 Lengkap (Ceklis Video & Conf sekaligus)"
-                                    }
-                                  >
-                                    <CheckCheck size={11} />
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePilar(sesi.id, 3)}
+                                  className={`w-5 h-5 flex items-center justify-center rounded transition-all cursor-pointer ${
+                                    sesi.video && sesi.conference
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-slate-100 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200/80"
+                                  }`}
+                                  title={
+                                    sesi.video && sesi.conference
+                                      ? "Batalkan klaim Pilar 3 (Reset Video & Conf)"
+                                      : "Klaim Pilar 3 Lengkap (Ceklis Video & Conf sekaligus)"
+                                  }
+                                >
+                                  <CheckCheck size={11} />
+                                </button>
                               </div>
                             )}
                           </td>
