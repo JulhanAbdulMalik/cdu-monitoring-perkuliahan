@@ -1,6 +1,6 @@
 "use client";
 // src/components/dashboard/MonitoringTrendChart.tsx
-// Compact & Unified Spline Area Chart (Per Sesi & Per Minggu)
+// Compact & Unified Spline Area Chart dengan Pemisah Jenis Kelas (Semua, Offline, Online, Bimbingan)
 // Designed for CDU Monitoring Dashboard (Plus Jakarta Sans)
 
 import {
@@ -13,25 +13,24 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useState } from "react";
-import { CalendarDays, Layers } from "lucide-react";
 import { formatPct } from "@/lib/utils";
+
+export type TrendClassMode = "ALL" | "OFFLINE" | "ONLINE" | "BIMBINGAN";
 
 export interface TrendItem {
   sesi: string;
   full: string;
   kehadiran: number;
   konten: number;
+  totalTerisi?: number;
+  totalRegular?: number;
+  totalSkorPilar?: number;
 }
 
-export interface WeeklyTrendItem {
-  minggu: string;
-  full: string;
-  periodeLabel?: string;
-  kehadiran: number;
-  konten: number;
-  totalSesi?: number;
-  totalHadir?: number;
-}
+export type TrendDataByMode = Record<TrendClassMode, TrendItem[]>;
+
+// Backwards compatibility if needed
+export type WeeklyTrendItem = TrendItem;
 
 const defaultSessionData: TrendItem[] = [
   { sesi: "S1", full: "Sesi 1", kehadiran: 95, konten: 88 },
@@ -52,35 +51,23 @@ const defaultSessionData: TrendItem[] = [
   { sesi: "UAS", full: "Sesi 16 (UAS)", kehadiran: 99, konten: 99 },
 ];
 
-const defaultWeeklyData: WeeklyTrendItem[] = [
-  { minggu: "M1", full: "Minggu 1", periodeLabel: "Awal Perkuliahan", kehadiran: 94, konten: 88 },
-  { minggu: "M2", full: "Minggu 2", periodeLabel: "Perkuliahan Rutin", kehadiran: 92, konten: 85 },
-  { minggu: "M3", full: "Minggu 3", periodeLabel: "Perkuliahan Rutin", kehadiran: 96, konten: 90 },
-  { minggu: "M4", full: "Minggu 4", periodeLabel: "Perkuliahan Rutin", kehadiran: 89, konten: 82 },
-  { minggu: "M5", full: "Minggu 5", periodeLabel: "Perkuliahan Rutin", kehadiran: 94, konten: 87 },
-  { minggu: "M6", full: "Minggu 6", periodeLabel: "Perkuliahan Rutin", kehadiran: 91, konten: 86 },
-  { minggu: "M7", full: "Minggu 7", periodeLabel: "Review Pra-UTS", kehadiran: 88, konten: 84 },
-  { minggu: "M8", full: "Minggu 8 (UTS)", periodeLabel: "Pekan UTS", kehadiran: 98, konten: 98 },
-  { minggu: "M9", full: "Minggu 9", periodeLabel: "Pasca UTS", kehadiran: 93, konten: 89 },
-  { minggu: "M10", full: "Minggu 10", periodeLabel: "Perkuliahan Rutin", kehadiran: 90, konten: 85 },
-  { minggu: "M11", full: "Minggu 11", periodeLabel: "Perkuliahan Rutin", kehadiran: 87, konten: 81 },
-  { minggu: "M12", full: "Minggu 12", periodeLabel: "Perkuliahan Rutin", kehadiran: 92, konten: 88 },
-  { minggu: "M13", full: "Minggu 13", periodeLabel: "Perkuliahan Rutin", kehadiran: 95, konten: 91 },
-  { minggu: "M14", full: "Minggu 14", periodeLabel: "Perkuliahan Rutin", kehadiran: 89, konten: 83 },
-  { minggu: "M15", full: "Minggu 15", periodeLabel: "Review Pra-UAS", kehadiran: 94, konten: 89 },
-  { minggu: "M16", full: "Minggu 16 (UAS)", periodeLabel: "Pekan UAS", kehadiran: 99, konten: 99 },
+const MODE_OPTIONS: { key: TrendClassMode; label: string; desc: string }[] = [
+  { key: "ALL", label: "Semua", desc: "Seluruh jenis kelas semester ini" },
+  { key: "OFFLINE", label: "Offline", desc: "Khusus kelas Tatap Muka (Luring)" },
+  { key: "ONLINE", label: "Online", desc: "Khusus kelas Daring (LMS)" },
+  { key: "BIMBINGAN", label: "Bimbingan", desc: "Khusus kelas Bimbingan (Skripsi/SCP)" },
 ];
 
-function CustomTooltip({ active, payload }: any) {
+function CustomTooltip({ active, payload, isBimbingan }: any) {
   if (active && payload && payload.length) {
     const data = payload[0]?.payload;
     return (
-      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-lg text-xs z-50 min-w-[180px]">
+      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-lg text-xs z-50 min-w-[170px]">
         <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-100">
           <p className="font-bold text-slate-800">{data.full}</p>
-          {data.periodeLabel && (
-            <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">
-              {data.periodeLabel}
+          {isBimbingan && (
+            <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-100">
+              Bimbingan
             </span>
           )}
         </div>
@@ -92,13 +79,15 @@ function CustomTooltip({ active, payload }: any) {
             </span>
             <span className="font-bold text-slate-900">{formatPct(payload[0]?.value)}</span>
           </div>
-          <div className="flex items-center justify-between gap-3 text-[11px]">
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
-              Kelengkapan Konten:
-            </span>
-            <span className="font-bold text-slate-900">{formatPct(payload[1]?.value)}</span>
-          </div>
+          {!isBimbingan && payload[1] && (
+            <div className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-[#a80063]" />
+                Kelengkapan Konten:
+              </span>
+              <span className="font-bold text-slate-900">{formatPct(payload[1]?.value)}</span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -107,30 +96,30 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 interface MonitoringTrendChartProps {
-  data?: TrendItem[];
+  trendDataByMode?: TrendDataByMode;
   sessionData?: TrendItem[];
-  weeklyData?: WeeklyTrendItem[];
+  weeklyData?: any[]; // Deprecated, kept for backward compatibility
+  data?: TrendItem[];
 }
 
 export default function MonitoringTrendChart({
-  data,
+  trendDataByMode,
   sessionData,
-  weeklyData,
+  data,
 }: MonitoringTrendChartProps) {
-  const [viewMode, setViewMode] = useState<"session" | "weekly">("session");
+  const [selectedMode, setSelectedMode] = useState<TrendClassMode>("ALL");
   const [filterRange, setFilterRange] = useState<"all" | "half1" | "half2">("all");
 
-  const activeSessionList = (sessionData && sessionData.length > 0)
+  const isBimbingan = selectedMode === "BIMBINGAN";
+  const currentModeInfo = MODE_OPTIONS.find((m) => m.key === selectedMode) || MODE_OPTIONS[0];
+
+  const currentDataset = (trendDataByMode && trendDataByMode[selectedMode])
+    ? trendDataByMode[selectedMode]
+    : (sessionData && sessionData.length > 0)
     ? sessionData
     : (data && data.length > 0)
     ? data
     : defaultSessionData;
-
-  const activeWeeklyList = (weeklyData && weeklyData.length > 0)
-    ? weeklyData
-    : defaultWeeklyData;
-
-  const currentDataset = viewMode === "session" ? activeSessionList : activeWeeklyList;
 
   const displayedData =
     filterRange === "half1"
@@ -139,45 +128,37 @@ export default function MonitoringTrendChart({
       ? currentDataset.slice(8, 16)
       : currentDataset;
 
-  const xDataKey = viewMode === "session" ? "sesi" : "minggu";
-
   return (
     <div className="duralux-card p-4 sm:p-5 bg-white flex flex-col justify-between h-full">
       {/* ── Chart Header with Mode Toggle & Range Filter ──────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
               Tren Monitoring Perkuliahan
             </h3>
-            {/* Mode Switcher Pill */}
+            {/* Mode Switcher Pill (Semua, Offline, Online, Bimbingan) */}
             <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/60 text-[10.5px] font-medium">
-              <button
-                type="button"
-                onClick={() => setViewMode("session")}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === "session"
-                    ? "bg-white text-[#a80063] font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                Sesi (S1–S16)
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("weekly")}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === "weekly"
-                    ? "bg-white text-[#a80063] font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                Mingguan (M1–M16)
-              </button>
+              {MODE_OPTIONS.map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setSelectedMode(m.key)}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    selectedMode === m.key
+                      ? "bg-white text-[#a80063] font-bold shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
             </div>
           </div>
           <p className="text-[11px] text-slate-400 font-normal mt-0.5">
-            Perbandingan kehadiran dosen & kelengkapan konten {viewMode === "session" ? "sesi perkuliahan" : "periode mingguan"}
+            {isBimbingan
+              ? "Tren kehadiran dosen sesi perkuliahan (bebas evaluasi 3 pilar konten)"
+              : `Perbandingan kehadiran dosen & kelengkapan konten sesi perkuliahan (${currentModeInfo.desc})`}
           </p>
         </div>
 
@@ -188,10 +169,12 @@ export default function MonitoringTrendChart({
               <span className="w-2 h-2 rounded-full bg-[#10b981]" />
               <span>Kehadiran</span>
             </div>
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-[#a80063]" />
-              <span>Konten</span>
-            </div>
+            {!isBimbingan && (
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-[#a80063]" />
+                <span>Konten</span>
+              </div>
+            )}
           </div>
 
           <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/60 text-[10.5px] font-medium text-slate-500">
@@ -215,7 +198,7 @@ export default function MonitoringTrendChart({
                   : "hover:text-slate-900"
               }`}
             >
-              {viewMode === "session" ? "S1–8" : "M1–8"}
+              S1–8
             </button>
             <button
               type="button"
@@ -226,7 +209,7 @@ export default function MonitoringTrendChart({
                   : "hover:text-slate-900"
               }`}
             >
-              {viewMode === "session" ? "S9–16" : "M9–16"}
+              S9–16
             </button>
           </div>
         </div>
@@ -249,7 +232,7 @@ export default function MonitoringTrendChart({
 
             <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f1f5f9" />
             <XAxis
-              dataKey={xDataKey}
+              dataKey="sesi"
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 500 }}
@@ -262,7 +245,7 @@ export default function MonitoringTrendChart({
               tick={{ fill: "#94a3b8", fontSize: 10 }}
               tickFormatter={(v) => `${v}%`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip isBimbingan={isBimbingan} />} />
 
             <Area
               type="monotone"
@@ -273,15 +256,17 @@ export default function MonitoringTrendChart({
               fill="url(#colorKehadiran)"
               activeDot={{ r: 4, fill: "#10b981", stroke: "#ffffff", strokeWidth: 2 }}
             />
-            <Area
-              type="monotone"
-              dataKey="konten"
-              name="Kelengkapan Konten"
-              stroke="#a80063"
-              strokeWidth={1.8}
-              fill="url(#colorKonten)"
-              activeDot={{ r: 4, fill: "#a80063", stroke: "#ffffff", strokeWidth: 2 }}
-            />
+            {!isBimbingan && (
+              <Area
+                type="monotone"
+                dataKey="konten"
+                name="Kelengkapan Konten"
+                stroke="#a80063"
+                strokeWidth={1.8}
+                fill="url(#colorKonten)"
+                activeDot={{ r: 4, fill: "#a80063", stroke: "#ffffff", strokeWidth: 2 }}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
       </div>

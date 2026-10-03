@@ -9,7 +9,7 @@ import { Calendar } from "lucide-react";
 import SparklineCard from "@/components/dashboard/SparklineCard";
 import MonitoringTrendChart, {
   TrendItem,
-  WeeklyTrendItem,
+  TrendDataByMode,
 } from "@/components/dashboard/MonitoringTrendChart";
 import StatusDonutChart, {
   DonutStatusItem,
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   let totalSesiTerlaksana = 0;
   let totalHadir = 0;
   let trendData: TrendItem[] = [];
-  let weeklyTrendData: WeeklyTrendItem[] = [];
+  let trendDataByMode: TrendDataByMode | undefined = undefined;
   let donutData: DonutStatusItem[] = [];
   let distributionByMode: Record<DonutClassMode, ModeDistributionData> | undefined = undefined;
 
@@ -160,33 +160,18 @@ export default async function DashboardPage() {
 
       for (const s of cls.monitoringSesi) {
         const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
-        const aggIndex = s.nomorSesi - 1;
 
         if (s.kehadiran === "HADIR") {
           totalHadir++;
           totalHadirLengkap++;
           totalSesiTerlaksana++;
-
-          if (aggIndex >= 0 && aggIndex < 16) {
-            sesiAggregates[aggIndex].totalTerisi++;
-            sesiAggregates[aggIndex].totalHadir++;
-          }
         } else if (s.kehadiran === "HADIR_TIDAK_LENGKAP") {
           totalHadir++;
           totalHadirTdkLengkap++;
           totalSesiTerlaksana++;
-
-          if (aggIndex >= 0 && aggIndex < 16) {
-            sesiAggregates[aggIndex].totalTerisi++;
-            sesiAggregates[aggIndex].totalHadir++;
-          }
         } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
           totalAlpha++;
           totalSesiTerlaksana++;
-
-          if (aggIndex >= 0 && aggIndex < 16) {
-            sesiAggregates[aggIndex].totalTerisi++;
-          }
         }
 
         // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
@@ -195,10 +180,6 @@ export default async function DashboardPage() {
           const pilar = calculateSessionPillars(s);
           if (pilar.score !== null) {
             totalSkor3PilarTerlaksana += pilar.score;
-            if (aggIndex >= 0 && aggIndex < 16) {
-              sesiAggregates[aggIndex].totalRegular++;
-              sesiAggregates[aggIndex].totalSkorPilar += pilar.score;
-            }
           }
         }
       }
@@ -213,97 +194,101 @@ export default async function DashboardPage() {
       ? Math.round((sumPersenKontenNonBimbingan / totalKelasNonBimbingan) * 10) / 10
       : 0;
 
-    const targetPilarSesi = totalKelasNonBimbingan * 3;
+    // Kalkulasi tren monitoring per 16 sesi berdasarkan jenis kelas (ALL, OFFLINE, ONLINE, BIMBINGAN)
+    function calculateTrendForClasses(classList: typeof rawClasses): TrendItem[] {
+      const totalKelasInMode = classList.length;
+      const nonBimbinganClasses = classList.filter(
+        (c) => (c.modePembelajaran as any) !== "BIMBINGAN"
+      );
+      const totalNonBimbingan = nonBimbinganClasses.length;
+      const targetPilarSesi = totalNonBimbingan * 3;
 
-    // Trend S1 - S16 (Per Sesi): Mengukur capaian terhadap seluruh kelas aktif universitas
-    trendData = sesiAggregates.map((agg) => {
-      const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
-      const sesiLabel =
-        agg.nomorSesi === 8 ? "UTS" : agg.nomorSesi === 16 ? "UAS" : `S${agg.nomorSesi}`;
-      const fullLabel =
-        agg.nomorSesi === 8
-          ? "Sesi 8 (UTS)"
-          : agg.nomorSesi === 16
-          ? "Sesi 16 (UAS)"
-          : `Sesi ${agg.nomorSesi}`;
+      const sesiAgg = Array.from({ length: 16 }, (_, i) => ({
+        nomorSesi: i + 1,
+        totalHadir: 0,
+        totalSkorPilar: 0,
+        totalTerisi: 0,
+        totalRegular: 0,
+      }));
 
-      const kehadiran =
-        totalKelas > 0 ? roundPct(agg.totalHadir, totalKelas) : 0;
+      for (const cls of classList) {
+        const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
+        for (const s of cls.monitoringSesi) {
+          const aggIndex = s.nomorSesi - 1;
+          if (aggIndex < 0 || aggIndex >= 16) continue;
+          const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
 
-      let konten = 0;
-      if (isExam) {
-        konten = kehadiran;
-      } else {
-        konten =
-          targetPilarSesi > 0
-            ? roundPct(agg.totalSkorPilar, targetPilarSesi)
-            : 0;
+          if (s.kehadiran === "HADIR" || s.kehadiran === "HADIR_TIDAK_LENGKAP") {
+            sesiAgg[aggIndex].totalHadir++;
+            sesiAgg[aggIndex].totalTerisi++;
+          } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
+            sesiAgg[aggIndex].totalTerisi++;
+          }
+
+          // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
+          if (!isExam && !isBimbingan) {
+            const pilar = calculateSessionPillars(s);
+            if (pilar.score !== null) {
+              sesiAgg[aggIndex].totalRegular++;
+              sesiAgg[aggIndex].totalSkorPilar += pilar.score;
+            }
+          }
+        }
       }
 
-      return {
-        sesi: sesiLabel,
-        full: fullLabel,
-        kehadiran,
-        konten,
-        totalTerisi: agg.totalTerisi,
-        totalRegular: agg.totalRegular,
-        totalSkorPilar: agg.totalSkorPilar,
-      };
-    });
+      return sesiAgg.map((agg) => {
+        const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
+        const sesiLabel =
+          agg.nomorSesi === 8 ? "UTS" : agg.nomorSesi === 16 ? "UAS" : `S${agg.nomorSesi}`;
+        const fullLabel =
+          agg.nomorSesi === 8
+            ? "Sesi 8 (UTS)"
+            : agg.nomorSesi === 16
+            ? "Sesi 16 (UAS)"
+            : `Sesi ${agg.nomorSesi}`;
 
-    // Trend Minggu 1 - 16 (Periode Mingguan): Mengukur capaian terhadap seluruh kelas aktif universitas
-    weeklyTrendData = sesiAggregates.map((agg) => {
-      const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
-      const mingguLabel =
-        agg.nomorSesi === 8
-          ? "M8 (UTS)"
-          : agg.nomorSesi === 16
-          ? "M16 (UAS)"
-          : `M${agg.nomorSesi}`;
+        const kehadiran =
+          totalKelasInMode > 0 ? roundPct(agg.totalHadir, totalKelasInMode) : 0;
 
-      const fullLabel =
-        agg.nomorSesi === 8
-          ? "Minggu 8 (Pekan UTS)"
-          : agg.nomorSesi === 16
-          ? "Minggu 16 (Pekan UAS)"
-          : `Minggu ${agg.nomorSesi}`;
+        let konten = 0;
+        if (totalNonBimbingan === 0) {
+          // Kelas Bimbingan dibebaskan dari 3 pilar konten
+          konten = 0;
+        } else if (isExam) {
+          konten = kehadiran;
+        } else {
+          konten =
+            targetPilarSesi > 0
+              ? roundPct(agg.totalSkorPilar, targetPilarSesi)
+              : 0;
+        }
 
-      const periodeLabel =
-        agg.nomorSesi === 1
-          ? "Awal Semester"
-          : agg.nomorSesi === 8
-          ? "Pekan UTS"
-          : agg.nomorSesi === 16
-          ? "Pekan UAS"
-          : agg.nomorSesi === 7
-          ? "Pra-UTS"
-          : agg.nomorSesi === 15
-          ? "Pra-UAS"
-          : "Pekan Perkuliahan";
+        return {
+          sesi: sesiLabel,
+          full: fullLabel,
+          kehadiran,
+          konten,
+          totalTerisi: agg.totalTerisi,
+          totalRegular: agg.totalRegular,
+          totalSkorPilar: agg.totalSkorPilar,
+        };
+      });
+    }
 
-      const kehadiran =
-        totalKelas > 0 ? roundPct(agg.totalHadir, totalKelas) : 0;
+    trendDataByMode = {
+      ALL: calculateTrendForClasses(rawClasses),
+      OFFLINE: calculateTrendForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "LURING")
+      ),
+      ONLINE: calculateTrendForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "DARING")
+      ),
+      BIMBINGAN: calculateTrendForClasses(
+        rawClasses.filter((c) => (c.modePembelajaran as string) === "BIMBINGAN")
+      ),
+    };
 
-      let konten = 0;
-      if (isExam) {
-        konten = kehadiran;
-      } else {
-        konten =
-          targetPilarSesi > 0
-            ? roundPct(agg.totalSkorPilar, targetPilarSesi)
-            : 0;
-      }
-
-      return {
-        minggu: mingguLabel,
-        full: fullLabel,
-        periodeLabel,
-        kehadiran,
-        konten,
-        totalSesi: agg.totalTerisi,
-        totalHadir: agg.totalHadir,
-      };
-    });
+    trendData = trendDataByMode.ALL;
 
     // Donut Chart Data (Distribution per Mode Pembelajaran)
     function calculateDistributionForClasses(classList: typeof rawClasses): ModeDistributionData {
@@ -566,8 +551,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
         <div className="lg:col-span-2">
           <MonitoringTrendChart
+            trendDataByMode={trendDataByMode}
             sessionData={trendData}
-            weeklyData={weeklyTrendData}
           />
         </div>
 
