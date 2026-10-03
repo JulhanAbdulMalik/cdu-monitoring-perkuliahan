@@ -192,6 +192,11 @@ export default function LaporanProdiClient({
     navigateToRange(startDate, endDate);
   }
 
+  function handleSesiSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    navigateToSesi(selectedSesi);
+  }
+
   // Client-side filtering & sorting
   const filteredList = prodiReports.filter((p) => {
     const matchSearch =
@@ -363,6 +368,8 @@ export default function LaporanProdiClient({
 
   // Active Filter Helpers
   const isSesiActive = filterMode === "SESI";
+  const appliedSesi = initialSesi || 1;
+  const isSesiDirty = isSesiActive && selectedSesi !== appliedSesi;
   const appliedStartDate = initialStartDate;
   const appliedEndDate = initialEndDate;
   const isAppliedAllTime = !isSesiActive && !appliedStartDate && !appliedEndDate;
@@ -397,7 +404,8 @@ export default function LaporanProdiClient({
     hasActiveSort ||
     isSesiActive ||
     !isAppliedAllTime ||
-    isDateDirty;
+    isDateDirty ||
+    isSesiDirty;
 
   // Metrik agregasi untuk 3 Card Info (Gaya Dashboard / SparklineCard)
   const sangatBaikCount = prodiReports.filter(
@@ -601,58 +609,13 @@ export default function LaporanProdiClient({
         />
       </div>
 
-      {/* ── Mode Switcher Tabs (Sesi Kuliah vs Rentang Tanggal) ─────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white p-2.5 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider hidden sm:inline">
-            Mode Filter:
-          </span>
-          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/70 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => handleSwitchMode("SESI")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                filterMode === "SESI"
-                  ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <GraduationCap size={13} className={filterMode === "SESI" ? "text-[#a80063]" : "text-slate-400"} />
-              <span>Per Sesi Perkuliahan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSwitchMode("TANGGAL")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                filterMode === "TANGGAL"
-                  ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Calendar size={13} className={filterMode === "TANGGAL" ? "text-[#a80063]" : "text-slate-400"} />
-              <span>Rentang Tanggal Kalender</span>
-            </button>
-          </div>
-        </div>
-
-        {filterMode === "SESI" ? (
-          <div className="text-[11px] font-medium text-slate-500">
-            Mengevaluasi seluruh kelas pada <span className="font-bold text-[#a80063]">Sesi {selectedSesi}</span> (1:1 selaras dengan Grafik Tren Dashboard)
-          </div>
-        ) : (
-          <div className="text-[11px] font-medium text-slate-500">
-            Mengevaluasi sesi perkuliahan pada rentang kalender operasional
-          </div>
-        )}
-      </div>
-
       {/* ── Single-Row Compact Filter Toolbar ─────────────────────────────── */}
       <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
-          {/* Left Controls: Search & (Sesi Pills OR Presets + Custom Date Range) */}
+          {/* Left Controls: Search, Mode Switcher, and Mode Inputs + Terapkan */}
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
             {/* Search Input with Subtle Active State */}
-            <div className="relative w-full sm:w-48 lg:w-56 shrink-0">
+            <div className="relative w-full sm:w-44 lg:w-52 shrink-0">
               <Search
                 size={13}
                 className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
@@ -682,36 +645,86 @@ export default function LaporanProdiClient({
               )}
             </div>
 
-            <div className="h-4 w-px bg-slate-200 hidden lg:block" />
+            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
+            {/* Mode Switcher Tabs (Per Sesi vs Rentang Tanggal) */}
+            <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/70 text-[11px] font-semibold shrink-0">
+              <button
+                type="button"
+                onClick={() => handleSwitchMode("SESI")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterMode === "SESI"
+                    ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Evaluasi kurikulum per Sesi Perkuliahan (1 s.d. 16)"
+              >
+                <GraduationCap size={12} className={filterMode === "SESI" ? "text-[#a80063]" : "text-slate-400"} />
+                <span>Per Sesi</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchMode("TANGGAL")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterMode === "TANGGAL"
+                    ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Evaluasi operasional berdasarkan Rentang Tanggal Kalender"
+              >
+                <Calendar size={12} className={filterMode === "TANGGAL" ? "text-[#a80063]" : "text-slate-400"} />
+                <span>Rentang Tanggal</span>
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-slate-200 hidden md:block" />
+
+            {/* Controls Spesifik Mode Aktif */}
             {filterMode === "SESI" ? (
-              /* Session Pills S1 - S16 */
-              <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
-                {Array.from({ length: 16 }, (_, i) => i + 1).map((sNum) => {
-                  const isSelected = selectedSesi === sNum;
-                  const isUTS = sNum === 8;
-                  const isUAS = sNum === 16;
-                  const label = isUTS ? "S8 (UTS)" : isUAS ? "S16 (UAS)" : `S${sNum}`;
+              /* Mode Sesi: Dropdown Sesi + Tombol Terapkan */
+              <form onSubmit={handleSesiSubmit} className="flex items-center gap-1.5">
+                <select
+                  value={selectedSesi}
+                  onChange={(e) => setSelectedSesi(Number(e.target.value))}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border outline-none cursor-pointer transition-all ${
+                    isSesiDirty
+                      ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063]"
+                      : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                  }`}
+                  title="Pilih nomor sesi perkuliahan (1 s.d. 16)"
+                >
+                  {Array.from({ length: 16 }, (_, i) => i + 1).map((sNum) => {
+                    const isUTS = sNum === 8;
+                    const isUAS = sNum === 16;
+                    const label = isUTS
+                      ? `Sesi ${sNum} (UTS)`
+                      : isUAS
+                      ? `Sesi ${sNum} (UAS)`
+                      : `Sesi ${sNum}`;
+                    return (
+                      <option key={sNum} value={sNum}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
 
-                  return (
-                    <button
-                      key={sNum}
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => navigateToSesi(sNum)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer whitespace-nowrap font-medium ${
-                        isSelected
-                          ? "bg-[#a80063] text-white font-bold shadow-xs shadow-[#a80063]/25"
-                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    isSesiDirty
+                      ? "bg-[#a80063] hover:bg-[#8c0052] text-white shadow-xs ring-2 ring-[#a80063]/30 animate-pulse"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                  }`}
+                  title={isSesiDirty ? "Klik untuk menerapkan sesi ini" : "Terapkan sesi yang dipilih"}
+                >
+                  <RefreshCw size={10} className={isPending ? "animate-spin" : ""} />
+                  <span>{isPending ? "Memuat..." : "Terapkan"}</span>
+                </button>
+              </form>
             ) : (
-              /* Tanggal Mode: Quick Date Presets & Custom Date Range */
+              /* Mode Tanggal: Preset Tanggal + Date Picker + Tombol Terapkan */
               <>
                 <div className="flex items-center gap-1">
                   <button
@@ -776,13 +789,13 @@ export default function LaporanProdiClient({
                   />
                   <button
                     type="submit"
-                    disabled={isPending || (!startDate && !endDate) || !isDateDirty}
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    disabled={isPending || (!startDate && !endDate)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                       isDateDirty && (startDate || endDate)
                         ? "bg-[#a80063] hover:bg-[#8c0052] text-white shadow-xs ring-2 ring-[#a80063]/30 animate-pulse"
-                        : "bg-slate-100 text-slate-400 border border-slate-200 cursor-default"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
                     }`}
-                    title={isDateDirty ? "Klik untuk menerapkan rentang tanggal ini" : "Rentang tanggal sudah diterapkan"}
+                    title={isDateDirty ? "Klik untuk menerapkan rentang tanggal ini" : "Terapkan rentang tanggal"}
                   >
                     <RefreshCw size={10} className={isPending ? "animate-spin" : ""} />
                     <span>{isPending ? "Memuat..." : "Terapkan"}</span>
@@ -794,7 +807,6 @@ export default function LaporanProdiClient({
 
           {/* Right Controls: Status, Sort, Reset & View Mode */}
           <div className="flex flex-wrap items-center gap-2">
-
             {/* Status Filter with Subtle Transparent Maroon Active Style */}
             <div className="flex items-center">
               <select
@@ -822,7 +834,12 @@ export default function LaporanProdiClient({
                   setSearchQuery("");
                   setFilterStatus("ALL");
                   setSortBy("nama_asc");
-                  applyPreset("all_time");
+                  if (filterMode === "SESI") {
+                    setSelectedSesi(1);
+                    navigateToSesi(1);
+                  } else {
+                    applyPreset("all_time");
+                  }
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
