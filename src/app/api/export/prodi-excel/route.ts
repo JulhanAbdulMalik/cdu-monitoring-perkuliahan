@@ -22,9 +22,12 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
     const semesterId = searchParams.get("semesterId") || undefined;
-    const isAllTime = !startDate && !endDate;
+    const sesiParam = searchParams.get("sesi");
+    const parsedSesi = sesiParam ? parseInt(sesiParam, 10) : undefined;
+    const isSesiMode = Boolean(parsedSesi && parsedSesi >= 1 && parsedSesi <= 16);
+    const isAllTime = !isSesiMode && !startDate && !endDate;
 
-    const res = await getLaporanProdi(semesterId, startDate, endDate, allowedProdiIds);
+    const res = await getLaporanProdi(semesterId, startDate, endDate, allowedProdiIds, parsedSesi);
     if (!res.success || !res.data) {
       return NextResponse.json({ error: "Gagal memuat data laporan prodi" }, { status: 500 });
     }
@@ -33,7 +36,11 @@ export async function GET(request: NextRequest) {
     const currentSem =
       semesters.find((s) => s.id === (semesterId || activeSemesterId)) || semesters[0];
 
-    const periodeText = isAllTime ? "SEMUA WAKTU (1 SEMESTER)" : formatTanggalRange(startDate, endDate);
+    const periodeText = isSesiMode
+      ? `SESI ${parsedSesi}${parsedSesi === 8 ? " (UTS)" : parsedSesi === 16 ? " (UAS)" : ""}`
+      : isAllTime
+      ? "SEMUA WAKTU (1 SEMESTER)"
+      : formatTanggalRange(startDate, endDate);
 
     // Create ExcelJS Workbook
     const workbook = new ExcelJS.Workbook();
@@ -330,7 +337,9 @@ export async function GET(request: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const prodiSuffix = singleProdi ? `_${singleProdi.kode}` : "";
-    const filename = isAllTime
+    const filename = isSesiMode
+      ? `Laporan_Prodi${prodiSuffix}_Sesi_${parsedSesi}.xlsx`
+      : isAllTime
       ? `Laporan_Prodi${prodiSuffix}_All_Time.xlsx`
       : `Laporan_Prodi${prodiSuffix}_${startDate}_sd_${endDate}.xlsx`;
 

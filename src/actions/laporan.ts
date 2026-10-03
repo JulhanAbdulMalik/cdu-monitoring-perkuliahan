@@ -772,6 +772,7 @@ export interface LaporanProdiResponse {
     activeSemesterId: string;
     startDate: string;
     endDate: string;
+    targetSesi?: number | null;
     globalSummary: {
       totalProdi: number;
       totalKelasSemua: number;
@@ -789,15 +790,18 @@ export async function getLaporanProdi(
   semesterId?: string,
   startDate?: string,
   endDate?: string,
-  allowedProdiIds?: string[]
+  allowedProdiIds?: string[],
+  sesiNumber?: number
 ): Promise<LaporanProdiResponse> {
   try {
-    const isAllTime = !startDate && !endDate;
-    const targetStartDate = startDate || "";
-    const targetEndDate = endDate || "";
+    const isSesiMode = Boolean(sesiNumber && sesiNumber >= 1 && sesiNumber <= 16);
+    const targetSesi = isSesiMode ? (sesiNumber as number) : null;
+    const isAllTime = !isSesiMode && !startDate && !endDate;
+    const targetStartDate = !isSesiMode ? (startDate || "") : "";
+    const targetEndDate = !isSesiMode ? (endDate || "") : "";
 
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_${sortedAllowed}`;
+    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}`;
 
     const cached = getLaporanFromCache<any>(cacheKey);
     if (cached) {
@@ -807,7 +811,7 @@ export async function getLaporanProdi(
     let startDateTime: Date | null = null;
     let endDateTime: Date | null = null;
 
-    if (!isAllTime && targetStartDate && targetEndDate) {
+    if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
       startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
       endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
     }
@@ -962,32 +966,47 @@ export async function getLaporanProdi(
         let isInRange = true;
         let effectiveDate: Date | null = s.tanggal ? new Date(s.tanggal) : null;
 
-        const semStartStr = cls.semester?.tanggalMulai
-          ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
-          : DEFAULT_SEMESTER_START_DATE;
-
-        const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
-
-        if (!effectiveDate) {
-          effectiveDate = estimatedDate;
-        }
-
-        if (startDateTime && endDateTime) {
-          isInRange = effectiveDate >= startDateTime && effectiveDate <= endDateTime;
+        if (isSesiMode) {
+          isInRange = s.nomorSesi === targetSesi;
         } else {
-          // Jika filter All Time: sesi masa depan yang belum tiba dan tanpa catatan tidak dihitung di rentang
-          const isFuture = s.kehadiran === "BELUM_DIISI" && !s.catatanCdu && s.nomorSesi > maxSesiBerjalan;
-          isInRange = !isFuture;
+          const semStartStr = cls.semester?.tanggalMulai
+            ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
+            : DEFAULT_SEMESTER_START_DATE;
+
+          const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
+
+          if (!effectiveDate) {
+            effectiveDate = estimatedDate;
+          }
+
+          if (startDateTime && endDateTime) {
+            isInRange = effectiveDate >= startDateTime && effectiveDate <= endDateTime;
+          } else {
+            // Jika filter All Time: sesi masa depan yang belum tiba dan tanpa catatan tidak dihitung di rentang
+            const isFuture = s.kehadiran === "BELUM_DIISI" && !s.catatanCdu && s.nomorSesi > maxSesiBerjalan;
+            isInRange = !isFuture;
+          }
         }
 
-        // Cek apakah sesi ini berstatus Ganti Hari (baik tanggal riilnya di rentang ini, atau jadwal aslinya di rentang ini tapi tanggal fisiknya di luar rentang)
+        // Cek apakah sesi ini berstatus Ganti Hari
         const hasGantiNote = s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false;
-        const isOrigScheduleInRange = estimatedDate
-          ? (startDateTime && endDateTime ? (estimatedDate >= startDateTime && estimatedDate <= endDateTime) : true)
-          : false;
 
-        if (hasGantiNote && (isInRange || isOrigScheduleInRange)) {
-          entry.totalGantiHariRentang++;
+        if (isSesiMode) {
+          if (isInRange && hasGantiNote) {
+            entry.totalGantiHariRentang++;
+          }
+        } else {
+          const semStartStr = cls.semester?.tanggalMulai
+            ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
+            : DEFAULT_SEMESTER_START_DATE;
+          const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
+          const isOrigScheduleInRange = estimatedDate
+            ? (startDateTime && endDateTime ? (estimatedDate >= startDateTime && estimatedDate <= endDateTime) : true)
+            : false;
+
+          if (hasGantiNote && (isInRange || isOrigScheduleInRange)) {
+            entry.totalGantiHariRentang++;
+          }
         }
 
         if (isInRange) {
@@ -1032,7 +1051,9 @@ export async function getLaporanProdi(
           } else {
             entry.totalBelumDiisiRentang++;
 
-            const isKendalaBelumDiisi = (startDateTime && endDateTime)
+            const isKendalaBelumDiisi = isSesiMode
+              ? true
+              : (startDateTime && endDateTime)
               ? true
               : (hasCatatan || s.nomorSesi <= maxSesiBerjalan);
 
@@ -1170,6 +1191,7 @@ export async function getLaporanProdi(
       activeSemesterId: targetSemesterId || allSemesters[0]?.id || "",
       startDate: targetStartDate,
       endDate: targetEndDate,
+      targetSesi,
       globalSummary: {
         totalProdi: prodiReportList.length,
         totalKelasSemua: globalTotalKelas,

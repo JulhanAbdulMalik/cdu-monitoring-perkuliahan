@@ -34,6 +34,8 @@ import {
   ChevronRight,
   ExternalLink,
   MessageSquare,
+  GraduationCap,
+  Calendar,
 } from "lucide-react";
 import { ProdiReportItem } from "@/actions/laporan";
 import SparklineCard from "@/components/dashboard/SparklineCard";
@@ -63,6 +65,7 @@ interface LaporanProdiClientProps {
   defaultSemesterId: string;
   initialStartDate: string;
   initialEndDate: string;
+  initialSesi?: number | null;
   globalSummary: GlobalSummary;
 }
 
@@ -72,10 +75,15 @@ export default function LaporanProdiClient({
   defaultSemesterId,
   initialStartDate,
   initialEndDate,
+  initialSesi,
   globalSummary,
 }: LaporanProdiClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Mode Filter: SESI vs TANGGAL
+  const [filterMode, setFilterMode] = useState<"TANGGAL" | "SESI">(initialSesi ? "SESI" : "TANGGAL");
+  const [selectedSesi, setSelectedSesi] = useState<number>(initialSesi || 1);
 
   // Date Range States
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -85,7 +93,11 @@ export default function LaporanProdiClient({
   useEffect(() => {
     setStartDate(initialStartDate);
     setEndDate(initialEndDate);
-  }, [initialStartDate, initialEndDate]);
+    if (initialSesi) {
+      setFilterMode("SESI");
+      setSelectedSesi(initialSesi);
+    }
+  }, [initialStartDate, initialEndDate, initialSesi]);
 
   // View & Filter States (Default: TABLE Komparasi)
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
@@ -150,6 +162,29 @@ export default function LaporanProdiClient({
       const queryStr = params.toString();
       router.push(`/laporan/prodi${queryStr ? `?${queryStr}` : ""}`);
     });
+  }
+
+  function navigateToSesi(sesiNum: number, semId = selectedSemester) {
+    setSelectedSesi(sesiNum);
+    startTransition(() => {
+      const params = new URLSearchParams();
+      params.set("sesi", sesiNum.toString());
+      if (semId) params.set("semesterId", semId);
+      router.push(`/laporan/prodi?${params.toString()}`);
+    });
+  }
+
+  function handleSwitchMode(mode: "TANGGAL" | "SESI") {
+    setFilterMode(mode);
+    if (mode === "SESI") {
+      navigateToSesi(selectedSesi || 1);
+    } else {
+      if (startDate && endDate) {
+        navigateToRange(startDate, endDate);
+      } else {
+        applyPreset("this_week");
+      }
+    }
   }
 
   function handleFilterSubmit(e: React.FormEvent) {
@@ -319,16 +354,22 @@ export default function LaporanProdiClient({
   }
 
   function handleExportExcel() {
-    window.location.href = `/api/export/prodi-excel?startDate=${initialStartDate}&endDate=${initialEndDate}&semesterId=${selectedSemester}`;
+    if (filterMode === "SESI") {
+      window.location.href = `/api/export/prodi-excel?sesi=${selectedSesi}&semesterId=${selectedSemester}`;
+    } else {
+      window.location.href = `/api/export/prodi-excel?startDate=${initialStartDate}&endDate=${initialEndDate}&semesterId=${selectedSemester}`;
+    }
   }
 
   // Active Filter Helpers
+  const isSesiActive = filterMode === "SESI";
   const appliedStartDate = initialStartDate;
   const appliedEndDate = initialEndDate;
-  const isAppliedAllTime = !appliedStartDate && !appliedEndDate;
+  const isAppliedAllTime = !isSesiActive && !appliedStartDate && !appliedEndDate;
 
   const thisWeek = getWeekDates(new Date());
   const isThisWeekApplied =
+    !isSesiActive &&
     !isAppliedAllTime &&
     appliedStartDate === thisWeek.mondayStr &&
     appliedEndDate === thisWeek.sundayStr;
@@ -337,12 +378,13 @@ export default function LaporanProdiClient({
   lastWeekBase.setDate(lastWeekBase.getDate() - 7);
   const lastWeek = getWeekDates(lastWeekBase);
   const isLastWeekApplied =
+    !isSesiActive &&
     !isAppliedAllTime &&
     appliedStartDate === lastWeek.mondayStr &&
     appliedEndDate === lastWeek.sundayStr;
 
   const isCustomDateApplied =
-    !isAppliedAllTime && !isThisWeekApplied && !isLastWeekApplied;
+    !isSesiActive && !isAppliedAllTime && !isThisWeekApplied && !isLastWeekApplied;
 
   const isDateDirty =
     startDate !== appliedStartDate || endDate !== appliedEndDate;
@@ -353,6 +395,7 @@ export default function LaporanProdiClient({
     hasActiveSearch ||
     hasActiveStatus ||
     hasActiveSort ||
+    isSesiActive ||
     !isAppliedAllTime ||
     isDateDirty;
 
@@ -451,10 +494,18 @@ export default function LaporanProdiClient({
           Universitas Nusa Putra - Curriculum Development Unit (CDU)
         </h2>
         <h3 className="text-sm font-semibold text-slate-700 mt-0.5">
-          Laporan Performa Program Studi per Periode Tanggal
+          {isSesiActive
+            ? `Laporan Performa Program Studi - Evaluasi Sesi ${selectedSesi}${selectedSesi === 8 ? " (UTS)" : selectedSesi === 16 ? " (UAS)" : ""}`
+            : "Laporan Performa Program Studi per Periode Tanggal"}
         </h3>
         <p className="text-xs font-medium text-slate-600 mt-0.5">
-          Periode: {isAppliedAllTime ? "Semua Waktu (1 Semester)" : formatTanggalRange(appliedStartDate, appliedEndDate)} | Semester: {currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"}
+          Periode: {
+            isSesiActive
+              ? `Sesi Perkuliahan ke-${selectedSesi}${selectedSesi === 8 ? " (UTS)" : selectedSesi === 16 ? " (UAS)" : ""}`
+              : isAppliedAllTime
+              ? "Semua Waktu (1 Semester)"
+              : formatTanggalRange(appliedStartDate, appliedEndDate)
+          } | Semester: {currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"}
         </p>
         <p className="text-[10px] text-slate-500 mt-1">
           Dicetak pada: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
@@ -468,7 +519,13 @@ export default function LaporanProdiClient({
           title="Total Program Studi"
           value={`${globalSummary.totalProdi} Prodi`}
           subtitle={`${globalSummary.totalKelasSemua} Kelas • ${globalSummary.totalDosenSemua} Dosen terdaftar`}
-          trendText={isAppliedAllTime ? "Semua Waktu" : "Rentang Aktif"}
+          trendText={
+            isSesiActive
+              ? `Sesi ${selectedSesi}`
+              : isAppliedAllTime
+              ? "Semua Waktu"
+              : "Rentang Aktif"
+          }
           isPositive={pembinaanCount === 0}
           segments={[
             { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
@@ -484,10 +541,22 @@ export default function LaporanProdiClient({
 
         {/* Card 2: Rata Kehadiran Univ */}
         <SparklineCard
-          title={isAppliedAllTime ? "Rata-rata Kehadiran (Semua)" : "Rata-rata Kehadiran (Rentang)"}
+          title={
+            isSesiActive
+              ? `Rata-rata Kehadiran (Sesi ${selectedSesi})`
+              : isAppliedAllTime
+              ? "Rata-rata Kehadiran (Semua)"
+              : "Rata-rata Kehadiran (Rentang)"
+          }
           value={formatPct(globalSummary.avgKehadiranRentangSemua)}
           valueColor="emerald"
-          subtitle={`Total ${globalSummary.totalSesiRentangSemua.toLocaleString("id-ID")} sesi ${isAppliedAllTime ? "semester ini" : "pada rentang aktif"}`}
+          subtitle={
+            isSesiActive
+              ? `Total ${globalSummary.totalSesiRentangSemua.toLocaleString("id-ID")} kelas pada Sesi ${selectedSesi}`
+              : `Total ${globalSummary.totalSesiRentangSemua.toLocaleString("id-ID")} sesi ${
+                  isAppliedAllTime ? "semester ini" : "pada rentang aktif"
+                }`
+          }
           trendText={globalSummary.avgKehadiranRentangSemua >= 90 ? "Target Tercapai" : "Di Bawah Target"}
           isPositive={globalSummary.avgKehadiranRentangSemua >= 90}
           progress={globalSummary.avgKehadiranRentangSemua}
@@ -504,11 +573,19 @@ export default function LaporanProdiClient({
 
         {/* Card 3: Kelengkapan 3 Pilar */}
         <SparklineCard
-          title={isAppliedAllTime ? "Kelengkapan 3 Pilar (Semua)" : "Kelengkapan 3 Pilar (Rentang)"}
+          title={
+            isSesiActive
+              ? `Kelengkapan 3 Pilar (Sesi ${selectedSesi})`
+              : isAppliedAllTime
+              ? "Kelengkapan 3 Pilar (Semua)"
+              : "Kelengkapan 3 Pilar (Rentang)"
+          }
           value={formatPct(globalSummary.avgKontenRentangSemua)}
           valueColor="maroon"
           subtitle={
-            isAppliedAllTime
+            isSesiActive
+              ? `Rerata keterpenuhan 3 pilar seluruh kelas reguler pada Sesi ${selectedSesi}`
+              : isAppliedAllTime
               ? "Rerata keterpenuhan 3 pilar seluruh kelas reguler"
               : "Rerata keterpenuhan 3 pilar pada rentang aktif"
           }
@@ -524,13 +601,58 @@ export default function LaporanProdiClient({
         />
       </div>
 
+      {/* ── Mode Switcher Tabs (Sesi Kuliah vs Rentang Tanggal) ─────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white p-2.5 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider hidden sm:inline">
+            Mode Filter:
+          </span>
+          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/70 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("SESI")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                filterMode === "SESI"
+                  ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <GraduationCap size={13} className={filterMode === "SESI" ? "text-[#a80063]" : "text-slate-400"} />
+              <span>Per Sesi Perkuliahan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("TANGGAL")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                filterMode === "TANGGAL"
+                  ? "bg-white text-[#a80063] font-bold shadow-xs border border-slate-200/60"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Calendar size={13} className={filterMode === "TANGGAL" ? "text-[#a80063]" : "text-slate-400"} />
+              <span>Rentang Tanggal Kalender</span>
+            </button>
+          </div>
+        </div>
+
+        {filterMode === "SESI" ? (
+          <div className="text-[11px] font-medium text-slate-500">
+            Mengevaluasi seluruh kelas pada <span className="font-bold text-[#a80063]">Sesi {selectedSesi}</span> (1:1 selaras dengan Grafik Tren Dashboard)
+          </div>
+        ) : (
+          <div className="text-[11px] font-medium text-slate-500">
+            Mengevaluasi sesi perkuliahan pada rentang kalender operasional
+          </div>
+        )}
+      </div>
+
       {/* ── Single-Row Compact Filter Toolbar ─────────────────────────────── */}
       <div className="bg-white p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/70 print:hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
-          {/* Left Controls: Search, Presets & Custom Date Range */}
+          {/* Left Controls: Search & (Sesi Pills OR Presets + Custom Date Range) */}
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
             {/* Search Input with Subtle Active State */}
-            <div className="relative w-full sm:w-48 lg:w-56">
+            <div className="relative w-full sm:w-48 lg:w-56 shrink-0">
               <Search
                 size={13}
                 className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${
@@ -562,82 +684,112 @@ export default function LaporanProdiClient({
 
             <div className="h-4 w-px bg-slate-200 hidden lg:block" />
 
-            {/* Quick Date Presets with Subtle Transparent Maroon Active Style */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => applyPreset("all_time")}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isAppliedAllTime && !isDateDirty
-                    ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
-                }`}
-              >
-                All Time
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("this_week")}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isThisWeekApplied && !isDateDirty
-                    ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
-                }`}
-              >
-                Minggu Ini
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset("last_week")}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  isLastWeekApplied && !isDateDirty
-                    ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
-                }`}
-              >
-                Minggu Lalu
-              </button>
-            </div>
+            {filterMode === "SESI" ? (
+              /* Session Pills S1 - S16 */
+              <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
+                {Array.from({ length: 16 }, (_, i) => i + 1).map((sNum) => {
+                  const isSelected = selectedSesi === sNum;
+                  const isUTS = sNum === 8;
+                  const isUAS = sNum === 16;
+                  const label = isUTS ? "S8 (UTS)" : isUAS ? "S16 (UAS)" : `S${sNum}`;
 
-            <div className="h-4 w-px bg-slate-200 hidden lg:block" />
+                  return (
+                    <button
+                      key={sNum}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => navigateToSesi(sNum)}
+                      className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer whitespace-nowrap font-medium ${
+                        isSelected
+                          ? "bg-[#a80063] text-white font-bold shadow-xs shadow-[#a80063]/25"
+                          : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Tanggal Mode: Quick Date Presets & Custom Date Range */
+              <>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("all_time")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                      isAppliedAllTime && !isDateDirty
+                        ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
+                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                    }`}
+                  >
+                    All Time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("this_week")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                      isThisWeekApplied && !isDateDirty
+                        ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
+                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                    }`}
+                  >
+                    Minggu Ini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("last_week")}
+                    className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                      isLastWeekApplied && !isDateDirty
+                        ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
+                        : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                    }`}
+                  >
+                    Minggu Lalu
+                  </button>
+                </div>
 
-            {/* Custom Date Range Picker */}
-            <form onSubmit={handleFilterSubmit} className="flex items-center gap-1">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
-                  (isCustomDateApplied || isDateDirty) && startDate
-                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
-                }`}
-              />
-              <span className="text-slate-300 text-xs">-</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
-                  (isCustomDateApplied || isDateDirty) && endDate
-                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
-                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
-                }`}
-              />
-              <button
-                type="submit"
-                disabled={isPending || (!startDate && !endDate) || !isDateDirty}
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                  isDateDirty && (startDate || endDate)
-                    ? "bg-[#a80063] hover:bg-[#8c0052] text-white shadow-xs ring-2 ring-[#a80063]/30 animate-pulse"
-                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-default"
-                }`}
-                title={isDateDirty ? "Klik untuk menerapkan rentang tanggal ini" : "Rentang tanggal sudah diterapkan"}
-              >
-                <RefreshCw size={10} className={isPending ? "animate-spin" : ""} />
-                <span>{isPending ? "Memuat..." : "Terapkan"}</span>
-              </button>
-            </form>
+                <div className="h-4 w-px bg-slate-200 hidden lg:block" />
+
+                {/* Custom Date Range Picker */}
+                <form onSubmit={handleFilterSubmit} className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
+                      (isCustomDateApplied || isDateDirty) && startDate
+                        ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                        : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                    }`}
+                  />
+                  <span className="text-slate-300 text-xs">-</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`px-1.5 py-0.5 text-[11px] font-medium rounded-md border outline-none cursor-pointer ${
+                      (isCustomDateApplied || isDateDirty) && endDate
+                        ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                        : "bg-slate-50 border-slate-200 text-slate-800 focus:border-[#fbcfe8]"
+                    }`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isPending || (!startDate && !endDate) || !isDateDirty}
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                      isDateDirty && (startDate || endDate)
+                        ? "bg-[#a80063] hover:bg-[#8c0052] text-white shadow-xs ring-2 ring-[#a80063]/30 animate-pulse"
+                        : "bg-slate-100 text-slate-400 border border-slate-200 cursor-default"
+                    }`}
+                    title={isDateDirty ? "Klik untuk menerapkan rentang tanggal ini" : "Rentang tanggal sudah diterapkan"}
+                  >
+                    <RefreshCw size={10} className={isPending ? "animate-spin" : ""} />
+                    <span>{isPending ? "Memuat..." : "Terapkan"}</span>
+                  </button>
+                </form>
+              </>
+            )}
           </div>
 
           {/* Right Controls: Status, Sort, Reset & View Mode */}
@@ -786,7 +938,11 @@ export default function LaporanProdiClient({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-slate-500 font-medium text-[11px]">
-                        {isAppliedAllTime ? "Kehadiran Dosen:" : "Kehadiran Dosen (Rentang):"}
+                        {isSesiActive
+                          ? `Kehadiran Dosen (Sesi ${selectedSesi}):`
+                          : isAppliedAllTime
+                          ? "Kehadiran Dosen:"
+                          : "Kehadiran Dosen (Rentang):"}
                       </span>
                       <span className="font-bold text-emerald-600">
                         {formatPct(p.avgKehadiranRentang)}
@@ -800,7 +956,7 @@ export default function LaporanProdiClient({
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                       <span>Hadir: {p.totalHadirRentang} | HTL: {p.totalHadirTdkLengkapRentang}</span>
-                      <span>Alpha: {p.totalAlphaRentang}</span>
+                      <span>Alpha: {p.totalAlphaRentang}{p.totalGantiHariRentang ? ` | Ganti: ${p.totalGantiHariRentang}` : ""}</span>
                     </div>
                   </div>
 
@@ -808,7 +964,11 @@ export default function LaporanProdiClient({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-slate-500 font-medium text-[11px]">
-                        {isAppliedAllTime ? "Konten 3 Pilar:" : "Konten 3 Pilar (Rentang):"}
+                        {isSesiActive
+                          ? `Konten 3 Pilar (Sesi ${selectedSesi}):`
+                          : isAppliedAllTime
+                          ? "Konten 3 Pilar:"
+                          : "Konten 3 Pilar (Rentang):"}
                       </span>
                       <span className="font-bold text-[#a80063]">
                         {formatPct(p.avgKontenRentang)}
@@ -867,10 +1027,24 @@ export default function LaporanProdiClient({
                   {renderSortHeader("Kode", "KODE", "left", "w-20 min-w-[75px]")}
                   {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[180px]")}
                   {renderSortHeader("Dosen Aktif", "DOSEN", "center", "w-36 min-w-[140px]")}
-                  {renderSortHeader("Kelas Aktif", "KELAS", "center", "w-36 min-w-[140px]")}
-                  {renderSortHeader("Sesi di Periode", "SESI", "center", "w-36 min-w-[140px]")}
-                  {renderSortHeader("% Hadir (Periode)", "HADIR", "center", "min-w-[140px]")}
-                  {renderSortHeader("% Konten (Periode)", "KONTEN", "center", "min-w-[140px]")}
+                  {renderSortHeader(
+                    isSesiActive ? `Kelas di Sesi ${selectedSesi}` : isAppliedAllTime ? "Total Sesi" : "Sesi di Rentang",
+                    "SESI",
+                    "center",
+                    "w-36 min-w-[140px]"
+                  )}
+                  {renderSortHeader(
+                    isSesiActive ? `% Hadir (Sesi ${selectedSesi})` : isAppliedAllTime ? "% Hadir" : "% Hadir (Rentang)",
+                    "HADIR",
+                    "center",
+                    "min-w-[140px]"
+                  )}
+                  {renderSortHeader(
+                    isSesiActive ? `% Konten (Sesi ${selectedSesi})` : isAppliedAllTime ? "% Konten" : "% Konten (Rentang)",
+                    "KONTEN",
+                    "center",
+                    "min-w-[140px]"
+                  )}
                   {renderSortHeader("Status", "STATUS", "center", "w-32")}
                   <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-28 print:hidden">Detail</th>
                 </tr>
@@ -921,14 +1095,14 @@ export default function LaporanProdiClient({
                             {p.totalKelasAktifRentang} / {p.totalKelas}
                           </td>
                           <td className="py-3 px-2.5 text-center font-bold text-slate-800 text-xs w-36 min-w-[140px]">
-                            {p.totalSesiRentang} Sesi
+                            {p.totalSesiRentang} {isSesiActive ? "Kelas" : "Sesi"}
                           </td>
                           <td className="py-3 px-2.5 text-center">
                             <span className="font-bold text-emerald-600 text-xs">
                               {formatPct(p.avgKehadiranRentang)}
                             </span>
                             <span className="block text-[9.5px] text-slate-400">
-                              H:{p.totalHadirRentang} A:{p.totalAlphaRentang}
+                              H:{p.totalHadirRentang} A:{p.totalAlphaRentang}{p.totalGantiHariRentang ? ` G:${p.totalGantiHariRentang}` : ""}
                             </span>
                           </td>
                           <td className="py-3 px-2.5 text-center">
