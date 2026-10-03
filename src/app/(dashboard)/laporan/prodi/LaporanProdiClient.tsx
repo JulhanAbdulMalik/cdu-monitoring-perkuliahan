@@ -36,6 +36,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { ProdiReportItem } from "@/actions/laporan";
+import SparklineCard from "@/components/dashboard/SparklineCard";
 import { getWeekDates, formatTanggalRange, formatPct } from "@/lib/utils";
 
 interface SemesterOption {
@@ -354,6 +355,56 @@ export default function LaporanProdiClient({
     !isAppliedAllTime ||
     isDateDirty;
 
+  // Metrik agregasi untuk 3 Card Info (Gaya Dashboard / SparklineCard)
+  const sangatBaikCount = prodiReports.filter(
+    (p) => p.statusKinerjaRentang === "SANGAT_BAIK"
+  ).length;
+  const baikCount = prodiReports.filter(
+    (p) => p.statusKinerjaRentang === "BAIK"
+  ).length;
+  const pembinaanCount = prodiReports.filter(
+    (p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN"
+  ).length;
+
+  const totalHadirUniv = prodiReports.reduce(
+    (acc, p) => acc + (p.totalHadirRentang || 0) + (p.totalHadirTdkLengkapRentang || 0),
+    0
+  );
+  const totalAlphaUniv = prodiReports.reduce(
+    (acc, p) => acc + (p.totalAlphaRentang || 0),
+    0
+  );
+
+  const totalRegularUniv = prodiReports.reduce(
+    (acc, p) => acc + (p.totalRegularSesiRentang || 0),
+    0
+  );
+  const totalPilar1Univ = prodiReports.reduce(
+    (acc, p) => acc + (p.totalPilar1Rentang || 0),
+    0
+  );
+  const totalPilar2Univ = prodiReports.reduce(
+    (acc, p) => acc + (p.totalPilar2Rentang || 0),
+    0
+  );
+  const totalPilar3Univ = prodiReports.reduce(
+    (acc, p) => acc + (p.totalPilar3Rentang || 0),
+    0
+  );
+
+  const p1Pct =
+    totalRegularUniv > 0
+      ? Math.round((totalPilar1Univ / totalRegularUniv) * 1000) / 10
+      : 0;
+  const p2Pct =
+    totalRegularUniv > 0
+      ? Math.round((totalPilar2Univ / totalRegularUniv) * 1000) / 10
+      : 0;
+  const p3Pct =
+    totalRegularUniv > 0
+      ? Math.round((totalPilar3Univ / totalRegularUniv) * 1000) / 10
+      : 0;
+
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar ──────────────────────────────────────────────────── */}
@@ -406,61 +457,64 @@ export default function LaporanProdiClient({
         </p>
       </div>
 
-      {/* ── University-wide KPI Summary Cards ───────────────────────────────── */}
+      {/* ── University-wide KPI Summary Cards (SparklineCard Style) ──────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 print:hidden">
-        {/* Card 1: Total Prodi */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Total Program Studi
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-slate-900 leading-none">
-              {globalSummary.totalProdi}
-            </h3>
-            <span className="text-[11px] text-slate-400">
-              Prodi
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            {globalSummary.totalKelasSemua} Kelas • {globalSummary.totalDosenSemua} Dosen
-          </p>
-        </div>
+        {/* Card 1: Total Program Studi */}
+        <SparklineCard
+          title="Total Program Studi"
+          value={`${globalSummary.totalProdi} Prodi`}
+          subtitle={`${globalSummary.totalKelasSemua} Kelas • ${globalSummary.totalDosenSemua} Dosen terdaftar`}
+          trendText={isAppliedAllTime ? "Semua Waktu" : "Rentang Aktif"}
+          isPositive={pembinaanCount === 0}
+          segments={[
+            { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
+            { label: "Baik", value: baikCount, color: "blue" },
+            { label: "Perlu Pembinaan", value: pembinaanCount, color: "rose" },
+          ]}
+          details={[
+            { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
+            { label: "Baik", value: baikCount, color: "blue" },
+            { label: "Pembinaan", value: pembinaanCount, color: "rose" },
+          ]}
+        />
 
         {/* Card 2: Rata Kehadiran Univ */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {isAppliedAllTime ? "Rata Kehadiran (Semua)" : "Rata Kehadiran (Rentang)"}
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-emerald-600 leading-none">
-              {formatPct(globalSummary.avgKehadiranRentangSemua)}
-            </h3>
-            <span className="text-[11px] text-slate-500">
-              {globalSummary.totalProdi === 1 ? "Program Studi" : "Universitas"}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Total {globalSummary.totalSesiRentangSemua} sesi dimonitor
-          </p>
-        </div>
+        <SparklineCard
+          title={isAppliedAllTime ? "Rata-rata Kehadiran (Semua)" : "Rata-rata Kehadiran (Rentang)"}
+          value={formatPct(globalSummary.avgKehadiranRentangSemua)}
+          valueColor="emerald"
+          subtitle={`Total ${globalSummary.totalSesiRentangSemua} sesi ${isAppliedAllTime ? "semester ini" : "pada rentang aktif"}`}
+          trendText={globalSummary.avgKehadiranRentangSemua >= 90 ? "Target Tercapai" : "Di Bawah Target"}
+          isPositive={globalSummary.avgKehadiranRentangSemua >= 90}
+          progress={globalSummary.avgKehadiranRentangSemua}
+          progressColor="emerald"
+          details={[
+            { label: "Hadir", value: `${totalHadirUniv}`, color: "emerald" },
+            { label: "Alpha", value: `${totalAlphaUniv}`, color: "rose" },
+            { label: "Target CDU", value: "≥90%", color: "slate" },
+          ]}
+        />
 
-        {/* Card 3: Rata Konten 3 Pilar */}
-        <div className="duralux-card p-4 bg-white">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            {isAppliedAllTime ? "Kelengkapan 3 Pilar (Semua)" : "Kelengkapan 3 Pilar (Rentang)"}
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className="text-2xl font-bold text-[#a80063] leading-none">
-              {formatPct(globalSummary.avgKontenRentangSemua)}
-            </h3>
-            <span className="text-[11px] text-slate-500">
-              {globalSummary.totalProdi === 1 ? "Program Studi" : "Universitas"}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Pilar 1 (L/S), 2 (T/Q), 3 (V/C)
-          </p>
-        </div>
+        {/* Card 3: Kelengkapan 3 Pilar */}
+        <SparklineCard
+          title={isAppliedAllTime ? "Kelengkapan 3 Pilar (Semua)" : "Kelengkapan 3 Pilar (Rentang)"}
+          value={formatPct(globalSummary.avgKontenRentangSemua)}
+          valueColor="maroon"
+          subtitle={
+            isAppliedAllTime
+              ? "Rerata keterpenuhan 3 pilar seluruh kelas reguler"
+              : "Rerata keterpenuhan 3 pilar pada rentang aktif"
+          }
+          trendText={globalSummary.avgKontenRentangSemua >= 75 ? "Sesuai Standar" : "Perlu Optimasi"}
+          isPositive={globalSummary.avgKontenRentangSemua >= 75}
+          progress={globalSummary.avgKontenRentangSemua}
+          progressColor="maroon"
+          details={[
+            { label: "P1 (L/S)", value: formatPct(p1Pct), color: "maroon" },
+            { label: "P2 (T/Q)", value: formatPct(p2Pct), color: "maroon" },
+            { label: "P3 (V/C)", value: formatPct(p3Pct), color: "maroon" },
+          ]}
+        />
       </div>
 
       {/* ── Single-Row Compact Filter Toolbar ─────────────────────────────── */}
