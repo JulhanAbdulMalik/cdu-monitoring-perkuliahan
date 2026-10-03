@@ -54,6 +54,7 @@ interface GlobalSummary {
   avgKehadiranRentangSemua: number;
   avgKontenRentangSemua: number;
   totalConfRentangSemua: number;
+  totalGantiHariRentangSemua?: number;
 }
 
 interface LaporanProdiClientProps {
@@ -374,6 +375,9 @@ export default function LaporanProdiClient({
     (acc, p) => acc + (p.totalAlphaRentang || 0),
     0
   );
+  const totalGantiHariUniv =
+    globalSummary.totalGantiHariRentangSemua ??
+    prodiReports.reduce((acc, p) => acc + (p.totalGantiHariRentang || 0), 0);
 
   const totalRegularUniv = prodiReports.reduce(
     (acc, p) => acc + (p.totalRegularSesiRentang || 0),
@@ -483,14 +487,17 @@ export default function LaporanProdiClient({
           title={isAppliedAllTime ? "Rata-rata Kehadiran (Semua)" : "Rata-rata Kehadiran (Rentang)"}
           value={formatPct(globalSummary.avgKehadiranRentangSemua)}
           valueColor="emerald"
-          subtitle={`Total ${globalSummary.totalSesiRentangSemua} sesi ${isAppliedAllTime ? "semester ini" : "pada rentang aktif"}`}
+          subtitle={`Total ${globalSummary.totalSesiRentangSemua.toLocaleString("id-ID")} sesi ${isAppliedAllTime ? "semester ini" : "pada rentang aktif"}`}
           trendText={globalSummary.avgKehadiranRentangSemua >= 90 ? "Target Tercapai" : "Di Bawah Target"}
           isPositive={globalSummary.avgKehadiranRentangSemua >= 90}
           progress={globalSummary.avgKehadiranRentangSemua}
           progressColor="emerald"
           details={[
-            { label: "Hadir", value: `${totalHadirUniv}`, color: "emerald" },
-            { label: "Alpha", value: `${totalAlphaUniv}`, color: "rose" },
+            { label: "Hadir", value: `${totalHadirUniv.toLocaleString("id-ID")}`, color: "emerald" },
+            { label: "Alpha", value: `${totalAlphaUniv.toLocaleString("id-ID")}`, color: "rose" },
+            ...(totalGantiHariUniv > 0
+              ? [{ label: "Ganti Hari", value: `${totalGantiHariUniv.toLocaleString("id-ID")}`, color: "amber" as const }]
+              : []),
             { label: "Target CDU", value: "≥90%", color: "slate" },
           ]}
         />

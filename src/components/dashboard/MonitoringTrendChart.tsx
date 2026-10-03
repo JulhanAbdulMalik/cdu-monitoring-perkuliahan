@@ -22,6 +22,12 @@ export interface TrendItem {
   full: string;
   kehadiran: number;
   konten: number;
+  totalKelas?: number;
+  totalHadir?: number;
+  totalAlpha?: number;
+  totalGantiHari?: number;
+  totalBelumDiisi?: number;
+  totalNonBimbingan?: number;
   totalTerisi?: number;
   totalRegular?: number;
   totalSkorPilar?: number;
@@ -60,32 +66,66 @@ const MODE_OPTIONS: { key: TrendClassMode; label: string; desc: string }[] = [
 
 function CustomTooltip({ active, payload, isBimbingan }: any) {
   if (active && payload && payload.length) {
-    const data = payload[0]?.payload;
+    const data = payload[0]?.payload as TrendItem;
+    const kehadiranVal = payload[0]?.value;
+    const kontenVal = payload[1]?.value;
+
+    const hasCounts = data?.totalKelas !== undefined && data.totalKelas > 0;
+    const parts: string[] = [];
+    if (data?.totalHadir !== undefined) parts.push(`${data.totalHadir.toLocaleString("id-ID")} Hadir`);
+    if (data?.totalAlpha !== undefined && data.totalAlpha > 0) parts.push(`${data.totalAlpha.toLocaleString("id-ID")} Alpha`);
+    if (data?.totalGantiHari !== undefined && data.totalGantiHari > 0) parts.push(`${data.totalGantiHari.toLocaleString("id-ID")} Ganti Hari`);
+    if (data?.totalBelumDiisi !== undefined && data.totalBelumDiisi > 0) parts.push(`${data.totalBelumDiisi.toLocaleString("id-ID")} Belum Diisi`);
+
     return (
-      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-lg text-xs z-50 min-w-[170px]">
-        <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-slate-100">
-          <p className="font-bold text-slate-800">{data.full}</p>
-          {isBimbingan && (
+      <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-xl text-xs z-50 min-w-[210px]">
+        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+          <p className="font-bold text-slate-800 text-[12.5px]">{data.full}</p>
+          {isBimbingan ? (
             <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-100">
               Bimbingan
             </span>
+          ) : (
+            data.totalKelas ? (
+              <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                {data.totalKelas.toLocaleString("id-ID")} Kelas
+              </span>
+            ) : null
           )}
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-3 text-[11px]">
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#10b981]" />
-              Kehadiran Dosen:
-            </span>
-            <span className="font-bold text-slate-900">{formatPct(payload[0]?.value)}</span>
-          </div>
-          {!isBimbingan && payload[1] && (
+
+        <div className="space-y-2">
+          {/* Kehadiran */}
+          <div>
             <div className="flex items-center justify-between gap-3 text-[11px]">
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <span className="w-2 h-2 rounded-full bg-[#a80063]" />
-                Kelengkapan Konten:
+              <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+                Kehadiran Dosen:
               </span>
-              <span className="font-bold text-slate-900">{formatPct(payload[1]?.value)}</span>
+              <span className="font-bold text-slate-900">{formatPct(kehadiranVal)}</span>
+            </div>
+            {hasCounts && parts.length > 0 && (
+              <div className="text-[10px] text-slate-400 mt-0.5 pl-3.5 leading-tight">
+                ({parts.join(" - ")})
+              </div>
+            )}
+          </div>
+
+          {/* Kelengkapan Konten */}
+          {!isBimbingan && payload[1] && (
+            <div>
+              <div className="flex items-center justify-between gap-3 text-[11px]">
+                <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[#a80063]" />
+                  Kelengkapan Konten:
+                </span>
+                <span className="font-bold text-slate-900">{formatPct(kontenVal)}</span>
+              </div>
+              {data.totalNonBimbingan !== undefined && data.totalNonBimbingan > 0 && (
+                <div className="text-[10px] text-slate-400 mt-0.5 pl-3.5 leading-tight">
+                  (Rata-rata {data.totalNonBimbingan.toLocaleString("id-ID")} kelas reguler)
+                </div>
+              )}
             </div>
           )}
         </div>

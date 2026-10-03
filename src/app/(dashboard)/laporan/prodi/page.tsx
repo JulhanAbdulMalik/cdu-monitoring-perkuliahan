@@ -55,6 +55,7 @@ export default async function LaporanProdiPage({
           avgKehadiranRentangSemua: 0,
           avgKontenRentangSemua: 0,
           totalConfRentangSemua: 0,
+          totalGantiHariRentangSemua: 0,
         },
       };
 
@@ -77,6 +78,7 @@ export default async function LaporanProdiPage({
         ? Math.round(filteredProdiReports.reduce((s, p) => s + p.avgKontenRentang, 0) / totalProdi)
         : 0;
     const totalConfRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalConfRentang, 0);
+    const totalGantiHariRentangSemua = filteredProdiReports.reduce((s, p) => s + (p.totalGantiHariRentang || 0), 0);
 
     summary = {
       totalProdi,
@@ -86,6 +88,7 @@ export default async function LaporanProdiPage({
       avgKehadiranRentangSemua,
       avgKontenRentangSemua,
       totalConfRentangSemua,
+      totalGantiHariRentangSemua,
     };
   }
 

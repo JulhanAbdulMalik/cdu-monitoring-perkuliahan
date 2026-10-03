@@ -715,6 +715,7 @@ export interface ProdiReportItem {
   totalHadirTdkLengkapRentang: number;
   totalAlphaRentang: number;
   totalBelumDiisiRentang: number;
+  totalGantiHariRentang: number;
   avgKehadiranRentang: number;
 
   totalRegularSesiRentang: number;
@@ -779,6 +780,7 @@ export interface LaporanProdiResponse {
       avgKehadiranRentangSemua: number;
       avgKontenRentangSemua: number;
       totalConfRentangSemua: number;
+      totalGantiHariRentangSemua?: number;
     };
   };
 }
@@ -911,6 +913,7 @@ export async function getLaporanProdi(
         totalHadirTdkLengkapRentang: 0,
         totalAlphaRentang: 0,
         totalBelumDiisiRentang: 0,
+        totalGantiHariRentang: 0,
         totalRegularSesiRentang: 0,
         totalSkor3PilarRentang: 0,
         totalPilar1Rentang: 0,
@@ -963,8 +966,10 @@ export async function getLaporanProdi(
           ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
           : DEFAULT_SEMESTER_START_DATE;
 
+        const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
+
         if (!effectiveDate) {
-          effectiveDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
+          effectiveDate = estimatedDate;
         }
 
         if (startDateTime && endDateTime) {
@@ -973,6 +978,16 @@ export async function getLaporanProdi(
           // Jika filter All Time: sesi masa depan yang belum tiba dan tanpa catatan tidak dihitung di rentang
           const isFuture = s.kehadiran === "BELUM_DIISI" && !s.catatanCdu && s.nomorSesi > maxSesiBerjalan;
           isInRange = !isFuture;
+        }
+
+        // Cek apakah sesi ini berstatus Ganti Hari (baik tanggal riilnya di rentang ini, atau jadwal aslinya di rentang ini tapi tanggal fisiknya di luar rentang)
+        const hasGantiNote = s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false;
+        const isOrigScheduleInRange = estimatedDate
+          ? (startDateTime && endDateTime ? (estimatedDate >= startDateTime && estimatedDate <= endDateTime) : true)
+          : false;
+
+        if (hasGantiNote && (isInRange || isOrigScheduleInRange)) {
+          entry.totalGantiHariRentang++;
         }
 
         if (isInRange) {
@@ -1062,6 +1077,7 @@ export async function getLaporanProdi(
     let globalTotalConfRentang = 0;
     let globalTotalKelas = 0;
     let globalTotalDosen = 0;
+    let globalTotalGantiHariRentang = 0;
 
     const prodiReportList: ProdiReportItem[] = Array.from(prodiMap.values()).map((p) => {
       const avgKehadiranRentang =
@@ -1104,6 +1120,7 @@ export async function getLaporanProdi(
       globalTotalConfRentang += p.totalConfRentang;
       globalTotalKelas += p.totalKelas;
       globalTotalDosen += p.totalDosen;
+      globalTotalGantiHariRentang += p.totalGantiHariRentang;
 
       return {
         id: p.id,
@@ -1115,6 +1132,7 @@ export async function getLaporanProdi(
         totalHadirTdkLengkapRentang: p.totalHadirTdkLengkapRentang,
         totalAlphaRentang: p.totalAlphaRentang,
         totalBelumDiisiRentang: p.totalBelumDiisiRentang,
+        totalGantiHariRentang: p.totalGantiHariRentang,
         avgKehadiranRentang,
         totalRegularSesiRentang: p.totalRegularSesiRentang,
         totalSkor3PilarRentang: p.totalSkor3PilarRentang,
@@ -1160,6 +1178,7 @@ export async function getLaporanProdi(
         avgKehadiranRentangSemua,
         avgKontenRentangSemua,
         totalConfRentangSemua: globalTotalConfRentang,
+        totalGantiHariRentangSemua: globalTotalGantiHariRentang,
       },
     };
 

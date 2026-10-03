@@ -206,6 +206,9 @@ export default async function DashboardPage() {
       const sesiAgg = Array.from({ length: 16 }, (_, i) => ({
         nomorSesi: i + 1,
         totalHadir: 0,
+        totalAlpha: 0,
+        totalGantiHari: 0,
+        totalBelumDiisi: 0,
         totalSkorPilar: 0,
         totalTerisi: 0,
         totalRegular: 0,
@@ -222,7 +225,16 @@ export default async function DashboardPage() {
             sesiAgg[aggIndex].totalHadir++;
             sesiAgg[aggIndex].totalTerisi++;
           } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
+            sesiAgg[aggIndex].totalAlpha++;
             sesiAgg[aggIndex].totalTerisi++;
+          } else {
+            // BELUM_DIISI
+            const hasGantiNote = s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false;
+            if (hasGantiNote) {
+              sesiAgg[aggIndex].totalGantiHari++;
+            } else {
+              sesiAgg[aggIndex].totalBelumDiisi++;
+            }
           }
 
           // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
@@ -268,6 +280,12 @@ export default async function DashboardPage() {
           full: fullLabel,
           kehadiran,
           konten,
+          totalKelas: totalKelasInMode,
+          totalHadir: agg.totalHadir,
+          totalAlpha: agg.totalAlpha,
+          totalGantiHari: agg.totalGantiHari,
+          totalBelumDiisi: agg.totalBelumDiisi,
+          totalNonBimbingan,
           totalTerisi: agg.totalTerisi,
           totalRegular: agg.totalRegular,
           totalSkorPilar: agg.totalSkorPilar,
