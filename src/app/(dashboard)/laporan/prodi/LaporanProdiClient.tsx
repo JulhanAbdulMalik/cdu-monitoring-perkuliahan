@@ -563,7 +563,6 @@ export default function LaporanProdiClient({
         <SparklineCard
           title="Prodi Perlu Perhatian"
           value={`${perhatianCount} Prodi`}
-          valueColor={perhatianCount === 0 ? "emerald" : "rose"}
           subtitle={
             perhatianCount === 0
               ? "Seluruh prodi aktif memenuhi target performa"
