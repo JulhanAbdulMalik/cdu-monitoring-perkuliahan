@@ -31,10 +31,6 @@ import {
 
 interface SlideData {
   id: number;
-  badge: {
-    icon: any;
-    text: string;
-  };
   headline: string;
   description: string;
 }
@@ -42,30 +38,18 @@ interface SlideData {
 const SLIDES: SlideData[] = [
   {
     id: 1,
-    badge: {
-      icon: GraduationCap,
-      text: "Command Center CDU",
-    },
     headline: "Pusat Monitoring Perkuliahan",
     description:
       "Pantau performa kehadiran dosen, kepatuhan konten perkuliahan, dan status sesi perkuliahan secara real-time.",
   },
   {
     id: 2,
-    badge: {
-      icon: Users,
-      text: "Akses Pimpinan Akademik",
-    },
     headline: "Portal Pengawasan Kaprodi & Sekprodi",
     description:
       "Evaluasi capaian dosen pengampu, deteksi dini kendala sesi, dan unduh laporan audit perkuliahan prodi.",
   },
   {
     id: 3,
-    badge: {
-      icon: ShieldCheck,
-      text: "Penjaminan Mutu CDU",
-    },
     headline: "Standar Mutu & Target Akademik Unggul",
     description:
       "Standarisasi presensi minimal 90%, materi perkuliahan, tugas, kuis, dan video konferensi.",
@@ -133,7 +117,6 @@ function LoginForm() {
   }
 
   const currentSlide = SLIDES[activeSlide];
-  const BadgeIcon = currentSlide.badge.icon;
 
   return (
     <div className="min-h-screen bg-slate-100/90 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans relative overflow-hidden">
@@ -142,7 +125,7 @@ function LoginForm() {
       <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full bg-[#d946ef]/8 blur-3xl pointer-events-none" />
 
       {/* Main Card Frame - Sleeker & Scaled for Spacious Look */}
-      <div className="w-full max-w-[980px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_16px_45px_-12px_rgba(15,23,42,0.09)] border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[520px] lg:h-[545px] relative z-10">
+      <div className="w-full max-w-[980px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_16px_45px_-12px_rgba(15,23,42,0.09)] border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[520px] lg:h-[565px] relative z-10">
         
         {/* ── LEFT PANEL: Form Area (Clean, Minimalist & Airy) ─────────────── */}
         <div className="lg:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white relative">
@@ -281,7 +264,7 @@ function LoginForm() {
         <div
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="lg:col-span-6 relative bg-gradient-to-br from-[#240015] via-[#3b0022] to-[#14000b] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden text-white min-h-[380px] lg:min-h-full"
+          className="lg:col-span-6 relative bg-gradient-to-br from-[#240015] via-[#3b0022] to-[#14000b] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden text-white min-h-[400px] lg:min-h-full"
         >
           {/* Subtle Grid Pattern Overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
@@ -290,28 +273,28 @@ function LoginForm() {
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-[#a80063]/25 blur-3xl pointer-events-none" />
           <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-[#d946ef]/15 blur-3xl pointer-events-none" />
 
-          {/* ── TOP SECTION: Floating UI Mockup Cards (Scaled & Compact) ───── */}
-          <div className="relative z-10 w-full pt-1 pb-4 min-h-[220px] flex items-center justify-center">
+          {/* ── TOP SECTION: Floating UI Mockup Cards (Symmetrical & Centered) ─── */}
+          <div className="relative z-10 w-full pt-1 pb-3 flex items-center justify-center">
             
             {/* SLIDE 1 MOCKUP: Donut Kehadiran & Skor 3 Pilar */}
             {activeSlide === 0 && (
-              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
-                {/* Card 1: Top Floating Card - Donut Kehadiran Dosen */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[86%] mb-2.5 hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <BarChart3 size={12} className="text-emerald-400" />
-                      Evaluasi Kehadiran Dosen
+              <div className="w-full max-w-[410px] mx-auto flex flex-col gap-2.5 sm:gap-3 animate-fade-in transition-all duration-500">
+                {/* Card 1: Donut Kehadiran Dosen */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-2.5">
+                    <span className="flex items-center gap-2">
+                      {/* <BarChart3 size={15} className="text-emerald-400" /> */}
+                      <span>Evaluasi Kehadiran Dosen</span>
                     </span>
-                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-bold">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold border border-emerald-400/30">
                       Target ≥90%
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Compact SVG Donut Chart */}
-                    <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
-                      <svg className="w-12 h-12 -rotate-90 transform" viewBox="0 0 36 36">
+                  <div className="flex items-center gap-4">
+                    {/* SVG Donut Chart */}
+                    <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
+                      <svg className="w-14 h-14 -rotate-90 transform" viewBox="0 0 36 36">
                         <path
                           className="text-white/15"
                           strokeWidth="3.6"
@@ -330,29 +313,29 @@ function LoginForm() {
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-[10.5px] font-extrabold leading-none">88.1%</span>
+                        <span className="text-xs sm:text-[13px] font-extrabold text-white leading-none">88.1%</span>
                       </div>
                     </div>
 
                     {/* Breakdown Numbers */}
-                    <div className="space-y-0.5 text-[9px] flex-1">
+                    <div className="space-y-1 text-[11px] sm:text-xs flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-white/80">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                        <span className="flex items-center gap-1.5 text-white/80">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
                           Hadir
                         </span>
                         <span className="font-bold text-emerald-300">1.274</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-white/80">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
+                        <span className="flex items-center gap-1.5 text-white/80">
+                          <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
                           Alpha
                         </span>
                         <span className="font-bold text-rose-300">171</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-white/80">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                        <span className="flex items-center gap-1.5 text-white/80">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
                           Ganti Hari
                         </span>
                         <span className="font-bold text-amber-300">24</span>
@@ -361,44 +344,46 @@ function LoginForm() {
                   </div>
                 </div>
 
-                {/* Card 2: Bottom Floating Card - Kelengkapan 3 Pilar */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white mr-auto w-[90%] hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Layers size={12} className="text-[#f472b6]" />
-                      Kelengkapan Konten 3 Pilar
+                {/* Card 2: Kelengkapan 3 Pilar */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-2.5">
+                    <span className="flex items-center gap-2">
+                      {/* <Layers size={15} className="text-pink-400" /> */}
+                      <span>Kelengkapan Konten 3 Pilar</span>
                     </span>
-                    <span className="text-[9px] text-white/70 font-mono">1.382 Kelas</span>
+                    <span className="text-[10px] bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-mono font-medium border border-white/15">
+                      1.382 Kelas
+                    </span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div>
-                      <div className="flex justify-between text-[8.5px] text-white/80 mb-0.5">
-                        <span>P1: RPS / Silabus</span>
+                      <div className="flex justify-between text-[10.5px] sm:text-xs text-white/85 mb-1">
+                        <span>P1: Lecture Note & Slide</span>
                         <span className="font-bold text-emerald-300">94.2%</span>
                       </div>
-                      <div className="w-full bg-white/15 h-1 rounded-full overflow-hidden">
-                        <div className="bg-emerald-400 h-full rounded-full" style={{ width: "94.2%" }} />
+                      <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-400 h-full rounded-full transition-all duration-500" style={{ width: "94.2%" }} />
                       </div>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8.5px] text-white/80 mb-0.5">
-                        <span>P2: Bahan Ajar & Tugas</span>
+                      <div className="flex justify-between text-[10.5px] sm:text-xs text-white/85 mb-1">
+                        <span>P2: Tugas & Kuis</span>
                         <span className="font-bold text-emerald-300">86.5%</span>
                       </div>
-                      <div className="w-full bg-white/15 h-1 rounded-full overflow-hidden">
-                        <div className="bg-emerald-400 h-full rounded-full" style={{ width: "86.5%" }} />
+                      <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-400 h-full rounded-full transition-all duration-500" style={{ width: "86.5%" }} />
                       </div>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8.5px] text-white/80 mb-0.5">
-                        <span>P3: Video / Conf Interaktif</span>
+                      <div className="flex justify-between text-[10.5px] sm:text-xs text-white/85 mb-1">
+                        <span>P3: Video & Live Conference</span>
                         <span className="font-bold text-amber-300">71.0%</span>
                       </div>
-                      <div className="w-full bg-white/15 h-1 rounded-full overflow-hidden">
-                        <div className="bg-amber-400 h-full rounded-full" style={{ width: "71.0%" }} />
+                      <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-amber-400 h-full rounded-full transition-all duration-500" style={{ width: "71.0%" }} />
                       </div>
                     </div>
                   </div>
@@ -408,39 +393,39 @@ function LoginForm() {
 
             {/* SLIDE 2 MOCKUP: Portal Kaprodi & Sekprodi */}
             {activeSlide === 1 && (
-              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
-                {/* Card 1: Top Floating Card - Evaluasi Dosen Prodi */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[88%] mb-2.5 hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Users size={12} className="text-blue-400" />
-                      Monitoring Dosen Prodi
+              <div className="w-full max-w-[410px] mx-auto flex flex-col gap-2.5 sm:gap-3 animate-fade-in transition-all duration-500">
+                {/* Card 1: Evaluasi Dosen Prodi */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-2">
+                    <span className="flex items-center gap-2">
+                      {/* <Users size={15} className="text-blue-400" /> */}
+                      <span>Monitoring Dosen Prodi</span>
                     </span>
-                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-bold">
+                    <span className="text-[10px] bg-blue-500/25 text-blue-300 px-2 py-0.5 rounded-full font-bold border border-blue-400/30">
                       Semester Aktif
                     </span>
                   </div>
 
-                  <div className="space-y-1 text-[9px]">
-                    <div className="flex items-center justify-between p-1 rounded-lg bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-1.5">
-                        <CheckCircle2 size={11} className="text-emerald-400" />
+                  <div className="space-y-1.5 text-[10.5px] sm:text-xs">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={13} className="text-emerald-400" />
                         <span>Kinerja Sangat Baik</span>
                       </div>
                       <span className="font-bold text-emerald-300">11 Dosen</span>
                     </div>
 
-                    <div className="flex items-center justify-between p-1 rounded-lg bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-1.5">
-                        <CheckCircle2 size={11} className="text-blue-400" />
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={13} className="text-blue-400" />
                         <span>Kinerja Baik</span>
                       </div>
                       <span className="font-bold text-blue-300">3 Dosen</span>
                     </div>
 
-                    <div className="flex items-center justify-between p-1 rounded-lg bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-1.5">
-                        <AlertTriangle size={11} className="text-amber-400" />
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={13} className="text-amber-400" />
                         <span>Perlu Perhatian</span>
                       </div>
                       <span className="font-bold text-amber-300">0 Dosen</span>
@@ -448,19 +433,19 @@ function LoginForm() {
                   </div>
                 </div>
 
-                {/* Card 2: Bottom Floating Card - Notifikasi Kendala & Unduh Laporan */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white mr-auto w-[88%] hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar size={12} className="text-emerald-400" />
-                      Audit & Laporan Prodi
+                {/* Card 2: Notifikasi Kendala & Unduh Laporan */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-1.5">
+                    <span className="flex items-center gap-2">
+                      {/* <Calendar size={15} className="text-emerald-400" /> */}
+                      <span>Audit & Laporan Prodi</span>
                     </span>
-                    <span className="text-[8.5px] bg-emerald-500/25 text-emerald-300 px-1.5 py-0.2 rounded font-bold">
+                    <span className="text-[10px] bg-emerald-500/25 text-emerald-300 px-2 py-0.5 rounded-full font-bold border border-emerald-400/30">
                       Siap Ekspor
                     </span>
                   </div>
-                  <p className="text-[9px] text-white/70 leading-relaxed">
-                    Kaprodi dapat langsung mengunduh rekap performa dosen (XLS/PDF) per sesi atau rentang tanggal kalender untuk evaluasi berkala.
+                  <p className="text-[11px] sm:text-xs text-white/80 leading-relaxed">
+                    Kaprodi dapat langsung mengunduh rekap performa dosen (format XLS/PDF) per sesi atau rentang tanggal kalender untuk evaluasi berkala.
                   </p>
                 </div>
               </div>
@@ -468,44 +453,44 @@ function LoginForm() {
 
             {/* SLIDE 3 MOCKUP: Standar Mutu Akademik CDU */}
             {activeSlide === 2 && (
-              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
-                {/* Card 1: Top Floating Card - Standar CDU */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[88%] mb-2.5 hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldCheck size={12} className="text-emerald-400" />
-                      Standar Kinerja Universitas
+              <div className="w-full max-w-[410px] mx-auto flex flex-col gap-2.5 sm:gap-3 animate-fade-in transition-all duration-500">
+                {/* Card 1: Standar CDU */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-2">
+                    <span className="flex items-center gap-2">
+                      {/* <ShieldCheck size={15} className="text-emerald-400" /> */}
+                      <span>Standar Kinerja Universitas</span>
                     </span>
-                    <span className="text-[8.5px] bg-white/10 text-white/90 px-1.5 py-0.2 rounded font-bold">
+                    <span className="text-[10px] bg-white/10 text-white/90 px-2 py-0.5 rounded-full font-bold border border-white/15">
                       CDU Quality
                     </span>
                   </div>
 
-                  <div className="p-2 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-400/30 flex items-center justify-between">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-400/30 flex items-center justify-between">
                     <div>
-                      <div className="text-[12px] font-black text-emerald-300">≥ 90.0%</div>
-                      <div className="text-[8.5px] text-white/80">Target Presensi Minimal</div>
+                      <div className="text-sm sm:text-base font-black text-emerald-300">≥ 90.0%</div>
+                      <div className="text-[10px] sm:text-[10.5px] text-white/80 font-medium">Target Presensi Minimal</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[12px] font-black text-white">16 Sesi</div>
-                      <div className="text-[8.5px] text-white/80">Kurikulum Penuh</div>
+                      <div className="text-sm sm:text-base font-black text-white">16 Sesi</div>
+                      <div className="text-[10px] sm:text-[10.5px] text-white/80 font-medium">Kurikulum Penuh</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Card 2: Bottom Floating Card - Sinkronisasi Sistem */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white mr-auto w-[88%] hover:translate-y-[-2px] transition-transform">
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1">
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles size={12} className="text-amber-300" />
-                      Sinkronisasi Otomatis
+                {/* Card 2: Sinkronisasi Sistem */}
+                <div className="w-full bg-white/[0.09] hover:bg-white/[0.13] backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 shadow-xl shadow-black/20 text-white transition-all duration-300">
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] font-semibold text-white/90 mb-1.5">
+                    <span className="flex items-center gap-2">
+                      {/* <Sparkles size={15} className="text-amber-300" /> */}
+                      <span>Sinkronisasi Otomatis</span>
                     </span>
-                    <span className="text-[8.5px] text-emerald-300 font-bold flex items-center gap-1">
+                    <span className="text-[10px] text-emerald-300 font-bold flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-full">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       Online
                     </span>
                   </div>
-                  <p className="text-[9px] text-white/70 leading-relaxed">
+                  <p className="text-[11px] sm:text-xs text-white/80 leading-relaxed">
                     Terhubung langsung dengan jadwal perkuliahan dan data dosen Nusa Putra untuk pelaporan penjaminan mutu yang akuntabel dan transparan.
                   </p>
                 </div>
@@ -513,13 +498,8 @@ function LoginForm() {
             )}
           </div>
 
-          {/* ── BOTTOM SECTION: Badge, Headline, Description, & Carousel Bars ─ */}
+          {/* ── BOTTOM SECTION: Headline, Description, & Carousel Bars ─────── */}
           <div className="relative z-10 pt-2">
-            {/* App Icon Badge */}
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#a80063] to-[#d946ef] p-0.5 shadow-md shadow-[#a80063]/25 mb-2.5 inline-flex items-center justify-center border border-white/20">
-              <BadgeIcon size={17} className="text-white" />
-            </div>
-
             {/* Headline */}
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight leading-snug">
               {currentSlide.headline}
@@ -567,9 +547,9 @@ function LoginForm() {
 
             {/* Modal Header */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-xl bg-[#a80063]/10 text-[#a80063] flex items-center justify-center shrink-0">
+              {/* <div className="w-11 h-11 rounded-xl bg-[#a80063]/10 text-[#a80063] flex items-center justify-center shrink-0">
                 <HelpCircle size={22} />
-              </div>
+              </div> */}
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
                   Bantuan Akses Akun
