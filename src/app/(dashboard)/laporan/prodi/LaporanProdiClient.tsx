@@ -409,18 +409,21 @@ export default function LaporanProdiClient({
     isDateDirty ||
     isSesiDirty;
 
-  // Metrik agregasi untuk 3 Card Info (Gaya Dashboard / SparklineCard)
+  // Metrik agregasi untuk 4 Card Info (Gaya Dashboard / SparklineCard)
   const sangatBaikCount = prodiReports.filter(
     (p) => p.statusKinerjaRentang === "SANGAT_BAIK"
   ).length;
   const baikCount = prodiReports.filter(
     (p) => p.statusKinerjaRentang === "BAIK"
   ).length;
-  const pembinaanCount = prodiReports.filter(
+  const perhatianCount = prodiReports.filter(
     (p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN"
   ).length;
   const belumAdaKelasCount = prodiReports.filter(
     (p) => p.statusKinerjaRentang === "BELUM_ADA_KELAS"
+  ).length;
+  const prodiAktifCount = prodiReports.filter(
+    (p) => p.totalKelas > 0
   ).length;
 
   const totalHadirUniv = prodiReports.reduce(
@@ -526,12 +529,12 @@ export default function LaporanProdiClient({
       </div>
 
       {/* ── University-wide KPI Summary Cards (SparklineCard Style) ──────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 print:hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 print:hidden">
         {/* Card 1: Total Program Studi */}
         <SparklineCard
           title="Total Program Studi"
           value={`${globalSummary.totalProdi} Prodi`}
-          subtitle={`${globalSummary.totalKelasSemua} Kelas • ${globalSummary.totalDosenSemua} Dosen terdaftar`}
+          subtitle={`${globalSummary.totalKelasSemua.toLocaleString("id-ID")} Kelas • ${globalSummary.totalDosenSemua.toLocaleString("id-ID")} Dosen terdaftar`}
           trendText={
             isSesiActive
               ? `Sesi ${selectedSesi}`
@@ -539,26 +542,56 @@ export default function LaporanProdiClient({
               ? "Semua Waktu"
               : "Rentang Aktif"
           }
-          isPositive={pembinaanCount === 0}
+          isPositive={true}
           segments={[
-            { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
-            { label: "Baik", value: baikCount, color: "blue" },
-            { label: "Perlu Pembinaan", value: pembinaanCount, color: "rose" },
+            { label: "Prodi Aktif", value: prodiAktifCount, color: "emerald" },
             ...(belumAdaKelasCount > 0
               ? [{ label: "Belum Ada Kelas", value: belumAdaKelasCount, color: "slate" as const }]
               : []),
           ]}
           details={[
+            { label: "Prodi Aktif", value: `${prodiAktifCount}`, color: "emerald" },
+            ...(belumAdaKelasCount > 0
+              ? [{ label: "Tanpa Kelas", value: `${belumAdaKelasCount}`, color: "slate" as const }]
+              : []),
+            { label: "Total Kelas", value: `${globalSummary.totalKelasSemua}`, color: "blue" },
+            { label: "Total Dosen", value: `${globalSummary.totalDosenSemua}`, color: "violet" },
+          ]}
+        />
+
+        {/* Card 2: Prodi Perlu Perhatian */}
+        <SparklineCard
+          title="Prodi Perlu Perhatian"
+          value={`${perhatianCount} Prodi`}
+          valueColor={perhatianCount === 0 ? "emerald" : "rose"}
+          subtitle={
+            perhatianCount === 0
+              ? "Seluruh prodi aktif memenuhi target performa"
+              : `${perhatianCount} prodi di bawah target kinerja`
+          }
+          trendText={perhatianCount === 0 ? "Kondisi Baik" : `${perhatianCount} Perlu Dicek`}
+          isPositive={perhatianCount === 0}
+          segments={[
+            ...(perhatianCount > 0
+              ? [{ label: "Perhatian", value: perhatianCount, color: "rose" as const }]
+              : []),
             { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
             { label: "Baik", value: baikCount, color: "blue" },
-            { label: "Pembinaan", value: pembinaanCount, color: "rose" },
             ...(belumAdaKelasCount > 0
               ? [{ label: "Belum Ada Kelas", value: belumAdaKelasCount, color: "slate" as const }]
               : []),
           ]}
+          details={[
+            { label: "Sangat Baik", value: `${sangatBaikCount}`, color: "emerald" },
+            { label: "Baik", value: `${baikCount}`, color: "blue" },
+            { label: "Perhatian", value: `${perhatianCount}`, color: "rose" },
+            ...(belumAdaKelasCount > 0
+              ? [{ label: "Belum Ada Kelas", value: `${belumAdaKelasCount}`, color: "slate" as const }]
+              : []),
+          ]}
         />
 
-        {/* Card 2: Rata Kehadiran Univ */}
+        {/* Card 3: Rata Kehadiran Univ */}
         <SparklineCard
           title={
             isSesiActive
@@ -590,7 +623,7 @@ export default function LaporanProdiClient({
           ]}
         />
 
-        {/* Card 3: Rata-rata Konten */}
+        {/* Card 4: Rata-rata Konten */}
         <SparklineCard
           title={
             isSesiActive
@@ -833,7 +866,7 @@ export default function LaporanProdiClient({
                 <option value="ALL">Semua Status</option>
                 <option value="SANGAT_BAIK">Sangat Baik</option>
                 <option value="BAIK">Baik</option>
-                <option value="PERLU_PEMBINAAN">Perlu Pembinaan</option>
+                <option value="PERLU_PEMBINAAN">Perlu Perhatian</option>
                 <option value="BELUM_ADA_KELAS">Belum Ada Kelas</option>
               </select>
             </div>
@@ -927,7 +960,7 @@ export default function LaporanProdiClient({
                       {p.statusKinerjaRentang === "PERLU_PEMBINAAN" && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                           <AlertTriangle size={10} />
-                          <span>Perlu Pembinaan</span>
+                          <span>Perlu Perhatian</span>
                         </span>
                       )}
                       {p.statusKinerjaRentang === "BELUM_ADA_KELAS" && (
@@ -1198,7 +1231,7 @@ export default function LaporanProdiClient({
                             {p.statusKinerjaRentang === "PERLU_PEMBINAAN" && (
                               <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                 <AlertTriangle size={10} />
-                                <span>Perlu Pembinaan</span>
+                                <span>Perlu Perhatian</span>
                               </span>
                             )}
                             {p.statusKinerjaRentang === "BELUM_ADA_KELAS" && (

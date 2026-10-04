@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
           : p.statusKinerjaRentang === "BAIK"
           ? "Baik"
           : p.statusKinerjaRentang === "PERLU_PEMBINAAN"
-          ? "Perlu Pembinaan"
+          ? "Perlu Perhatian"
           : "Belum Ada Kelas",
         p.avgKehadiranSemester === null ? "N/A" : formatPct(p.avgKehadiranSemester),
         p.avgKontenSemester === null ? "N/A" : formatPct(p.avgKontenSemester),
