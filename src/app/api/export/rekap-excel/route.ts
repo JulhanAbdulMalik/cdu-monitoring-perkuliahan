@@ -1,5 +1,5 @@
 // src/app/api/export/rekap-excel/route.ts
-// ExcelJS Export API Route for CDU Monitoring Rekapitulasi (3-Pillar & Conference Quota)
+// ExcelJS Export API Route for CDU Portal Rekapitulasi (3-Pillar & Conference Quota)
 // Enhanced with Comprehensive Lecturer Substitution Tracking (Multi-line, Cell Notes & Dedicated Log Sheet)
 
 import { NextRequest, NextResponse } from "next/server";

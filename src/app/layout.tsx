@@ -7,8 +7,8 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "CDU Monitoring - Nusa Putra University",
-    template: "%s | CDU Monitoring",
+    default: "CDU Portal - Nusa Putra University",
+    template: "%s | CDU Portal",
   },
   description:
     "Sistem monitoring kinerja dosen Curriculum Development Unit (CDU) Universitas Nusa Putra.",

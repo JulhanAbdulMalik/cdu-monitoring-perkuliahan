@@ -1,5 +1,5 @@
 // src/types/index.ts
-// TypeScript type definitions untuk CDU Monitoring
+// TypeScript type definitions untuk CDU Portal
 
 // ─────────────────────────────────────────
 // Enums (mirror dari Prisma schema)

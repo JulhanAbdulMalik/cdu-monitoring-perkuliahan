@@ -1,4 +1,4 @@
-# 🎓 CDU Monitoring - Nusa Putra University
+# 🎓 CDU Portal - Nusa Putra University
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev/)
@@ -7,7 +7,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon.tech-336791?style=for-the-badge&logo=postgresql)](https://neon.tech/)
 
-**CDU Monitoring** adalah sistem informasi manajemen dan monitoring perkuliahan berbasis web terpadu yang dirancang khusus untuk **Curriculum Development Unit (CDU) Universitas Nusa Putra**.
+**CDU Portal** adalah sistem informasi manajemen dan monitoring perkuliahan berbasis web terpadu yang dirancang khusus untuk **Curriculum Development Unit (CDU) Universitas Nusa Putra**.
 
 Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, standardisasi kelengkapan **3 Pilar Pembelajaran**, validasi kuota **Temu Virtual (Live Conference)**, otomasi import laporan LMS (Edlink/Sevima), penanganan pergantian dosen, pusat pengaduan/sanggahan (**Lapor CDU**), hingga rekapitulasi serta ekspor laporan eksekutif berformat Excel dan cetak PDF.
 
@@ -308,7 +308,7 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-super-secret-key-minimum-32-characters-here"
 
 # ── Konfigurasi Aplikasi ──────────────────────────────────────────────────────
-NEXT_PUBLIC_APP_NAME="CDU Monitoring - Nusa Putra University"
+NEXT_PUBLIC_APP_NAME="CDU Portal - Nusa Putra University"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 

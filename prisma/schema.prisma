@@ -1,5 +1,5 @@
 // prisma/schema.prisma
-// CDU Monitoring - Nusa Putra University
+// CDU Portal - Nusa Putra University
 
 generator client {
   provider = "prisma-client-js"

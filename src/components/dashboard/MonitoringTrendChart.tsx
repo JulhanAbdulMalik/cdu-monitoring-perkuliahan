@@ -1,7 +1,7 @@
 "use client";
 // src/components/dashboard/MonitoringTrendChart.tsx
 // Compact & Unified Spline Area Chart dengan Pemisah Jenis Kelas (Semua, Offline, Online, Bimbingan)
-// Designed for CDU Monitoring Dashboard (Plus Jakarta Sans)
+// Designed for CDU Portal Dashboard (Plus Jakarta Sans)
 
 import {
   ResponsiveContainer,

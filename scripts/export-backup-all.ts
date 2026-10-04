@@ -127,7 +127,7 @@ async function exportAll() {
   // ─────────────────────────────────────────────────────────────
   console.log("\n2. Membuat file SQL dump...");
   let sqlContent = `-- ==========================================================\n`;
-  sqlContent += `-- BACKUP PENUH DATABASE NEON.TECH (CDU MONITORING)\n`;
+  sqlContent += `-- BACKUP PENUH DATABASE NEON.TECH (CDU Portal)\n`;
   sqlContent += `-- Tanggal: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}\n`;
   sqlContent += `-- Server Asal: Neon.tech (PostgreSQL 16)\n`;
   sqlContent += `-- ==========================================================\n\n`;

@@ -1,7 +1,7 @@
 "use client";
 // src/components/dashboard/StatusDonutChart.tsx
 // Compact Donut Chart with Class Mode Slider (Semua, Offline, Online, Bimbingan)
-// Designed for CDU Monitoring Dashboard (Plus Jakarta Sans)
+// Designed for CDU Portal Dashboard (Plus Jakarta Sans)
 
 import { useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";

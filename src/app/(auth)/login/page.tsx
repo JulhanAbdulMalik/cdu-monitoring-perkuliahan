@@ -141,11 +141,11 @@ function LoginForm() {
       <div className="absolute -top-32 -left-32 w-80 h-80 rounded-full bg-[#a80063]/8 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full bg-[#d946ef]/8 blur-3xl pointer-events-none" />
 
-      {/* Main Card Frame - Sleeker & Scaled Down for Spacious Look */}
-      <div className="w-full max-w-[890px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_16px_45px_-12px_rgba(15,23,42,0.09)] border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[500px] lg:h-[530px] relative z-10">
+      {/* Main Card Frame - Sleeker & Scaled for Spacious Look */}
+      <div className="w-full max-w-[980px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_16px_45px_-12px_rgba(15,23,42,0.09)] border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[520px] lg:h-[545px] relative z-10">
         
         {/* ── LEFT PANEL: Form Area (Clean, Minimalist & Airy) ─────────────── */}
-        <div className="lg:col-span-6 p-6 sm:p-8 lg:p-9 flex flex-col justify-between bg-white relative">
+        <div className="lg:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white relative">
           
           {/* Top Brand Header */}
           <div className="flex items-center gap-2.5">
@@ -168,7 +168,7 @@ function LoginForm() {
           </div>
 
           {/* Form Content Area */}
-          <div className="my-auto py-4 max-w-[340px] w-full mx-auto">
+          <div className="my-auto py-4 max-w-[370px] w-full mx-auto">
             <div className="mb-5 text-left">
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                 Selamat Datang
@@ -281,7 +281,7 @@ function LoginForm() {
         <div
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="lg:col-span-6 relative bg-gradient-to-br from-[#240015] via-[#3b0022] to-[#14000b] p-6 sm:p-8 lg:p-9 flex flex-col justify-between overflow-hidden text-white min-h-[380px] lg:min-h-full"
+          className="lg:col-span-6 relative bg-gradient-to-br from-[#240015] via-[#3b0022] to-[#14000b] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden text-white min-h-[380px] lg:min-h-full"
         >
           {/* Subtle Grid Pattern Overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
@@ -295,7 +295,7 @@ function LoginForm() {
             
             {/* SLIDE 1 MOCKUP: Donut Kehadiran & Skor 3 Pilar */}
             {activeSlide === 0 && (
-              <div className="w-full max-w-[340px] relative animate-fade-in transition-all duration-500">
+              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
                 {/* Card 1: Top Floating Card - Donut Kehadiran Dosen */}
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[86%] mb-2.5 hover:translate-y-[-2px] transition-transform">
                   <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1.5">
@@ -408,7 +408,7 @@ function LoginForm() {
 
             {/* SLIDE 2 MOCKUP: Portal Kaprodi & Sekprodi */}
             {activeSlide === 1 && (
-              <div className="w-full max-w-[340px] relative animate-fade-in transition-all duration-500">
+              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
                 {/* Card 1: Top Floating Card - Evaluasi Dosen Prodi */}
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[88%] mb-2.5 hover:translate-y-[-2px] transition-transform">
                   <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1.5">
@@ -468,7 +468,7 @@ function LoginForm() {
 
             {/* SLIDE 3 MOCKUP: Standar Mutu Akademik CDU */}
             {activeSlide === 2 && (
-              <div className="w-full max-w-[340px] relative animate-fade-in transition-all duration-500">
+              <div className="w-full max-w-[375px] relative animate-fade-in transition-all duration-500">
                 {/* Card 1: Top Floating Card - Standar CDU */}
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-2.5 sm:p-3 border border-white/20 shadow-xl text-white ml-auto w-[88%] mb-2.5 hover:translate-y-[-2px] transition-transform">
                   <div className="flex items-center justify-between text-[10px] font-semibold text-white/80 mb-1">
@@ -526,7 +526,7 @@ function LoginForm() {
             </h2>
 
             {/* Description */}
-            <p className="text-[11px] text-white/70 font-normal mt-1 leading-relaxed max-w-sm">
+            <p className="text-[11px] text-white/70 font-normal mt-1 leading-relaxed max-w-md">
               {currentSlide.description}
             </p>
 

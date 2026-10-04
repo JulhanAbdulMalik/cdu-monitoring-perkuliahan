@@ -1,5 +1,5 @@
 // src/lib/utils.ts
-// Helper functions umum - CDU Monitoring
+// Helper functions umum - CDU Portal
 
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";

@@ -1,7 +1,7 @@
 "use client";
 // src/components/dashboard/WeeklyMonitoringTrendChart.tsx
 // Compact Spline Area Chart for Weekly Lecture Trends (Minggu 1 - 16)
-// Designed for CDU Monitoring (Plus Jakarta Sans)
+// Designed for CDU Portal (Plus Jakarta Sans)
 
 import {
   ResponsiveContainer,
