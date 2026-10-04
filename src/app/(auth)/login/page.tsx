@@ -46,9 +46,9 @@ const SLIDES: SlideData[] = [
       icon: GraduationCap,
       text: "Command Center CDU",
     },
-    headline: "Pusat Kendali & Monitoring Perkuliahan",
+    headline: "Pusat Monitoring Perkuliahan",
     description:
-      "Pantau performa kehadiran dosen, kepatuhan konten 3 pilar, dan status sesi perkuliahan secara real-time.",
+      "Pantau performa kehadiran dosen, kepatuhan konten perkuliahan, dan status sesi perkuliahan secara real-time.",
   },
   {
     id: 2,
@@ -68,7 +68,7 @@ const SLIDES: SlideData[] = [
     },
     headline: "Standar Mutu & Target Akademik Unggul",
     description:
-      "Standarisasi presensi minimal 90% serta keterpenuhan RPS, materi perkuliahan, tugas, dan video konferensi.",
+      "Standarisasi presensi minimal 90%, materi perkuliahan, tugas, kuis, dan video konferensi.",
   },
 ];
 
@@ -272,8 +272,8 @@ function LoginForm() {
 
           {/* Left Footer Info */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>© {new Date().getFullYear()} Universitas Nusa Putra</span>
-            <span className="font-medium text-slate-400">CDU Portal v2.0</span>
+            <span>Julhan A Malik &copy; {new Date().getFullYear()} Universitas Nusa Putra</span>
+            <span className="font-medium text-slate-400">CDU Portal v1.0</span>
           </div>
         </div>
 
@@ -551,63 +551,88 @@ function LoginForm() {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* ── Contact Admin CDU Modal ─────────────────────────────────────── */}
+      {/* ── Contact Admin CDU Modal (Enlarged & Comfortable Scale) ─────── */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 relative">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+          <div className="bg-white rounded-2xl sm:rounded-[22px] max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200/90 relative">
             <button
               onClick={() => setShowHelpModal(false)}
-              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Tutup modal"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
 
-            <div className="flex items-center gap-2.5 mb-3.5">
-              <div className="w-8 h-8 rounded-lg bg-[#a80063]/10 text-[#a80063] flex items-center justify-center shrink-0">
-                <HelpCircle size={18} />
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-xl bg-[#a80063]/10 text-[#a80063] flex items-center justify-center shrink-0">
+                <HelpCircle size={22} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Bantuan Akses Akun</h3>
-                <p className="text-[10px] text-slate-500">Curriculum Development Unit (CDU)</p>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                  Bantuan Akses Akun
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Curriculum Development Unit (CDU)
+                </p>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-600 leading-relaxed mb-3.5">
-              Jika Anda mengalami kendala saat masuk, lupa kata sandi, atau memerlukan verifikasi akun staf/dosen, silakan hubungi tim CDU:
+            <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed mb-4">
+              Jika Anda mengalami kendala saat masuk atau lupa kata sandi akun, silakan hubungi tim CDU melalui saluran resmi:
             </p>
 
-            <div className="space-y-2 text-[11px] text-slate-700 mb-4">
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
-                <Mail size={13} className="text-[#a80063] shrink-0" />
+            {/* Contact Cards */}
+            <div className="space-y-2.5 mb-5">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-white shadow-2xs border border-slate-200/60 flex items-center justify-center shrink-0 text-[#a80063]">
+                  <Mail size={16} />
+                </div>
                 <div>
-                  <span className="font-semibold block text-slate-800 text-[10.5px]">Email Resmi CDU</span>
-                  <span className="text-slate-500 text-[10px]">cdu@nusaputra.ac.id</span>
+                  <span className="font-bold block text-slate-900 text-xs sm:text-[13px]">
+                    Email CDU
+                  </span>
+                  <span className="text-slate-500 text-[11px] sm:text-xs block mt-0.5">
+                    cdu@nusaputra.ac.id
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
-                <Phone size={13} className="text-[#a80063] shrink-0" />
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-white shadow-2xs border border-slate-200/60 flex items-center justify-center shrink-0 text-[#a80063]">
+                  <Phone size={16} />
+                </div>
                 <div>
-                  <span className="font-semibold block text-slate-800 text-[10.5px]">WhatsApp Helpdesk CDU</span>
-                  <span className="text-slate-500 text-[10px]">+62 812-8888-CDU (Senin - Jumat 08:00 - 16:30)</span>
+                  <span className="font-bold block text-slate-900 text-xs sm:text-[13px]">
+                    WhatsApp Staff CDU
+                  </span>
+                  <span className="text-slate-500 text-[11px] sm:text-xs block mt-0.5">
+                    0831-1103-0309
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
-                <Building size={13} className="text-[#a80063] shrink-0" />
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-white shadow-2xs border border-slate-200/60 flex items-center justify-center shrink-0 text-[#a80063]">
+                  <Building size={16} />
+                </div>
                 <div>
-                  <span className="font-semibold block text-slate-800 text-[10.5px]">Ruang Layanan CDU</span>
-                  <span className="text-slate-500 text-[10px]">Gedung Rektorat Lt. 2, Universitas Nusa Putra</span>
+                  <span className="font-bold block text-slate-900 text-xs sm:text-[13px]">
+                    Ruang Layanan CDU
+                  </span>
+                  <span className="text-slate-500 text-[11px] sm:text-xs block mt-0.5">
+                    Gedung B Lt.6, Universitas Nusa Putra
+                  </span>
                 </div>
               </div>
             </div>
 
+            {/* Close Button */}
             <button
               onClick={() => setShowHelpModal(false)}
-              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              className="w-full py-2.5 sm:py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
             >
               Tutup
             </button>
