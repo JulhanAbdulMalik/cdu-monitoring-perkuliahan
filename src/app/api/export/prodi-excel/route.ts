@@ -138,17 +138,19 @@ export async function GET(request: NextRequest) {
         p.totalHadirTdkLengkapRentang,
         p.totalAlphaRentang,
         p.totalBelumDiisiRentang,
-        formatPct(p.avgKehadiranRentang),
-        `${p.totalSkor3PilarRentang}/${p.totalRegularSesiRentang * 3}`,
-        formatPct(p.avgKontenRentang),
+        p.avgKehadiranRentang === null ? "N/A" : formatPct(p.avgKehadiranRentang),
+        p.totalRegularSesiRentang === 0 ? "0/0" : `${p.totalSkor3PilarRentang}/${p.totalRegularSesiRentang * 3}`,
+        p.avgKontenRentang === null ? "N/A" : formatPct(p.avgKontenRentang),
         p.totalConfRentang,
         p.statusKinerjaRentang === "SANGAT_BAIK"
           ? "Sangat Baik"
           : p.statusKinerjaRentang === "BAIK"
           ? "Baik"
-          : "Perlu Pembinaan",
-        formatPct(p.avgKehadiranSemester),
-        formatPct(p.avgKontenSemester),
+          : p.statusKinerjaRentang === "PERLU_PEMBINAAN"
+          ? "Perlu Pembinaan"
+          : "Belum Ada Kelas",
+        p.avgKehadiranSemester === null ? "N/A" : formatPct(p.avgKehadiranSemester),
+        p.avgKontenSemester === null ? "N/A" : formatPct(p.avgKontenSemester),
       ];
 
       const row = worksheet.addRow(rowValues);
@@ -176,8 +178,10 @@ export async function GET(request: NextRequest) {
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF047857" } };
           } else if (p.statusKinerjaRentang === "BAIK") {
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF1D4ED8" } };
-          } else {
+          } else if (p.statusKinerjaRentang === "PERLU_PEMBINAAN") {
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB91C1C" } };
+          } else {
+            cell.font = { name: "Rockwell", size: 9, color: { argb: "FF64748B" } };
           }
         }
       });

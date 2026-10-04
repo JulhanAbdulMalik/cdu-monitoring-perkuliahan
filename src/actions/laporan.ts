@@ -716,11 +716,11 @@ export interface ProdiReportItem {
   totalAlphaRentang: number;
   totalBelumDiisiRentang: number;
   totalGantiHariRentang: number;
-  avgKehadiranRentang: number;
+  avgKehadiranRentang: number | null;
 
   totalRegularSesiRentang: number;
   totalSkor3PilarRentang: number;
-  avgKontenRentang: number;
+  avgKontenRentang: number | null;
   totalPilar1Rentang: number;
   totalPilar2Rentang: number;
   totalPilar3Rentang: number;
@@ -728,7 +728,7 @@ export interface ProdiReportItem {
 
   totalDosenAktifRentang: number;
   totalKelasAktifRentang: number;
-  statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN";
+  statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS";
 
   // Sesi Kendala (Alpha & Belum Diisi)
   kendalaList: KendalaKehadiranItem[];
@@ -737,8 +737,8 @@ export interface ProdiReportItem {
   totalKelas: number;
   totalKelasNonBimbingan?: number;
   totalDosen: number;
-  avgKehadiranSemester: number;
-  avgKontenSemester: number;
+  avgKehadiranSemester: number | null;
+  avgKontenSemester: number | null;
 }
 
 export interface KendalaKehadiranItem {
@@ -1101,35 +1101,41 @@ export async function getLaporanProdi(
     let globalTotalGantiHariRentang = 0;
 
     const prodiReportList: ProdiReportItem[] = Array.from(prodiMap.values()).map((p) => {
-      const avgKehadiranRentang =
-        p.totalSesiRentang > 0
-          ? Math.round(((p.totalHadirRentang + p.totalHadirTdkLengkapRentang) / p.totalSesiRentang) * 1000) / 10
-          : 0;
+      const hasKelas = p.totalKelas > 0;
+      const hasSesi = p.totalSesiRentang > 0;
+
+      const avgKehadiranRentang = hasSesi
+        ? Math.round(((p.totalHadirRentang + p.totalHadirTdkLengkapRentang) / p.totalSesiRentang) * 1000) / 10
+        : (hasKelas ? 0 : null);
 
       const avgKontenRentang =
         p.totalRegularSesiRentang > 0
           ? Math.round((p.totalSkor3PilarRentang / (p.totalRegularSesiRentang * 3)) * 1000) / 10
-          : (p.totalKelasNonBimbingan === 0 ? 100 : 0);
+          : (hasKelas ? (p.totalKelasNonBimbingan === 0 ? 100 : 0) : null);
 
       const avgKehadiranSemester =
-        p.totalKelas > 0 ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 1000) / 10 : 0;
+        hasKelas ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 1000) / 10 : null;
       const avgKontenSemester =
-        p.totalKelasNonBimbingan > 0
-          ? Math.round((p.totalSkor3PilarSemester / (p.totalKelasNonBimbingan * 42)) * 1000) / 10
-          : 100;
+        hasKelas
+          ? (p.totalKelasNonBimbingan > 0
+              ? Math.round((p.totalSkor3PilarSemester / (p.totalKelasNonBimbingan * 42)) * 1000) / 10
+              : 100)
+          : null;
 
-      let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" = "SANGAT_BAIK";
-      if (p.totalSesiRentang === 0) {
+      let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS" = "SANGAT_BAIK";
+      if (!hasKelas) {
+        statusKinerjaRentang = "BELUM_ADA_KELAS";
+      } else if (p.totalSesiRentang === 0) {
         statusKinerjaRentang = "BAIK";
       } else if (
-        avgKehadiranRentang < 75 ||
-        (p.totalKelasNonBimbingan > 0 && avgKontenRentang < 60) ||
+        (avgKehadiranRentang ?? 0) < 75 ||
+        (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 60) ||
         p.totalAlphaRentang >= 2
       ) {
         statusKinerjaRentang = "PERLU_PEMBINAAN";
       } else if (
-        avgKehadiranRentang < 90 ||
-        (p.totalKelasNonBimbingan > 0 && avgKontenRentang < 80)
+        (avgKehadiranRentang ?? 0) < 90 ||
+        (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80)
       ) {
         statusKinerjaRentang = "BAIK";
       }
@@ -1183,7 +1189,7 @@ export async function getLaporanProdi(
     const avgKontenRentangSemua =
       globalTotalRegularSesiRentang > 0
         ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 1000) / 10
-        : 100;
+        : 0;
 
     const responseData = {
       prodiReportList,

@@ -230,15 +230,16 @@ export default function LaporanProdiClient({
       case "sesi_asc":
         return a.totalSesiRentang - b.totalSesiRentang;
       case "kehadiran_desc":
-        return b.avgKehadiranRentang - a.avgKehadiranRentang;
+        return (b.avgKehadiranRentang ?? -1) - (a.avgKehadiranRentang ?? -1);
       case "kehadiran_asc":
-        return a.avgKehadiranRentang - b.avgKehadiranRentang;
+        return (a.avgKehadiranRentang ?? 999) - (b.avgKehadiranRentang ?? 999);
       case "konten_desc":
-        return b.avgKontenRentang - a.avgKontenRentang;
+        return (b.avgKontenRentang ?? -1) - (a.avgKontenRentang ?? -1);
       case "konten_asc":
-        return a.avgKontenRentang - b.avgKontenRentang;
+        return (a.avgKontenRentang ?? 999) - (b.avgKontenRentang ?? 999);
       case "status_asc": {
         const rank: Record<string, number> = {
+          BELUM_ADA_KELAS: 0,
           PERLU_PEMBINAAN: 1,
           BAIK: 2,
           SANGAT_BAIK: 3,
@@ -247,6 +248,7 @@ export default function LaporanProdiClient({
       }
       case "status_desc": {
         const rank: Record<string, number> = {
+          BELUM_ADA_KELAS: 0,
           PERLU_PEMBINAAN: 1,
           BAIK: 2,
           SANGAT_BAIK: 3,
@@ -417,6 +419,9 @@ export default function LaporanProdiClient({
   const pembinaanCount = prodiReports.filter(
     (p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN"
   ).length;
+  const belumAdaKelasCount = prodiReports.filter(
+    (p) => p.statusKinerjaRentang === "BELUM_ADA_KELAS"
+  ).length;
 
   const totalHadirUniv = prodiReports.reduce(
     (acc, p) => acc + (p.totalHadirRentang || 0) + (p.totalHadirTdkLengkapRentang || 0),
@@ -539,11 +544,17 @@ export default function LaporanProdiClient({
             { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
             { label: "Baik", value: baikCount, color: "blue" },
             { label: "Perlu Pembinaan", value: pembinaanCount, color: "rose" },
+            ...(belumAdaKelasCount > 0
+              ? [{ label: "Belum Ada Kelas", value: belumAdaKelasCount, color: "slate" as const }]
+              : []),
           ]}
           details={[
             { label: "Sangat Baik", value: sangatBaikCount, color: "emerald" },
             { label: "Baik", value: baikCount, color: "blue" },
             { label: "Pembinaan", value: pembinaanCount, color: "rose" },
+            ...(belumAdaKelasCount > 0
+              ? [{ label: "Belum Ada Kelas", value: belumAdaKelasCount, color: "slate" as const }]
+              : []),
           ]}
         />
 
@@ -579,14 +590,14 @@ export default function LaporanProdiClient({
           ]}
         />
 
-        {/* Card 3: Kelengkapan 3 Pilar */}
+        {/* Card 3: Rata-rata Konten */}
         <SparklineCard
           title={
             isSesiActive
-              ? `Kelengkapan 3 Pilar (Sesi ${selectedSesi})`
+              ? `Rata-rata Konten (Sesi ${selectedSesi})`
               : isAppliedAllTime
-              ? "Kelengkapan 3 Pilar (Semua)"
-              : "Kelengkapan 3 Pilar (Rentang)"
+              ? "Rata-rata Konten (Semua)"
+              : "Rata-rata Konten (Rentang)"
           }
           value={formatPct(globalSummary.avgKontenRentangSemua)}
           valueColor="maroon"
@@ -823,6 +834,7 @@ export default function LaporanProdiClient({
                 <option value="SANGAT_BAIK">Sangat Baik</option>
                 <option value="BAIK">Baik</option>
                 <option value="PERLU_PEMBINAAN">Perlu Pembinaan</option>
+                <option value="BELUM_ADA_KELAS">Belum Ada Kelas</option>
               </select>
             </div>
 
@@ -918,6 +930,11 @@ export default function LaporanProdiClient({
                           <span>Perlu Pembinaan</span>
                         </span>
                       )}
+                      {p.statusKinerjaRentang === "BELUM_ADA_KELAS" && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          <span>Belum Ada Kelas</span>
+                        </span>
+                      )}
                     </div>
 
                     <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
@@ -961,19 +978,29 @@ export default function LaporanProdiClient({
                           ? "Kehadiran Dosen:"
                           : "Kehadiran Dosen (Rentang):"}
                       </span>
-                      <span className="font-bold text-emerald-600">
-                        {formatPct(p.avgKehadiranRentang)}
-                      </span>
+                      {p.avgKehadiranRentang === null ? (
+                        <span className="font-semibold text-slate-400 text-xs">N/A</span>
+                      ) : (
+                        <span className="font-bold text-emerald-600">
+                          {formatPct(p.avgKehadiranRentang)}
+                        </span>
+                      )}
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                        style={{ width: `${p.avgKehadiranRentang}%` }}
+                        style={{ width: `${p.avgKehadiranRentang ?? 0}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                      <span>Hadir: {p.totalHadirRentang} | HTL: {p.totalHadirTdkLengkapRentang}</span>
-                      <span>Alpha: {p.totalAlphaRentang}{p.totalGantiHariRentang ? ` | Ganti: ${p.totalGantiHariRentang}` : ""}</span>
+                      {p.totalKelas === 0 ? (
+                        <span>Belum ada kelas aktif</span>
+                      ) : (
+                        <>
+                          <span>Hadir: {p.totalHadirRentang} | HTL: {p.totalHadirTdkLengkapRentang}</span>
+                          <span>Alpha: {p.totalAlphaRentang}{p.totalGantiHariRentang ? ` | Ganti: ${p.totalGantiHariRentang}` : ""}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -987,24 +1014,38 @@ export default function LaporanProdiClient({
                           ? "Konten 3 Pilar:"
                           : "Konten 3 Pilar (Rentang):"}
                       </span>
-                      <span className="font-bold text-[#a80063]">
-                        {formatPct(p.avgKontenRentang)}
-                      </span>
+                      {p.avgKontenRentang === null ? (
+                        <span className="font-semibold text-slate-400 text-xs">N/A</span>
+                      ) : (
+                        <span className="font-bold text-[#a80063]">
+                          {formatPct(p.avgKontenRentang)}
+                        </span>
+                      )}
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full bg-[#a80063] rounded-full transition-all duration-300"
-                        style={{ width: `${p.avgKontenRentang}%` }}
+                        style={{ width: `${p.avgKontenRentang ?? 0}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                      <span>Skor: {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}</span>
-                      <span>L/S: {p.totalPilar1Rentang} • T/Q: {p.totalPilar2Rentang} • V/C: {p.totalPilar3Rentang}</span>
+                      {p.totalKelas === 0 ? (
+                        <span>Belum ada materi</span>
+                      ) : (
+                        <>
+                          <span>Skor: {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}</span>
+                          <span>L/S: {p.totalPilar1Rentang} • T/Q: {p.totalPilar2Rentang} • V/C: {p.totalPilar3Rentang}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* Kendala Kehadiran Footer Button */}
-                  {(p.kendalaList?.length || 0) > 0 ? (
+                  {p.totalKelas === 0 ? (
+                    <div className="w-full mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-1.5 text-[10.5px] font-medium text-slate-400">
+                      <span>Belum ada kelas perkuliahan di semester ini</span>
+                    </div>
+                  ) : (p.kendalaList?.length || 0) > 0 ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -1115,20 +1156,32 @@ export default function LaporanProdiClient({
                             {p.totalSesiRentang} {isSesiActive ? "Kelas" : "Sesi"}
                           </td>
                           <td className="py-3 px-2.5 text-center">
-                            <span className="font-bold text-emerald-600 text-xs">
-                              {formatPct(p.avgKehadiranRentang)}
-                            </span>
-                            <span className="block text-[9.5px] text-slate-400">
-                              H:{p.totalHadirRentang} A:{p.totalAlphaRentang}{p.totalGantiHariRentang ? ` G:${p.totalGantiHariRentang}` : ""}
-                            </span>
+                            {p.avgKehadiranRentang === null ? (
+                              <span className="font-semibold text-slate-400 text-xs">N/A</span>
+                            ) : (
+                              <>
+                                <span className="font-bold text-emerald-600 text-xs">
+                                  {formatPct(p.avgKehadiranRentang)}
+                                </span>
+                                <span className="block text-[9.5px] text-slate-400">
+                                  H:{p.totalHadirRentang} A:{p.totalAlphaRentang}{p.totalGantiHariRentang ? ` G:${p.totalGantiHariRentang}` : ""}
+                                </span>
+                              </>
+                            )}
                           </td>
                           <td className="py-3 px-2.5 text-center">
-                            <span className="font-bold text-[#a80063] text-xs">
-                              {formatPct(p.avgKontenRentang)}
-                            </span>
-                            <span className="block text-[9.5px] text-slate-400">
-                              {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}
-                            </span>
+                            {p.avgKontenRentang === null ? (
+                              <span className="font-semibold text-slate-400 text-xs">N/A</span>
+                            ) : (
+                              <>
+                                <span className="font-bold text-[#a80063] text-xs">
+                                  {formatPct(p.avgKontenRentang)}
+                                </span>
+                                <span className="block text-[9.5px] text-slate-400">
+                                  {p.totalSkor3PilarRentang}/{p.totalRegularSesiRentang * 3}
+                                </span>
+                              </>
+                            )}
                           </td>
                           <td className="py-3 px-2.5 text-center">
                             {p.statusKinerjaRentang === "SANGAT_BAIK" && (
@@ -1148,32 +1201,41 @@ export default function LaporanProdiClient({
                                 <span>Perlu Pembinaan</span>
                               </span>
                             )}
+                            {p.statusKinerjaRentang === "BELUM_ADA_KELAS" && (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span>Belum Ada Kelas</span>
+                              </span>
+                            )}
                           </td>
                           {/* Tombol Kendala di Kolom Paling Kanan */}
                           <td className="py-3 px-2.5 text-center print:hidden">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpandProdi(p.id);
-                              }}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer shadow-2xs ${
-                                isExpanded
-                                  ? "bg-[#a80063] text-white shadow-xs"
-                                  : kendalaCount > 0
-                                  ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
-                                  : "bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60"
-                              }`}
-                              title={isExpanded ? "Tutup rincian kendala" : "Lihat rincian kendala"}
-                            >
-                              <span>{kendalaCount > 0 ? `${kendalaCount} Kendala` : "0 Kendala"}</span>
-                              <ChevronDown
-                                size={11}
-                                className={`transition-transform duration-200 ${
-                                  isExpanded ? "rotate-180" : ""
+                            {p.totalKelas === 0 ? (
+                              <span className="text-slate-300 text-[11px] font-medium">-</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpandProdi(p.id);
+                                }}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer shadow-2xs ${
+                                  isExpanded
+                                    ? "bg-[#a80063] text-white shadow-xs"
+                                    : kendalaCount > 0
+                                    ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
+                                    : "bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60"
                                 }`}
-                              />
-                            </button>
+                                title={isExpanded ? "Tutup rincian kendala" : "Lihat rincian kendala"}
+                              >
+                                <span>{kendalaCount > 0 ? `${kendalaCount} Kendala` : "0 Kendala"}</span>
+                                <ChevronDown
+                                  size={11}
+                                  className={`transition-transform duration-200 ${
+                                    isExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
+                            )}
                           </td>
                         </tr>
 

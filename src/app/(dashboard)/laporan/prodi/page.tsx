@@ -8,7 +8,7 @@ import { getWeekDates } from "@/lib/utils";
 import LaporanProdiClient from "./LaporanProdiClient";
 
 export const metadata: Metadata = {
-  title: "Laporan Performa Program Studi - CDU Monitoring",
+  title: "Laporan Performa Program Studi",
 };
 
 interface LaporanProdiPageProps {
@@ -73,13 +73,15 @@ export default async function LaporanProdiPage({
     const totalKelasSemua = filteredProdiReports.reduce((s, p) => s + p.totalKelas, 0);
     const totalDosenSemua = filteredProdiReports.reduce((s, p) => s + p.totalDosen, 0);
     const totalSesiRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalSesiRentang, 0);
+    const activeProdiReports = filteredProdiReports.filter((p) => p.totalKelas > 0);
+    const totalActiveProdi = activeProdiReports.length;
     const avgKehadiranRentangSemua =
-      totalProdi > 0
-        ? Math.round(filteredProdiReports.reduce((s, p) => s + p.avgKehadiranRentang, 0) / totalProdi)
+      totalActiveProdi > 0
+        ? Math.round(activeProdiReports.reduce((s, p) => s + (p.avgKehadiranRentang || 0), 0) / totalActiveProdi)
         : 0;
     const avgKontenRentangSemua =
-      totalProdi > 0
-        ? Math.round(filteredProdiReports.reduce((s, p) => s + p.avgKontenRentang, 0) / totalProdi)
+      totalActiveProdi > 0
+        ? Math.round(activeProdiReports.reduce((s, p) => s + (p.avgKontenRentang || 0), 0) / totalActiveProdi)
         : 0;
     const totalConfRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalConfRentang, 0);
     const totalGantiHariRentangSemua = filteredProdiReports.reduce((s, p) => s + (p.totalGantiHariRentang || 0), 0);
