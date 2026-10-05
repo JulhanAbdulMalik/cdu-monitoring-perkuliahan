@@ -98,9 +98,11 @@ function LoginForm() {
       });
 
       if (res?.error) {
-        console.error("Login response error:", res);
+        console.warn("Login failed response:", res);
         if (res.status === 401 || res.error === "CredentialsSignin") {
           toast.error("Email/Username atau password salah. Silakan periksa kembali.");
+        } else if (res.error === "Configuration" || res.status === 500) {
+          toast.error("Gagal terhubung ke server database. Pastikan database server (Coolify/PostgreSQL) aktif.");
         } else {
           toast.error(`Gagal masuk (${res.error}). Silakan coba lagi.`);
         }
@@ -109,7 +111,7 @@ function LoginForm() {
         window.location.replace(callbackUrl);
       }
     } catch (err: any) {
-      console.error("Login catch error:", err);
+      console.warn("Login catch error:", err);
       toast.error("Terjadi kesalahan sistem. Silakan coba lagi.");
     } finally {
       setLoading(false);
