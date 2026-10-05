@@ -445,23 +445,7 @@ export default function MataKuliahClient({
               <option value="NO_CLASS">Belum Ada Kelas</option>
             </select>
 
-            {/* Quick Sort Dropdown */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as MataKuliahSortKey)}
-              className="px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium outline-none cursor-pointer transition-all"
-              title="Urutkan Data"
-            >
-              <option value="KODE_ASC">Urut: Kode MK (A-Z)</option>
-              <option value="KODE_DESC">Urut: Kode MK (Z-A)</option>
-              <option value="NAMA_ASC">Urut: Nama MK (A-Z)</option>
-              <option value="NAMA_DESC">Urut: Nama MK (Z-A)</option>
-              <option value="SKS_DESC">Urut: SKS Tertinggi</option>
-              <option value="SKS_ASC">Urut: SKS Terendah</option>
-              <option value="PRODI_ASC">Urut: Prodi (A-Z)</option>
-              <option value="KELAS_DESC">Urut: Kelas Terbanyak</option>
-              <option value="KELAS_ASC">Urut: Kelas Paling Sedikit</option>
-            </select>
+
 
             {/* Reset All Filters Button */}
             {(searchQuery || filterProdi !== "ALL" || filterSks !== "ALL" || filterKelas !== "ALL" || sortBy !== "KODE_ASC") && (

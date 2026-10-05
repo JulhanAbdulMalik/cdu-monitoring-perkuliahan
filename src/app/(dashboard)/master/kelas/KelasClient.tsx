@@ -39,6 +39,7 @@ import ResetKelasModal from "@/components/master/ResetKelasModal";
 import { parseKelasExcel, commitKelasImport } from "@/actions/master-import";
 import { generateTemplate } from "@/lib/template-generator";
 import TablePagination from "@/components/common/TablePagination";
+import SearchableSelect from "@/components/common/SearchableSelect";
 
 interface KelasItem {
   id: string;
@@ -170,7 +171,7 @@ export default function KelasClient({
   const [namaMk, setNamaMk] = useState("");
   const [sks, setSks] = useState<number>(3);
 
-  const [modeDosen, setModeDosen] = useState<"EXISTING" | "NEW">("EXISTING");
+  const [modeDosen, setModeDosen] = useState<"EXISTING_PRODI" | "EXISTING_UNIV" | "NEW">("EXISTING_PRODI");
   const [dosenId, setDosenId] = useState("");
   const [namaDosen, setNamaDosen] = useState("");
 
@@ -196,7 +197,7 @@ export default function KelasClient({
     setSks(3);
 
     const dosensInProdi = allDosenList.filter((d) => !d.prodi?.id || d.prodi?.id === defaultProdi);
-    setModeDosen(dosensInProdi.length > 0 ? "EXISTING" : "NEW");
+    setModeDosen(dosensInProdi.length > 0 ? "EXISTING_PRODI" : "NEW");
     setDosenId(dosensInProdi[0]?.id || allDosenList[0]?.id || "");
     setNamaDosen("");
 
@@ -219,7 +220,7 @@ export default function KelasClient({
     setNamaMk(cls.mataKuliah.nama);
     setSks(cls.mataKuliah.sks);
 
-    setModeDosen("EXISTING");
+    setModeDosen("EXISTING_PRODI");
     setDosenId(cls.dosenId);
     setNamaDosen(cls.dosen.nama);
 
@@ -263,7 +264,7 @@ export default function KelasClient({
         namaMk: modeMk === "NEW" ? namaMk.trim() : undefined,
         sks: modeMk === "NEW" ? Number(sks) || 3 : undefined,
         prodiId,
-        dosenId: modeDosen === "EXISTING" ? dosenId : undefined,
+        dosenId: (modeDosen === "EXISTING_PRODI" || modeDosen === "EXISTING_UNIV") ? dosenId : undefined,
         namaDosen: modeDosen === "NEW" ? namaDosen.trim() : undefined,
       };
 
@@ -326,10 +327,10 @@ export default function KelasClient({
     (m) => !prodiId || m.prodi?.id === prodiId
   );
 
-  // Dosen yang sesuai dengan prodi yang dipilih di modal
-  const filteredDosenOptions = allDosenList.filter(
-    (d) => !prodiId || !d.prodi?.id || d.prodi?.id === prodiId
-  );
+  // Dosen yang sesuai dengan prodi yang dipilih (atau seluruh univ)
+  const filteredDosenOptions = modeDosen === "EXISTING_UNIV"
+    ? allDosenList
+    : allDosenList.filter((d) => !prodiId || !d.prodi?.id || d.prodi?.id === prodiId);
 
   // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
   type KelasSortColumn =
@@ -916,7 +917,7 @@ export default function KelasClient({
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -925,7 +926,7 @@ export default function KelasClient({
             </button>
 
             <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <School size={16} className="text-[#a80063]" />
+              {/* <School size={16} className="text-[#a80063]" /> */}
               <span>{editingKelas ? "Edit Data Perkuliahan" : "Tambah Perkuliahan Baru"}</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
@@ -939,10 +940,9 @@ export default function KelasClient({
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Program Studi <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={prodiId}
-                    onChange={(e) => {
-                      const newProdi = e.target.value;
+                    onChange={(newProdi) => {
                       setProdiId(newProdi);
                       const mks = allMkList.filter((m) => m.prodi?.id === newProdi);
                       if (mks.length > 0) {
@@ -952,18 +952,12 @@ export default function KelasClient({
                       const dosens = allDosenList.filter((d) => !d.prodi?.id || d.prodi?.id === newProdi);
                       if (dosens.length > 0) {
                         setDosenId(dosens[0].id);
-                        setModeDosen("EXISTING");
+                        setModeDosen("EXISTING_PRODI");
                       }
                     }}
-                    required
-                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  >
-                    {prodiList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nama} ({p.kode})
-                      </option>
-                    ))}
-                  </select>
+                    options={prodiList.map((p) => ({ value: p.id, label: `${p.nama} (${p.kode})` }))}
+                    placeholder="-- Pilih Prodi --"
+                  />
                 </div>
 
                 <div>
@@ -1020,22 +1014,12 @@ export default function KelasClient({
 
                 {modeMk === "EXISTING" ? (
                   <div>
-                    <select
+                    <SearchableSelect
                       value={mataKuliahId}
-                      onChange={(e) => setMataKuliahId(e.target.value)}
-                      required={modeMk === "EXISTING"}
-                      className="w-full px-3 py-1.5 bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                    >
-                      {filteredMkOptions.length === 0 ? (
-                        <option value="">-- Belum ada MK di prodi ini, klik '+ Buat Baru' --</option>
-                      ) : (
-                        filteredMkOptions.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            [{m.kode}] {m.nama} ({m.sks} SKS)
-                          </option>
-                        ))
-                      )}
-                    </select>
+                      onChange={setMataKuliahId}
+                      options={filteredMkOptions.map((m) => ({ value: m.id, label: `[${m.kode}] ${m.nama} (${m.sks} SKS)` }))}
+                      placeholder={filteredMkOptions.length === 0 ? "-- Belum ada MK di prodi ini, klik '+ Buat Baru' --" : "-- Pilih Mata Kuliah --"}
+                    />
                   </div>
                 ) : (
                   <div className="grid grid-cols-12 gap-2 animate-fade-in">
@@ -1093,14 +1077,36 @@ export default function KelasClient({
                   <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => setModeDosen("EXISTING")}
+                      onClick={() => {
+                        setModeDosen("EXISTING_PRODI");
+                        const options = allDosenList.filter((d) => !prodiId || !d.prodi?.id || d.prodi?.id === prodiId);
+                        if (options.length > 0 && !options.find(o => o.id === dosenId)) {
+                          setDosenId(options[0].id);
+                        }
+                      }}
                       className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                        modeDosen === "EXISTING"
+                        modeDosen === "EXISTING_PRODI"
                           ? "bg-[#fdf2f8] text-[#a80063]"
                           : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      Pilih Terdaftar
+                      Pilih Terdaftar (Prodi)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModeDosen("EXISTING_UNIV");
+                        if (allDosenList.length > 0 && !allDosenList.find(o => o.id === dosenId)) {
+                          setDosenId(allDosenList[0].id);
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                        modeDosen === "EXISTING_UNIV"
+                          ? "bg-[#fdf2f8] text-[#a80063]"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Pilih Terdaftar (Universitas)
                     </button>
                     <button
                       type="button"
@@ -1116,24 +1122,14 @@ export default function KelasClient({
                   </div>
                 </div>
 
-                {modeDosen === "EXISTING" ? (
+                {(modeDosen === "EXISTING_PRODI" || modeDosen === "EXISTING_UNIV") ? (
                   <div>
-                    <select
+                    <SearchableSelect
                       value={dosenId}
-                      onChange={(e) => setDosenId(e.target.value)}
-                      required={modeDosen === "EXISTING"}
-                      className="w-full px-3 py-1.5 bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                    >
-                      {filteredDosenOptions.length === 0 ? (
-                        <option value="">-- Belum ada Dosen di prodi ini, klik '+ Buat Baru' --</option>
-                      ) : (
-                        filteredDosenOptions.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.nama} {d.prodi ? `(${d.prodi.kode})` : ""}
-                          </option>
-                        ))
-                      )}
-                    </select>
+                      onChange={setDosenId}
+                      options={filteredDosenOptions.map((d) => ({ value: d.id, label: `${d.nama} ${d.prodi ? `(${d.prodi.kode})` : ""}` }))}
+                      placeholder={filteredDosenOptions.length === 0 ? "-- Belum ada Dosen di prodi ini, klik '+ Buat Baru' --" : "-- Pilih Pengajar --"}
+                    />
                   </div>
                 ) : (
                   <div className="animate-fade-in">
