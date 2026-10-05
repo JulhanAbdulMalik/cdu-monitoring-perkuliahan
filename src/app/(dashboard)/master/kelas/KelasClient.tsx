@@ -596,6 +596,29 @@ export default function KelasClient({
 
           {/* Right Controls: Filter Dropdowns & Reset */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Semester */}
+            <select
+              value={selectedSemester}
+              onChange={async (e) => {
+                const newSem = e.target.value;
+                setSelectedSemester(newSem);
+                await handleReloadData(newSem);
+              }}
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[170px] truncate ${
+                selectedSemester !== defaultSemesterId
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Pilih Semester Perkuliahan"
+            >
+              <option value="ALL">Semua Semester</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.tahunAkademik} ({s.periode}) {s.aktif ? "• Aktif" : ""}
+                </option>
+              ))}
+            </select>
+
             {/* Filter Prodi */}
             <select
               value={filterProdi}
@@ -652,14 +675,16 @@ export default function KelasClient({
             </select>
 
             {/* Reset All Filters Button */}
-            {(searchQuery || filterProdi !== "ALL" || filterHari !== "ALL" || filterMode !== "ALL") && (
+            {(searchQuery || filterProdi !== "ALL" || filterHari !== "ALL" || filterMode !== "ALL" || selectedSemester !== defaultSemesterId) && (
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setSearchQuery("");
                   setFilterProdi("ALL");
                   setFilterHari("ALL");
                   setFilterMode("ALL");
+                  setSelectedSemester(defaultSemesterId);
+                  await handleReloadData(defaultSemesterId);
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
@@ -1298,6 +1323,8 @@ export default function KelasClient({
         title="Import Data Perkuliahan dari Excel (Format Kurikulum)"
         type="kelas"
         prodiList={prodiList}
+        semesterList={semesters}
+        defaultSemesterId={selectedSemester !== "ALL" ? selectedSemester : defaultSemesterId}
         parseAction={parseKelasExcel}
         commitAction={commitKelasImport}
         onSuccess={async () => {

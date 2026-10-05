@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
+  Calendar,
   FileSpreadsheet,
   Download,
   UploadCloud,
@@ -33,12 +34,21 @@ interface ProdiOption {
   kode: string;
 }
 
+interface SemesterOption {
+  id: string;
+  tahunAkademik: string;
+  periode: string;
+  aktif: boolean;
+}
+
 interface MasterImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   type: "dosen" | "mata-kuliah" | "kelas" | "prodi" | "semester";
   prodiList?: ProdiOption[];
+  semesterList?: SemesterOption[];
+  defaultSemesterId?: string;
   parseAction: (formData: FormData) => Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }>;
   commitAction: (rows: any[]) => Promise<{ success: boolean; count?: number; error?: string }>;
   onSuccess: () => void;
@@ -52,6 +62,8 @@ export default function MasterImportModal({
   title,
   type,
   prodiList = [],
+  semesterList = [],
+  defaultSemesterId = "",
   parseAction,
   commitAction,
   onSuccess,
@@ -61,6 +73,40 @@ export default function MasterImportModal({
   const [parsing, setParsing] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null);
+
+  // Selected Target Semester for Kelas import
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>(
+    defaultSemesterId || semesterList?.find((s) => s.aktif)?.id || semesterList?.[0]?.id || ""
+  );
+
+  useEffect(() => {
+    if (defaultSemesterId) {
+      setSelectedSemesterId(defaultSemesterId);
+    } else if (semesterList && semesterList.length > 0) {
+      const active = semesterList.find((s) => s.aktif) || semesterList[0];
+      setSelectedSemesterId(active.id);
+    }
+  }, [defaultSemesterId, semesterList]);
+
+  function handleSemesterChange(newSemesterId: string) {
+    setSelectedSemesterId(newSemesterId);
+    const chosenSem = semesterList?.find((s) => s.id === newSemesterId);
+    if (!chosenSem || !previewResult) return;
+
+    const updated = previewResult.previewList.map((r) => ({
+      ...r,
+      data: {
+        ...r.data,
+        semesterId: chosenSem.id,
+        semesterTahun: `${chosenSem.tahunAkademik} (${chosenSem.periode})`,
+      },
+    }));
+
+    setPreviewResult({
+      ...previewResult,
+      previewList: updated,
+    });
+  }
 
   // Filter & Search di Pratinjau
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,6 +144,9 @@ export default function MasterImportModal({
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
+      if (selectedSemesterId) {
+        formData.append("semesterId", selectedSemesterId);
+      }
 
       const res = await parseAction(formData);
       if (!res.success || !res.data) {
@@ -363,6 +412,36 @@ export default function MasterImportModal({
                 </button>
               </div>
 
+              {/* Semester Destination Selector (Khusus Data Perkuliahan) */}
+              {type === "kelas" && semesterList && semesterList.length > 0 && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#fdf2f8] text-[#a80063] flex items-center justify-center shrink-0">
+                      <Calendar size={14} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        Semester Tujuan Impor
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Semua data perkuliahan akan otomatis ditautkan ke semester ini
+                      </p>
+                    </div>
+                  </div>
+                  <select
+                    value={selectedSemesterId}
+                    onChange={(e) => handleSemesterChange(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#a80063] cursor-pointer"
+                  >
+                    {semesterList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.tahunAkademik} ({s.periode}) {s.aktif ? "• Aktif" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Upload Dropzone */}
               <div
                 onDragOver={(e) => e.preventDefault()}
@@ -420,6 +499,24 @@ export default function MasterImportModal({
                     <FileCheck size={14} className="text-emerald-600" />
                     <span className="font-bold truncate max-w-[200px]">{file?.name}</span>
                   </div>
+
+                  {type === "kelas" && semesterList && semesterList.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
+                      <Calendar size={13} className="text-[#a80063]" />
+                      <span className="text-slate-500 text-[11px]">Semester:</span>
+                      <select
+                        value={selectedSemesterId}
+                        onChange={(e) => handleSemesterChange(e.target.value)}
+                        className="text-xs font-bold text-[#a80063] bg-transparent outline-none cursor-pointer"
+                      >
+                        {semesterList.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.tahunAkademik} ({s.periode}) {s.aktif ? "• Aktif" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <span className="text-xs font-bold bg-slate-200/70 text-slate-700 px-2.5 py-1 rounded-lg">
                     Total: {previewResult.totalRows} Baris
@@ -722,7 +819,15 @@ export default function MasterImportModal({
                       <label className="block font-semibold text-slate-700 mb-1">Program Studi</label>
                       {prodiList && prodiList.length > 0 ? (
                         <select
-                          value={editFormData.prodiNama || editFormData.prodiQuery || ""}
+                          value={
+                            prodiList.find(
+                              (p) =>
+                                p.id === editFormData.prodiId ||
+                                p.nama.toLowerCase() === (editFormData.prodiNama || "").toLowerCase() ||
+                                p.nama.toLowerCase() === (editFormData.prodiQuery || "").toLowerCase() ||
+                                p.nama.toLowerCase() === (editFormData.prodiQuery || "").replace(/^(S[1-3]|D[3-4])\s*[-–—]?\s*/i, "").trim().toLowerCase()
+                            )?.nama || editFormData.prodiNama || ""
+                          }
                           onChange={(e) => {
                             const selected = prodiList.find((p) => p.nama === e.target.value);
                             setEditFormData({

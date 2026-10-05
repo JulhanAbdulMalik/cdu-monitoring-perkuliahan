@@ -320,14 +320,18 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
   try {
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
+    const targetSemesterId = String(formData.get("semesterId") || "").trim();
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buffer, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-    const allSemesters = await prisma.semester.findMany();
+    const allSemesters = await prisma.semester.findMany({
+      orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+    });
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
+    const fallbackSemester = (targetSemesterId ? allSemesters.find((s) => s.id === targetSemesterId) : null) || activeSemester;
     const allMk = await prisma.mataKuliah.findMany();
     const allDosen = await prisma.dosen.findMany();
     const allProdi = await prisma.prodi.findMany();
@@ -390,24 +394,27 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
       // Bersihkan enter / newline pada team teaching: "LAZUARDI...\nDr. CHRIS..." -> "LAZUARDI... / Dr. CHRIS..."
       let cleanDosen = rawDosen.replace(/[\r\n]+/g, " / ").replace(/\s{2,}/g, " ").trim();
 
-      // Deteksi Otomatis Kelas Jenis 'BIMBINGAN' (Magang, Skripsi, Riset, PKL, SCP, dll)
+      // Deteksi Otomatis Kelas Jenis 'BIMBINGAN' (Magang, Skripsi, Riset, PKL, SCP, Thesis/Tesis dll)
       const BIMBINGAN_CODES = [
         "IN4005", "IN4006", "IN4007", "MS40062", "RS4005", "RS4006", "RS4007", "WU30004", "RS4008"
       ];
       const BIMBINGAN_KEYWORDS = [
         "magang", "skripsi", "riset", "pkl", "praktek kerja lapangan", "review literatur",
-        "publikasi ilmiah", "scp", "bimbingan", "tugas akhir"
+        "publikasi ilmiah", "scp", "bimbingan", "tugas akhir",
+        "thesis", "tesis", "disertasi", "dissertation", "proyek akhir", "kerja praktik"
       ];
 
       const isBimbinganCourse =
         BIMBINGAN_CODES.some((code) => kodeMk.toUpperCase().includes(code)) ||
         BIMBINGAN_KEYWORDS.some((kw) => namaMk.toLowerCase().includes(kw)) ||
         kodeKelas.toUpperCase().includes("SKRIP") ||
+        kodeKelas.toUpperCase().includes("THES") ||
+        kodeKelas.toUpperCase().includes("TESIS") ||
         kodeKelas.toUpperCase().startsWith("IN-") ||
         kodeKelas.toUpperCase().startsWith("RS-");
 
-      // 5. Semester (opsional dari excel, fallback ke activeSemester)
-      const tahunAkademik = String(row["Tahun Akademik"] || row["tahunAkademik"] || row["Kur."] || row["Kurikulum"] || "").trim();
+      // 5. Semester (Prioritas fallbackSemester dari dropdown modal/aktif, JANGAN gunakan Kur. sebagai tahun akademik)
+      const explicitTahunAkademik = String(row["Tahun Akademik"] || row["tahunAkademik"] || "").trim();
       const periode = String(row["Periode"] || row["periode"] || "").trim().toUpperCase();
 
       // 6. Jadwal Mingguan (Smart Parser untuk "Selasa, 08:00 s.d 09:40 @ B2A" atau format kolom terpisah)
@@ -450,19 +457,29 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
         }
       }
 
-      // Cek apakah jadwal terisi
-      const hasJadwal = Boolean(hari && jam);
-
-      // 7. Mode Pembelajaran
+      // 7. Mode Pembelajaran & Penyesuaian Otomatis BIMBINGAN
       const rawMode = String(row["Mode Pembelajaran"] || row["Mode (Online / Offline)"] || row["Mode"] || row["mode"] || "").trim().toUpperCase();
       let mode: "DARING" | "LURING" | "BIMBINGAN" = "DARING";
 
       if (isBimbinganCourse || rawMode.includes("BIMBINGAN")) {
         mode = "BIMBINGAN";
         rawRuang = ""; // Bimbingan tidak memerlukan ruangan fisik di jadwal mingguan
+        // Otomatis isi nilai default jika bimbingan/thesis belum ada dosen/jadwal tetap di SIAKAD
+        if (!cleanDosen) {
+          cleanDosen = "Dosen Pembimbing";
+        }
+        if (!hari) {
+          hari = "Jumat";
+        }
+        if (!jam) {
+          jam = "08:00 - 09:40";
+        }
       } else if (rawMode.includes("OFFLINE") || rawMode.includes("LURING") || (rawRuang && rawRuang !== "-")) {
         mode = "LURING";
       }
+
+      // Cek apakah jadwal terisi
+      const hasJadwal = Boolean(hari && jam);
 
       // 8. Ruang Kelas
       const ruangan = mode === "LURING" ? (rawRuang || null) : null;
@@ -475,16 +492,16 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
       if (!cleanDosen) errors.push("Pengajar / Dosen belum diisi");
       if (!hasJadwal) errors.push("Jadwal mingguan belum diisi");
 
-      // Match semester
-      let matchedSem = activeSemester;
-      if (tahunAkademik && periode) {
+      // Match semester: Gunakan fallbackSemester (dari modal / aktif) kecuali ada kolom Tahun Akademik eksplisit
+      let matchedSem = fallbackSemester;
+      if (explicitTahunAkademik && periode) {
         matchedSem = allSemesters.find(
-          (s) => s.tahunAkademik.includes(tahunAkademik) && s.periode === periode
-        ) || activeSemester;
-      } else if (tahunAkademik) {
+          (s) => s.tahunAkademik.includes(explicitTahunAkademik) && s.periode === periode
+        ) || fallbackSemester;
+      } else if (explicitTahunAkademik) {
         matchedSem = allSemesters.find(
-          (s) => s.tahunAkademik.includes(tahunAkademik)
-        ) || activeSemester;
+          (s) => s.tahunAkademik.includes(explicitTahunAkademik)
+        ) || fallbackSemester;
       }
 
       // Match Prodi (case-insensitive to kode or nama or cleanProdiQuery)
@@ -714,7 +731,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
       }
       dosenId = existingDosen.id;
 
-      // 4. Cari kelas yang sudah ada (termasuk jika sebelumnya salah terhubung ke MK prodi lain)
+      // 4. Cari kelas yang sudah ada (termasuk jika sebelumnya salah terhubung ke semester lain atau MK prodi lain)
       let existing = await prisma.kelas.findFirst({
         where: {
           kodeKelas: r.kodeKelas.trim().toUpperCase(),
@@ -723,6 +740,17 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
         },
         include: { monitoringSesi: true },
       });
+
+      // Jika tidak ditemukan di semester target, cari apakah kelas ini sebelumnya pernah terbuat di semester lain (misal akibat Kur. 2026 salah masuk semester)
+      if (!existing) {
+        existing = await prisma.kelas.findFirst({
+          where: {
+            kodeKelas: r.kodeKelas.trim().toUpperCase(),
+            mataKuliahId: mataKuliahId,
+          },
+          include: { monitoringSesi: true },
+        });
+      }
 
       // Jika tidak ditemukan dengan mataKuliahId baru, cek apakah sebelumnya ada kelas dengan nama MK yang sama (misal salah link ke prodi lain)
       if (!existing) {
@@ -739,10 +767,11 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
       }
 
       if (existing) {
-        // Update kelas data, relink ke mataKuliahId yang benar di prodi ini!
+        // Update kelas data, relink ke semesterId & mataKuliahId yang benar di prodi ini!
         await prisma.kelas.update({
           where: { id: existing.id },
           data: {
+            semesterId: semesterId,
             mataKuliahId: mataKuliahId,
             dosenId: dosenId,
             jadwalHari: r.jadwalHari,

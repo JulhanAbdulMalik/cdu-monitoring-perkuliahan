@@ -38,10 +38,11 @@ export async function getKelasList(semesterId?: string) {
     ]);
 
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
-    const targetSemesterId = semesterId || activeSemester?.id;
+    const targetSemesterId = semesterId !== undefined ? semesterId : (activeSemester?.id || "");
+    const isAll = targetSemesterId === "ALL";
 
     const kelas = await prisma.kelas.findMany({
-      where: targetSemesterId ? { semesterId: targetSemesterId } : {},
+      where: isAll ? {} : (targetSemesterId ? { semesterId: targetSemesterId } : {}),
       include: {
         semester: true,
         mataKuliah: {
