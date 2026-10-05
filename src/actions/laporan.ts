@@ -113,7 +113,7 @@ export interface ClassRekapSummary {
   totalBelumDiisi: number;
   persenKehadiran: number;
 
-  totalSkor3Pilar: number; // Max 42 (14 regular sesi * 3)
+  totalSkor3Pilar: number; // Max 42 (Daring) or 28 (Luring)
   persenKonten: number;
 
   confPraUTS: number;
@@ -306,7 +306,7 @@ export async function getRekapLaporan(
       const isSplitPengajar = dosenPengajarList.length > 1;
 
       const processedSesi: SesiRekapItem[] = cls.monitoringSesi.map((s) => {
-        const pilar = calculateSessionPillars(s);
+        const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
 
         return {
           nomorSesi: s.nomorSesi,
@@ -581,7 +581,7 @@ export async function getLaporanDosen(
         const regularSesi = data.sesiList.filter(
           (s) => s.nomorSesi !== 8 && s.nomorSesi !== 16
         );
-        const maxSkorKonten = isBimbingan ? 0 : regularSesi.length * 3;
+        const maxSkorKonten = isBimbingan ? 0 : regularSesi.length * (item.modePembelajaran === "LURING" ? 2 : 3);
         const skorKonten = isBimbingan ? 0 : regularSesi.reduce(
           (acc, s) => acc + (s.contentScore || 0),
           0
@@ -947,6 +947,8 @@ export async function getLaporanProdi(
         totalHadirSemester: 0,
         totalAlphaSemester: 0,
         totalSkor3PilarSemester: 0,
+        maxSkor3PilarSemester: 0,
+        maxSkor3PilarRentang: 0,
       });
     }
 
@@ -967,6 +969,7 @@ export async function getLaporanProdi(
       entry.totalAlphaSemester += classSummary.totalAlpha;
       if (!isBimbingan) {
         entry.totalSkor3PilarSemester += classSummary.totalSkor3Pilar;
+        entry.maxSkor3PilarSemester += (cls.modePembelajaran === "LURING" ? 28 : 42);
       }
 
       // Cari sesi berjalan tertinggi di kelas ini (sesi terisi atau ada catatan khusus)
@@ -1093,10 +1096,13 @@ export async function getLaporanProdi(
             }
           }
 
-          const pilar = calculateSessionPillars(s);
+          const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
           if (!isBimbingan && !pilar.isExam) {
             entry.totalRegularSesiRentang++;
-            if (pilar.score !== null) entry.totalSkor3PilarRentang += pilar.score;
+            if (pilar.score !== null) {
+              entry.totalSkor3PilarRentang += pilar.score;
+              entry.maxSkor3PilarRentang += pilar.maxScore;
+            }
             if (pilar.hasSL) entry.totalPilar1Rentang++;
             if (pilar.hasQT) entry.totalPilar2Rentang++;
             if (pilar.hasTV) entry.totalPilar3Rentang++;
@@ -1125,16 +1131,16 @@ export async function getLaporanProdi(
         : (hasKelas ? 0 : null);
 
       const avgKontenRentang =
-        p.totalRegularSesiRentang > 0
-          ? Math.round((p.totalSkor3PilarRentang / (p.totalRegularSesiRentang * 3)) * 1000) / 10
+        p.maxSkor3PilarRentang > 0
+          ? Math.round((p.totalSkor3PilarRentang / p.maxSkor3PilarRentang) * 1000) / 10
           : (hasKelas ? (p.totalKelasNonBimbingan === 0 ? 100 : 0) : null);
 
       const avgKehadiranSemester =
         hasKelas ? Math.round((p.totalHadirSemester / (p.totalKelas * 16)) * 1000) / 10 : null;
       const avgKontenSemester =
         hasKelas
-          ? (p.totalKelasNonBimbingan > 0
-              ? Math.round((p.totalSkor3PilarSemester / (p.totalKelasNonBimbingan * 42)) * 1000) / 10
+          ? (p.maxSkor3PilarSemester > 0
+              ? Math.round((p.totalSkor3PilarSemester / p.maxSkor3PilarSemester) * 1000) / 10
               : 100)
           : null;
 

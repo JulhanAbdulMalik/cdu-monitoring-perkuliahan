@@ -855,7 +855,7 @@ export default function RekapClient({
                         </span>
                       </td>
 
-                      {/* Skor 3 Pilar (Max 42) */}
+                      {/* Skor 3 Pilar (Max 42/28) */}
                       <td className="py-2 px-2 text-center">
                         {cls.modePembelajaran === "BIMBINGAN" ? (
                           <span className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Bebas kewajiban 3 pilar materi">
@@ -864,7 +864,7 @@ export default function RekapClient({
                         ) : (
                           <>
                             <span className="font-bold text-[#a80063] text-xs">
-                              {cls.totalSkor3Pilar}/42
+                              {cls.totalSkor3Pilar}/{cls.modePembelajaran === "LURING" ? 28 : 42}
                             </span>
                             <span className="block text-[9.5px] text-slate-400 font-medium">
                               {formatPct(cls.persenKonten)}

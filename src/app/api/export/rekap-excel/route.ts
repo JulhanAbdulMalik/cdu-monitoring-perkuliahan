@@ -371,7 +371,7 @@ export async function GET(request: NextRequest) {
         ...sesiValues,
         `${cls.totalHadir}/16`,
         formatPct(cls.persenKehadiran),
-        cls.modePembelajaran === "BIMBINGAN" ? "Bebas" : `${cls.totalSkor3Pilar}/42`,
+        cls.modePembelajaran === "BIMBINGAN" ? "Bebas" : `${cls.totalSkor3Pilar}/${cls.modePembelajaran === "LURING" ? 28 : 42}`,
         cls.modePembelajaran === "BIMBINGAN" ? "-" : formatPct(cls.persenKonten),
         cls.modePembelajaran === "LURING"
           ? "Bebas Conf"
@@ -535,7 +535,7 @@ export async function GET(request: NextRequest) {
     }
     worksheet.getColumn(25).width = 12; // Total Hadir
     worksheet.getColumn(26).width = 10; // % Hadir
-    worksheet.getColumn(27).width = 13; // Skor 3 Pilar (Max 42)
+    worksheet.getColumn(27).width = 13; // Skor 3 Pilar (Max 42/28)
     worksheet.getColumn(28).width = 10; // % Konten
     worksheet.getColumn(29).width = 20; // Live Conf
     worksheet.getColumn(30).width = 16; // Status Evaluasi

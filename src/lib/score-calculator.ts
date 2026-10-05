@@ -12,15 +12,18 @@ export interface SessionPillarResult {
   statusColor: string;
 }
 
-export function calculateSessionPillars(sesi: {
-  nomorSesi: number;
-  lectureNote?: boolean | null;
-  slide?: boolean | null;
-  video?: boolean | null;
-  conference?: boolean | null;
-  tugas?: boolean | null;
-  kuis?: boolean | null;
-}): SessionPillarResult {
+export function calculateSessionPillars(
+  sesi: {
+    nomorSesi: number;
+    lectureNote?: boolean | null;
+    slide?: boolean | null;
+    video?: boolean | null;
+    conference?: boolean | null;
+    tugas?: boolean | null;
+    kuis?: boolean | null;
+  },
+  modePembelajaran: "DARING" | "LURING" | "BIMBINGAN" = "DARING"
+): SessionPillarResult {
   const isExam = sesi.nomorSesi === 8 || sesi.nomorSesi === 16;
 
   if (isExam) {
@@ -44,19 +47,20 @@ export function calculateSessionPillars(sesi: {
   let score = 0;
   if (hasSL) score += 1;
   if (hasQT) score += 1;
-  if (hasTV) score += 1;
+  if (modePembelajaran !== "LURING" && hasTV) score += 1;
 
-  let statusText = "0/3 (Kosong)";
+  const maxScore = modePembelajaran === "LURING" ? 2 : 3;
+  let statusText = `0/${maxScore} (Kosong)`;
   let statusColor = "rose";
 
-  if (score === 3) {
-    statusText = "3/3 (Sempurna)";
+  if (score === maxScore) {
+    statusText = `${maxScore}/${maxScore} (Sempurna)`;
     statusColor = "emerald";
-  } else if (score === 2) {
+  } else if (maxScore === 3 && score === 2) {
     statusText = "2/3 (Baik)";
     statusColor = "blue";
-  } else if (score === 1) {
-    statusText = "1/3 (Sebagian)";
+  } else if (score >= 1) {
+    statusText = `${score}/${maxScore} (Sebagian)`;
     statusColor = "amber";
   }
 
@@ -65,7 +69,7 @@ export function calculateSessionPillars(sesi: {
     hasQT,
     hasTV,
     score,
-    maxScore: 3,
+    maxScore,
     isExam: false,
     statusText,
     statusColor,
@@ -80,7 +84,7 @@ export interface ClassSummaryResult {
   totalBelumDiisi: number;
   persenKehadiran: number;
 
-  totalSkor3Pilar: number; // Max 42 (14 regular sesi * 3)
+  totalSkor3Pilar: number; // Max 42 (Daring) or 28 (Luring)
   persenKonten: number;
   sesiMateriKosongCount: number; // Jumlah sesi reguler berjalan dengan materi 0/3
 
@@ -131,7 +135,7 @@ export function calculateClassSummary(
     } else {
       const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
       if (!isExam) {
-        const pilar = calculateSessionPillars(s);
+        const pilar = calculateSessionPillars(s, modePembelajaran);
         if (pilar.score !== null) {
           totalSkor3Pilar += pilar.score;
 
@@ -152,7 +156,8 @@ export function calculateClassSummary(
   const totalHadir = totalHadirLengkap + totalHadirTdkLengkap;
   // Simpan sebagai float 1 desimal agar tampilan UI akurat (misal: 6.3%, bukan 6%)
   const persenKehadiran = Math.round((totalHadir / 16) * 1000) / 10;
-  const persenKonten = modePembelajaran === "BIMBINGAN" ? 100 : Math.round((totalSkor3Pilar / 42) * 1000) / 10; // 14 regular sesi * 3 max = 42
+  const maxKontenScore = modePembelajaran === "LURING" ? 28 : 42;
+  const persenKonten = modePembelajaran === "BIMBINGAN" ? 100 : Math.round((totalSkor3Pilar / maxKontenScore) * 1000) / 10;
 
   const confTotal = confPraUTS + confPraUAS;
   const isConfCompliant = modePembelajaran !== "DARING" ? true : confPraUTS >= 3 && confPraUAS >= 3;

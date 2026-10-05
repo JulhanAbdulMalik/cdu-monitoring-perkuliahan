@@ -425,7 +425,7 @@ function mapClassToProcessedItem(
 
   const dosenPengajarList = Array.from(peranMap.values());
   const isSplitPengajar = dosenPengajarList.length > 0;
-  const targetSesiPillars = targetSesiData ? calculateSessionPillars(targetSesiData) : null;
+  const targetSesiPillars = targetSesiData ? calculateSessionPillars(targetSesiData, cls.modePembelajaran) : null;
   const isExam = currentSesi === 8 || currentSesi === 16;
   const isBimbingan = cls.modePembelajaran === "BIMBINGAN";
   // Menandai kelas yang sudah diisi presensi (Hadir/HTL) tetapi konten 3 pilar pada sesi tersebut masih kosong

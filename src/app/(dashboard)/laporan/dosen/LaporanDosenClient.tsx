@@ -615,7 +615,7 @@ export default function LaporanDosenClient({
                                               </span>
                                             ) : (
                                               <span className="font-bold text-[#a80063]">
-                                                {cls.totalSkorKonten}/{cls.maxSkorKonten ?? 42} ({formatPct(cls.persenKonten)})
+                                                {cls.totalSkorKonten}/{cls.maxSkorKonten} ({formatPct(cls.persenKonten)})
                                               </span>
                                             )}
                                           </td>

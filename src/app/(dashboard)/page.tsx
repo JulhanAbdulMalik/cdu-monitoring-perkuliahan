@@ -177,7 +177,7 @@ export default async function DashboardPage() {
         // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
         if (!isExam && (cls.modePembelajaran as any) !== "BIMBINGAN") {
           totalRegularSesiTerlaksana++;
-          const pilar = calculateSessionPillars(s);
+          const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
           if (pilar.score !== null) {
             totalSkor3PilarTerlaksana += pilar.score;
           }
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
         (c) => (c.modePembelajaran as any) !== "BIMBINGAN"
       );
       const totalNonBimbingan = nonBimbinganClasses.length;
-      const targetPilarSesi = totalNonBimbingan * 3;
+      const targetPilarSesi = nonBimbinganClasses.reduce((acc, c) => acc + ((c.modePembelajaran as any) === "LURING" ? 2 : 3), 0);
 
       const sesiAgg = Array.from({ length: 16 }, (_, i) => ({
         nomorSesi: i + 1,
@@ -239,7 +239,7 @@ export default async function DashboardPage() {
 
           // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
           if (!isExam && !isBimbingan) {
-            const pilar = calculateSessionPillars(s);
+            const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
             if (pilar.score !== null) {
               sesiAgg[aggIndex].totalRegular++;
               sesiAgg[aggIndex].totalSkorPilar += pilar.score;

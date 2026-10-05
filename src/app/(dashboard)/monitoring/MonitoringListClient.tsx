@@ -1053,7 +1053,7 @@ export default function MonitoringListClient({
                         ) : (
                           <div className="flex flex-col items-center gap-0.5">
                             <span className="font-bold text-xs text-[#a80063] leading-tight">
-                              {cls.summary.totalSkor3Pilar} / 42 Poin
+                              {cls.summary.totalSkor3Pilar} / {cls.modePembelajaran === "LURING" ? 28 : 42} Poin
                             </span>
                             <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                               <div

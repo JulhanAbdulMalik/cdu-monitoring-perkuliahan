@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
           cls.statusPenugasan || "Penuh",
           `${cls.totalHadir}/${cls.totalSesiBeban ?? 16}`,
           formatPct(cls.persenKehadiran),
-          isBimbingan ? "Bebas" : `${cls.totalSkorKonten}/${cls.maxSkorKonten ?? 42}`,
+          isBimbingan ? "Bebas" : `${cls.totalSkorKonten}/${cls.maxSkorKonten}`,
           isBimbingan ? "-" : formatPct(cls.persenKonten),
           evalLabel,
         ];

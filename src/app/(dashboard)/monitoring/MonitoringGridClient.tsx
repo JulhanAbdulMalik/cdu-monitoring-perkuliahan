@@ -1160,7 +1160,7 @@ export default function MonitoringGridClient({
                     {currentKelas.modePembelajaran === "BIMBINGAN" ? "Live Conference" : "Konten Perkuliahan 3 Pilar"}
                   </p>
                   <span className={`text-[11px] font-extrabold ${currentKelas.modePembelajaran === "BIMBINGAN" ? "text-purple-700" : "text-[#a80063]"}`}>
-                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} / 16 Sesi` : `${summary.totalSkor3Pilar} / 42 Poin`}
+                    {currentKelas.modePembelajaran === "BIMBINGAN" ? `${summary.confTotal} / 16 Sesi` : `${summary.totalSkor3Pilar} / ${currentKelas.modePembelajaran === "LURING" ? 28 : 42} Poin`}
                   </span>
                 </div>
 
