@@ -66,6 +66,7 @@ interface LaporanProdiClientProps {
   initialStartDate: string;
   initialEndDate: string;
   initialSesi?: number | null;
+  initialJenisKelas?: string;
   globalSummary: GlobalSummary;
 }
 
@@ -76,6 +77,7 @@ export default function LaporanProdiClient({
   initialStartDate,
   initialEndDate,
   initialSesi,
+  initialJenisKelas,
   globalSummary,
 }: LaporanProdiClientProps) {
   const router = useRouter();
@@ -89,6 +91,7 @@ export default function LaporanProdiClient({
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemesterId);
+  const [jenisKelas, setJenisKelas] = useState<string>(initialJenisKelas || "ALL");
 
   useEffect(() => {
     setStartDate(initialStartDate);
@@ -97,7 +100,10 @@ export default function LaporanProdiClient({
       setFilterMode("SESI");
       setSelectedSesi(initialSesi);
     }
-  }, [initialStartDate, initialEndDate, initialSesi]);
+    if (initialJenisKelas) {
+      setJenisKelas(initialJenisKelas);
+    }
+  }, [initialStartDate, initialEndDate, initialSesi, initialJenisKelas]);
 
   // View & Filter States (Default: TABLE Komparasi)
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
@@ -153,25 +159,36 @@ export default function LaporanProdiClient({
     }
   }
 
-  function navigateToRange(start: string, end: string, semId = selectedSemester) {
+  function navigateToRange(start: string, end: string, semId = selectedSemester, jenis = jenisKelas) {
     startTransition(() => {
       const params = new URLSearchParams();
       if (start) params.set("startDate", start);
       if (end) params.set("endDate", end);
       if (semId) params.set("semesterId", semId);
+      if (jenis && jenis !== "ALL") params.set("jenisKelas", jenis);
       const queryStr = params.toString();
       router.push(`/laporan/prodi${queryStr ? `?${queryStr}` : ""}`);
     });
   }
 
-  function navigateToSesi(sesiNum: number, semId = selectedSemester) {
+  function navigateToSesi(sesiNum: number, semId = selectedSemester, jenis = jenisKelas) {
     setSelectedSesi(sesiNum);
     startTransition(() => {
       const params = new URLSearchParams();
       params.set("sesi", sesiNum.toString());
       if (semId) params.set("semesterId", semId);
+      if (jenis && jenis !== "ALL") params.set("jenisKelas", jenis);
       router.push(`/laporan/prodi?${params.toString()}`);
     });
+  }
+
+  function handleJenisKelasChange(newJenis: string) {
+    setJenisKelas(newJenis);
+    if (filterMode === "SESI") {
+      navigateToSesi(selectedSesi || 1, selectedSemester, newJenis);
+    } else {
+      navigateToRange(startDate, endDate, selectedSemester, newJenis);
+    }
   }
 
   function handleSwitchMode(mode: "TANGGAL" | "SESI") {
@@ -361,11 +378,17 @@ export default function LaporanProdiClient({
   }
 
   function handleExportExcel() {
+    const params = new URLSearchParams();
     if (filterMode === "SESI") {
-      window.location.href = `/api/export/prodi-excel?sesi=${selectedSesi}&semesterId=${selectedSemester}`;
+      params.set("sesi", (selectedSesi || 1).toString());
     } else {
-      window.location.href = `/api/export/prodi-excel?startDate=${initialStartDate}&endDate=${initialEndDate}&semesterId=${selectedSemester}`;
+      if (initialStartDate) params.set("startDate", initialStartDate);
+      if (initialEndDate) params.set("endDate", initialEndDate);
     }
+    if (selectedSemester) params.set("semesterId", selectedSemester);
+    if (jenisKelas && jenisKelas !== "ALL") params.set("jenisKelas", jenisKelas);
+
+    window.location.href = `/api/export/prodi-excel?${params.toString()}`;
   }
 
   // Active Filter Helpers
@@ -399,10 +422,12 @@ export default function LaporanProdiClient({
     startDate !== appliedStartDate || endDate !== appliedEndDate;
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveStatus = filterStatus !== "ALL";
+  const hasActiveJenisKelas = jenisKelas !== "ALL";
   const hasActiveSort = sortBy !== "nama_asc";
   const hasAnyFilterActive =
     hasActiveSearch ||
     hasActiveStatus ||
+    hasActiveJenisKelas ||
     hasActiveSort ||
     isSesiActive ||
     !isAppliedAllTime ||
@@ -513,6 +538,9 @@ export default function LaporanProdiClient({
           {isSesiActive
             ? `Laporan Performa Program Studi - Evaluasi Sesi ${selectedSesi}${selectedSesi === 8 ? " (UTS)" : selectedSesi === 16 ? " (UAS)" : ""}`
             : "Laporan Performa Program Studi per Periode Tanggal"}
+          {hasActiveJenisKelas
+            ? ` [Kelas ${jenisKelas === "LURING" ? "Offline" : jenisKelas === "DARING" ? "Online" : "Bimbingan"}]`
+            : ""}
         </h3>
         <p className="text-xs font-medium text-slate-600 mt-0.5">
           Periode: {
@@ -534,7 +562,11 @@ export default function LaporanProdiClient({
         <SparklineCard
           title="Total Program Studi"
           value={`${globalSummary.totalProdi} Prodi`}
-          subtitle={`${globalSummary.totalKelasSemua.toLocaleString("id-ID")} Kelas • ${globalSummary.totalDosenSemua.toLocaleString("id-ID")} Dosen terdaftar`}
+          subtitle={`${globalSummary.totalKelasSemua.toLocaleString("id-ID")} Kelas${
+            hasActiveJenisKelas
+              ? ` (${jenisKelas === "LURING" ? "Offline" : jenisKelas === "DARING" ? "Online" : "Bimbingan"})`
+              : ""
+          } • ${globalSummary.totalDosenSemua.toLocaleString("id-ID")} Dosen terdaftar`}
           trendText={
             isSesiActive
               ? `Sesi ${selectedSesi}`
@@ -848,8 +880,28 @@ export default function LaporanProdiClient({
             )}
           </div>
 
-          {/* Right Controls: Status, Sort, Reset & View Mode */}
+          {/* Right Controls: Jenis Kelas, Status, Reset & View Mode */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Jenis Kelas (Offline, Online, Bimbingan) */}
+            <div className="flex items-center">
+              <select
+                value={jenisKelas}
+                onChange={(e) => handleJenisKelasChange(e.target.value)}
+                disabled={isPending}
+                className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
+                  hasActiveJenisKelas
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Filter Jenis Kelas"
+              >
+                <option value="ALL">Semua Jenis</option>
+                <option value="LURING">Offline</option>
+                <option value="DARING">Online</option>
+                <option value="BIMBINGAN">Bimbingan</option>
+              </select>
+            </div>
+
             {/* Status Filter with Subtle Transparent Maroon Active Style */}
             <div className="flex items-center">
               <select
@@ -877,12 +929,15 @@ export default function LaporanProdiClient({
                 onClick={() => {
                   setSearchQuery("");
                   setFilterStatus("ALL");
+                  setJenisKelas("ALL");
                   setSortBy("nama_asc");
                   if (filterMode === "SESI") {
                     setSelectedSesi(1);
-                    navigateToSesi(1);
+                    navigateToSesi(1, selectedSemester, "ALL");
                   } else {
-                    applyPreset("all_time");
+                    setStartDate("");
+                    setEndDate("");
+                    navigateToRange("", "", selectedSemester, "ALL");
                   }
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"

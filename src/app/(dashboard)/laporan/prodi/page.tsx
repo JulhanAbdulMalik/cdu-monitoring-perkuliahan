@@ -17,6 +17,7 @@ interface LaporanProdiPageProps {
     startDate?: string;
     endDate?: string;
     sesi?: string;
+    jenisKelas?: string;
   }>;
 }
 
@@ -33,13 +34,15 @@ export default async function LaporanProdiPage({
   const targetStartDate = resolvedSearchParams.startDate || "";
   const targetEndDate = resolvedSearchParams.endDate || "";
   const parsedSesi = resolvedSearchParams.sesi ? parseInt(resolvedSearchParams.sesi, 10) : undefined;
+  const targetJenisKelas = resolvedSearchParams.jenisKelas || "ALL";
 
   const res = await getLaporanProdi(
     resolvedSearchParams.semesterId,
     targetStartDate,
     targetEndDate,
     isDosen ? userProdiIds : undefined,
-    parsedSesi
+    parsedSesi,
+    targetJenisKelas
   );
 
   const data = res.success && res.data
@@ -51,6 +54,7 @@ export default async function LaporanProdiPage({
         startDate: targetStartDate,
         endDate: targetEndDate,
         targetSesi: parsedSesi,
+        targetJenisKelas: targetJenisKelas,
         globalSummary: {
           totalProdi: 0,
           totalKelasSemua: 0,
@@ -106,6 +110,7 @@ export default async function LaporanProdiPage({
       initialStartDate={data.startDate}
       initialEndDate={data.endDate}
       initialSesi={data.targetSesi ?? parsedSesi}
+      initialJenisKelas={data.targetJenisKelas || targetJenisKelas}
       globalSummary={summary}
     />
   );

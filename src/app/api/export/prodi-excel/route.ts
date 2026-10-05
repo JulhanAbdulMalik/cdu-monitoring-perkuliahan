@@ -24,17 +24,22 @@ export async function GET(request: NextRequest) {
     const semesterId = searchParams.get("semesterId") || undefined;
     const sesiParam = searchParams.get("sesi");
     const parsedSesi = sesiParam ? parseInt(sesiParam, 10) : undefined;
+    const jenisKelasParam = searchParams.get("jenisKelas") || undefined;
     const isSesiMode = Boolean(parsedSesi && parsedSesi >= 1 && parsedSesi <= 16);
     const isAllTime = !isSesiMode && !startDate && !endDate;
 
-    const res = await getLaporanProdi(semesterId, startDate, endDate, allowedProdiIds, parsedSesi);
+    const res = await getLaporanProdi(semesterId, startDate, endDate, allowedProdiIds, parsedSesi, jenisKelasParam);
     if (!res.success || !res.data) {
       return NextResponse.json({ error: "Gagal memuat data laporan prodi" }, { status: 500 });
     }
 
-    const { prodiReportList, semesters, activeSemesterId, globalSummary } = res.data;
+    const { prodiReportList, semesters, activeSemesterId, globalSummary, targetJenisKelas } = res.data;
     const currentSem =
       semesters.find((s) => s.id === (semesterId || activeSemesterId)) || semesters[0];
+
+    const activeJenis = targetJenisKelas && targetJenisKelas !== "ALL" ? targetJenisKelas : null;
+    const jenisLabel = activeJenis === "LURING" ? "OFFLINE" : activeJenis === "DARING" ? "ONLINE" : activeJenis === "BIMBINGAN" ? "BIMBINGAN" : "";
+    const jenisTextFormatted = activeJenis === "LURING" ? "Offline" : activeJenis === "DARING" ? "Online" : activeJenis === "BIMBINGAN" ? "Bimbingan" : "";
 
     const periodeText = isSesiMode
       ? `SESI ${parsedSesi}${parsedSesi === 8 ? " (UTS)" : parsedSesi === 16 ? " (UAS)" : ""}`
@@ -61,10 +66,11 @@ export async function GET(request: NextRequest) {
 
     const singleProdi = isDosen && prodiReportList.length === 1 ? prodiReportList[0] : undefined;
     const subtitleProdi = singleProdi ? ` - PRODI ${singleProdi.nama.toUpperCase()}` : "";
+    const subtitleJenis = activeJenis ? ` [KELAS ${jenisLabel}]` : "";
 
     worksheet.mergeCells("A2:R2");
     const subtitleCell = worksheet.getCell("A2");
-    subtitleCell.value = `LAPORAN PERFORMA PROGRAM STUDI${subtitleProdi} PER PERIODE (${periodeText.toUpperCase()})`;
+    subtitleCell.value = `LAPORAN PERFORMA PROGRAM STUDI${subtitleProdi} PER PERIODE (${periodeText.toUpperCase()})${subtitleJenis}`;
     subtitleCell.font = { name: "Rockwell", size: 10.5, bold: true, color: { argb: "FF334155" } };
     subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(2).height = 20;
@@ -72,9 +78,10 @@ export async function GET(request: NextRequest) {
     worksheet.mergeCells("A3:R3");
     const semCell = worksheet.getCell("A3");
     const rataLabel = isDosen ? "Rata Kehadiran Prodi" : "Rata Kehadiran Univ";
+    const jenisInfo = activeJenis ? ` | Jenis: ${jenisTextFormatted}` : "";
     semCell.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
-    } | Total Sesi: ${globalSummary.totalSesiRentangSemua} | ${rataLabel}: ${formatPct(
+    }${jenisInfo} | Total Sesi: ${globalSummary.totalSesiRentangSemua} | ${rataLabel}: ${formatPct(
       globalSummary.avgKehadiranRentangSemua
     )} | Rata Konten 3P: ${formatPct(globalSummary.avgKontenRentangSemua)} | Live Conf: ${globalSummary.totalConfRentangSemua}`;
     semCell.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
@@ -221,7 +228,7 @@ export async function GET(request: NextRequest) {
 
     sheetKendala.mergeCells("A2:I2");
     const kSub = sheetKendala.getCell("A2");
-    kSub.value = `RINCIAN SESI KENDALA KEHADIRAN DOSEN (ALPHA & BELUM DIISI) - PERIODE (${periodeText.toUpperCase()})`;
+    kSub.value = `RINCIAN SESI KENDALA KEHADIRAN DOSEN (ALPHA & BELUM DIISI) - PERIODE (${periodeText.toUpperCase()})${subtitleJenis}`;
     kSub.font = { name: "Rockwell", size: 10.5, bold: true, color: { argb: "FF334155" } };
     kSub.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(2).height = 20;
@@ -236,7 +243,7 @@ export async function GET(request: NextRequest) {
     const totalBelumDiisiCount = allKendalaList.filter((k) => k.status === "BELUM_DIISI").length;
     kSem.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
-    } | Total Sesi Berkendala: ${allKendalaList.length} Sesi (${totalAlphaCount} Alpha, ${totalBelumDiisiCount} Belum Diisi)`;
+    }${jenisInfo} | Total Sesi Berkendala: ${allKendalaList.length} Sesi (${totalAlphaCount} Alpha, ${totalBelumDiisiCount} Belum Diisi)`;
     kSem.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     kSem.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(3).height = 18;
@@ -341,11 +348,12 @@ export async function GET(request: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const prodiSuffix = singleProdi ? `_${singleProdi.kode}` : "";
+    const jenisSuffix = activeJenis ? `_${jenisLabel}` : "";
     const filename = isSesiMode
-      ? `Laporan_Prodi${prodiSuffix}_Sesi_${parsedSesi}.xlsx`
+      ? `Laporan_Prodi${prodiSuffix}${jenisSuffix}_Sesi_${parsedSesi}.xlsx`
       : isAllTime
-      ? `Laporan_Prodi${prodiSuffix}_All_Time.xlsx`
-      : `Laporan_Prodi${prodiSuffix}_${startDate}_sd_${endDate}.xlsx`;
+      ? `Laporan_Prodi${prodiSuffix}${jenisSuffix}_All_Time.xlsx`
+      : `Laporan_Prodi${prodiSuffix}${jenisSuffix}_${startDate}_sd_${endDate}.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200,

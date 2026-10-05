@@ -773,6 +773,7 @@ export interface LaporanProdiResponse {
     startDate: string;
     endDate: string;
     targetSesi?: number | null;
+    targetJenisKelas?: string;
     globalSummary: {
       totalProdi: number;
       totalKelasSemua: number;
@@ -791,7 +792,8 @@ export async function getLaporanProdi(
   startDate?: string,
   endDate?: string,
   allowedProdiIds?: string[],
-  sesiNumber?: number
+  sesiNumber?: number,
+  jenisKelas?: string
 ): Promise<LaporanProdiResponse> {
   try {
     const isSesiMode = Boolean(sesiNumber && sesiNumber >= 1 && sesiNumber <= 16);
@@ -800,8 +802,19 @@ export async function getLaporanProdi(
     const targetStartDate = !isSesiMode ? (startDate || "") : "";
     const targetEndDate = !isSesiMode ? (endDate || "") : "";
 
+    const normalizedJenisKelas =
+      jenisKelas && jenisKelas !== "ALL"
+        ? jenisKelas === "OFFLINE" || jenisKelas === "LURING"
+          ? "LURING"
+          : jenisKelas === "ONLINE" || jenisKelas === "DARING"
+          ? "DARING"
+          : jenisKelas === "BIMBINGAN"
+          ? "BIMBINGAN"
+          : null
+        : null;
+
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}`;
+    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
 
     const cached = getLaporanFromCache<any>(cacheKey);
     if (cached) {
@@ -844,6 +857,7 @@ export async function getLaporanProdi(
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
         ...(isRestricted ? { mataKuliah: { prodiId: { in: allowedProdiIds! } } } : {}),
+        ...(normalizedJenisKelas ? { modePembelajaran: normalizedJenisKelas as any } : {}),
       },
       select: {
         id: true,
@@ -925,6 +939,7 @@ export async function getLaporanProdi(
         totalPilar3Rentang: 0,
         totalConfRentang: 0,
         dosenIdsRentang: new Set<string>(),
+        dosenSemesterIds: new Set<string>(),
         kelasIdsRentang: new Set<string>(),
         kendalaList: [] as KendalaKehadiranItem[],
 
@@ -940,6 +955,7 @@ export async function getLaporanProdi(
       if (!prodiMap.has(prodiId)) continue;
       const entry = prodiMap.get(prodiId);
       entry.totalKelas++;
+      entry.dosenSemesterIds.add(cls.dosen.id);
 
       const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
       if (!isBimbingan) {
@@ -1140,13 +1156,15 @@ export async function getLaporanProdi(
         statusKinerjaRentang = "BAIK";
       }
 
+      const finalTotalDosen = normalizedJenisKelas ? p.dosenSemesterIds.size : p.totalDosen;
+
       globalTotalSesiRentang += p.totalSesiRentang;
       globalTotalHadirRentang += p.totalHadirRentang + p.totalHadirTdkLengkapRentang;
       globalTotalRegularSesiRentang += p.totalRegularSesiRentang;
       globalTotalSkor3PilarRentang += p.totalSkor3PilarRentang;
       globalTotalConfRentang += p.totalConfRentang;
       globalTotalKelas += p.totalKelas;
-      globalTotalDosen += p.totalDosen;
+      globalTotalDosen += finalTotalDosen;
       globalTotalGantiHariRentang += p.totalGantiHariRentang;
 
       return {
@@ -1175,7 +1193,7 @@ export async function getLaporanProdi(
 
         totalKelas: p.totalKelas,
         totalKelasNonBimbingan: p.totalKelasNonBimbingan,
-        totalDosen: p.totalDosen,
+        totalDosen: finalTotalDosen,
         avgKehadiranSemester,
         avgKontenSemester,
       };
@@ -1198,6 +1216,7 @@ export async function getLaporanProdi(
       startDate: targetStartDate,
       endDate: targetEndDate,
       targetSesi,
+      targetJenisKelas: normalizedJenisKelas || "ALL",
       globalSummary: {
         totalProdi: prodiReportList.length,
         totalKelasSemua: globalTotalKelas,
