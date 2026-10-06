@@ -720,6 +720,7 @@ export interface ProdiReportItem {
 
   totalRegularSesiRentang: number;
   totalSkor3PilarRentang: number;
+  maxSkor3PilarRentang: number;
   avgKontenRentang: number | null;
   totalPilar1Rentang: number;
   totalPilar2Rentang: number;
@@ -1117,6 +1118,7 @@ export async function getLaporanProdi(
     let globalTotalHadirRentang = 0;
     let globalTotalRegularSesiRentang = 0;
     let globalTotalSkor3PilarRentang = 0;
+    let globalMaxSkor3PilarRentang = 0;
     let globalTotalConfRentang = 0;
     let globalTotalKelas = 0;
     let globalTotalDosen = 0;
@@ -1168,6 +1170,7 @@ export async function getLaporanProdi(
       globalTotalHadirRentang += p.totalHadirRentang + p.totalHadirTdkLengkapRentang;
       globalTotalRegularSesiRentang += p.totalRegularSesiRentang;
       globalTotalSkor3PilarRentang += p.totalSkor3PilarRentang;
+      globalMaxSkor3PilarRentang += p.maxSkor3PilarRentang;
       globalTotalConfRentang += p.totalConfRentang;
       globalTotalKelas += p.totalKelas;
       globalTotalDosen += finalTotalDosen;
@@ -1187,6 +1190,7 @@ export async function getLaporanProdi(
         avgKehadiranRentang,
         totalRegularSesiRentang: p.totalRegularSesiRentang,
         totalSkor3PilarRentang: p.totalSkor3PilarRentang,
+        maxSkor3PilarRentang: p.maxSkor3PilarRentang,
         avgKontenRentang,
         totalPilar1Rentang: p.totalPilar1Rentang,
         totalPilar2Rentang: p.totalPilar2Rentang,
@@ -1211,8 +1215,8 @@ export async function getLaporanProdi(
         : 0;
 
     const avgKontenRentangSemua =
-      globalTotalRegularSesiRentang > 0
-        ? Math.round((globalTotalSkor3PilarRentang / (globalTotalRegularSesiRentang * 3)) * 1000) / 10
+      globalMaxSkor3PilarRentang > 0
+        ? Math.round((globalTotalSkor3PilarRentang / globalMaxSkor3PilarRentang) * 1000) / 10
         : 0;
 
     const responseData = {

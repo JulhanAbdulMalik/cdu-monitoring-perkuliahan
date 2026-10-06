@@ -78,14 +78,18 @@ export default async function LaporanProdiPage({
     const totalDosenSemua = filteredProdiReports.reduce((s, p) => s + p.totalDosen, 0);
     const totalSesiRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalSesiRentang, 0);
     const activeProdiReports = filteredProdiReports.filter((p) => p.totalKelas > 0);
-    const totalActiveProdi = activeProdiReports.length;
+    const totalSesiAktif = activeProdiReports.reduce((s, p) => s + p.totalSesiRentang, 0);
+    const totalHadirAktif = activeProdiReports.reduce((s, p) => s + (p.totalHadirRentang + p.totalHadirTdkLengkapRentang), 0);
+    const totalSkorKontenAktif = activeProdiReports.reduce((s, p) => s + p.totalSkor3PilarRentang, 0);
+    const totalMaxSkorKontenAktif = activeProdiReports.reduce((s, p) => s + p.maxSkor3PilarRentang, 0);
+
     const avgKehadiranRentangSemua =
-      totalActiveProdi > 0
-        ? Math.round(activeProdiReports.reduce((s, p) => s + (p.avgKehadiranRentang || 0), 0) / totalActiveProdi)
+      totalSesiAktif > 0
+        ? Math.round((totalHadirAktif / totalSesiAktif) * 1000) / 10
         : 0;
     const avgKontenRentangSemua =
-      totalActiveProdi > 0
-        ? Math.round(activeProdiReports.reduce((s, p) => s + (p.avgKontenRentang || 0), 0) / totalActiveProdi)
+      totalMaxSkorKontenAktif > 0
+        ? Math.round((totalSkorKontenAktif / totalMaxSkorKontenAktif) * 1000) / 10
         : 0;
     const totalConfRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalConfRentang, 0);
     const totalGantiHariRentangSemua = filteredProdiReports.reduce((s, p) => s + (p.totalGantiHariRentang || 0), 0);
