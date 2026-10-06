@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         p.totalAlphaRentang,
         p.totalBelumDiisiRentang,
         p.avgKehadiranRentang === null ? "N/A" : formatPct(p.avgKehadiranRentang),
-        p.totalRegularSesiRentang === 0 ? "0/0" : `${p.totalSkor3PilarRentang}/${p.totalRegularSesiRentang * 3}`,
+        p.totalRegularSesiRentang === 0 ? "0/0" : `${p.totalSkor3PilarRentang}/${p.maxSkor3PilarRentang}`,
         p.avgKontenRentang === null ? "N/A" : formatPct(p.avgKontenRentang),
         p.totalConfRentang,
         p.statusKinerjaRentang === "SANGAT_BAIK"

@@ -128,7 +128,8 @@ export default async function DashboardPage() {
     let totalHadirTdkLengkap = 0;
     let totalRegularSesiTerlaksana = 0;
     let totalSkor3PilarTerlaksana = 0;
-    let sumPersenKontenNonBimbingan = 0;
+    let totalSemesterKontenScore = 0;
+    let totalSemesterMaxKontenScore = 0;
     totalKelasNonBimbingan = 0;
     // Total scheduled sessions = 16 per class (for true attendance %)  
     const totalJadwalSesi = rawClasses.length * 16;
@@ -155,7 +156,8 @@ export default async function DashboardPage() {
 
       if ((cls.modePembelajaran as any) !== "BIMBINGAN") {
         totalKelasNonBimbingan++;
-        sumPersenKontenNonBimbingan += summary.persenKonten;
+        totalSemesterKontenScore += summary.totalSkor3Pilar;
+        totalSemesterMaxKontenScore += ((cls.modePembelajaran as any) === "LURING" ? 28 : 42);
       }
 
       for (const s of cls.monitoringSesi) {
@@ -190,8 +192,8 @@ export default async function DashboardPage() {
 
     // Konten: Rerata persentase konten dari seluruh kelas reguler (Non-Bimbingan)
     // Selaras 1:1 dengan halaman Rekapitulasi Sesi
-    avgKontenUniv = totalKelasNonBimbingan > 0
-      ? Math.round((sumPersenKontenNonBimbingan / totalKelasNonBimbingan) * 10) / 10
+    avgKontenUniv = totalSemesterMaxKontenScore > 0
+      ? Math.round((totalSemesterKontenScore / totalSemesterMaxKontenScore) * 1000) / 10
       : 0;
 
     // Kalkulasi tren monitoring per 16 sesi berdasarkan jenis kelas (ALL, OFFLINE, ONLINE, BIMBINGAN)
