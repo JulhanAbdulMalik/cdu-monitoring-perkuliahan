@@ -95,6 +95,7 @@ export default async function DashboardPage() {
           include: { prodi: true },
         },
         dosen: true,
+        dosen2: true,
         semester: true,
         monitoringSesi: {
           orderBy: { nomorSesi: "asc" },
@@ -393,6 +394,7 @@ export default async function DashboardPage() {
         mataKuliah: cls.mataKuliah.nama,
         sks: cls.mataKuliah.sks,
         dosen: cls.dosen.nama,
+        dosen2: cls.dosen2?.nama ?? null,
         prodi: cls.mataKuliah.prodi?.nama || "Umum",
         progress: filledSessions,
         status,

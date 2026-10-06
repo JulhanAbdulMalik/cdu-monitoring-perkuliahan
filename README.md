@@ -84,7 +84,7 @@ Aplikasi ini mendigitalkan proses pemantauan 16 sesi perkuliahan per semester, s
 - **Ekspor Excel (.xlsx)**: File spreadsheet siap pakai berformat elegan dan rapi yang digenerate langsung oleh server menggunakan `ExcelJS`.
 - **Cetak / Print PDF Ready**: Tampilan bersih siap cetak langsung dari browser.
 
-### 7. 👥 Manajemen Pengguna & Keamanan (RBAC)
+### 7. Manajemen Pengguna & Keamanan (RBAC)
 
 - Autentikasi aman berbasis session menggunakan **NextAuth.js v5 (Auth.js)** dan enkripsi password **Bcrypt**.
 - **Role-Based Access Control** yang ditegakkan di level Edge Middleware dan Server Actions.

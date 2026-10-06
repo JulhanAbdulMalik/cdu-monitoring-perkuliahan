@@ -16,6 +16,7 @@ import {
   Calendar,
   School,
   Sparkles,
+  User,
   Users,
   Building,
   Laptop,
@@ -26,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { ClassRekapSummary } from "@/actions/laporan";
-import { formatPct } from "@/lib/utils";
+import { formatPct, formatSesiRange } from "@/lib/utils";
 import TablePagination from "@/components/common/TablePagination";
 
 interface SemesterOption {
@@ -600,6 +601,10 @@ export default function RekapClient({
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-bold text-slate-700">Pengajar:</span>
               <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-slate-500 ring-1 ring-slate-300" />
+                <span>Dosen Tandem</span>
+              </div>
+              <div className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-purple-600 ring-1 ring-purple-200" />
                 <span>Dosen Baru</span>
               </div>
@@ -728,24 +733,51 @@ export default function RekapClient({
 
                       {/* Dosen & Split Lecturer Info */}
                       <td className="py-4 px-2.5 font-medium text-slate-700 min-w-[200px]">
-                        <div>
-                          <p className="truncate max-w-[220px] font-semibold text-slate-900 leading-tight text-xs" title={cls.dosen.nama}>
-                            {cls.dosen.nama}
-                          </p>
-                          {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1 ? (
-                            <div className="mt-1 space-y-0.5">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                            <User size={12} className="text-[#a80063] shrink-0" />
+                            <span
+                              className="font-semibold truncate max-w-[220px] text-xs leading-tight text-slate-900"
+                              title={cls.dosen.nama}
+                            >
+                              {cls.dosen.nama}
+                            </span>
+                          </div>
+                          {/* Info Dosen Tandem jika belum ada sesi yang dialokasikan khusus */}
+                          {cls.dosen2 && !cls.dosenPengajarList?.some((p) => p.id === cls.dosen2?.id) && (
+                            <div className="flex items-center gap-1.5 text-slate-500 pt-0.5">
+                              <div className="w-3 flex justify-center shrink-0">
+                                <Users size={10.5} className="text-slate-400" />
+                              </div>
+                              <span
+                                className="truncate max-w-[220px] text-[10px] leading-tight text-slate-500 font-medium"
+                                title={`Dosen Tandem: ${cls.dosen2.nama}`}
+                              >
+                                {cls.dosen2.nama}
+                              </span>
+                            </div>
+                          )}
+                          {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1 && (
+                            <div className="space-y-0.5 pt-0.5">
                               {cls.dosenPengajarList
                                 .filter((p) => p.id !== cls.dosen.id)
                                 .map((p, pIdx) => (
-                                  <div key={pIdx} className="flex items-center gap-1 text-[9px] leading-tight">
+                                  <div key={pIdx} className="flex items-center gap-1.5 text-[9.5px]">
                                     <span
-                                      className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
-                                        p.statusPengajar === "PERGANTIAN_TETAP"
+                                      className={`px-1.5 py-0.2 rounded font-bold shrink-0 border ${
+                                        p.statusPengajar === "TANDEM"
+                                          ? "bg-slate-100 text-slate-700 border-slate-200"
+                                          : p.statusPengajar === "PERGANTIAN_TETAP"
                                           ? "bg-purple-50 text-purple-700 border-purple-200"
                                           : "bg-amber-50 text-amber-700 border-amber-200"
                                       }`}
                                     >
-                                      {p.statusPengajar === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S{Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                      {p.statusPengajar === "TANDEM"
+                                        ? "Tandem"
+                                        : p.statusPengajar === "PERGANTIAN_TETAP"
+                                        ? "Baru"
+                                        : "Ganti"}
+                                      : {formatSesiRange(p.sesiList)}
                                     </span>
                                     <span className="truncate max-w-[120px] text-slate-600 font-medium" title={p.nama}>
                                       {p.nama}
@@ -753,7 +785,7 @@ export default function RekapClient({
                                   </div>
                                 ))}
                             </div>
-                          ) : null}
+                          )}
                         </div>
                       </td>
 
@@ -766,7 +798,9 @@ export default function RekapClient({
                         const isFilled = isHadir || isHTL || isAlpha;
                         const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
                         const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
-                        const statusLabel = s.statusPengajar === "PERGANTIAN_TETAP"
+                        const statusLabel = s.statusPengajar === "TANDEM"
+                          ? "Dosen Tandem"
+                          : s.statusPengajar === "PERGANTIAN_TETAP"
                           ? "Dosen Baru"
                           : s.statusPengajar === "PENGGANTI_INSIDENTAL"
                           ? "Dosen Pengganti"
@@ -816,13 +850,7 @@ export default function RekapClient({
                             <div className="relative inline-block">
                               {isFilled ? (
                                 <span
-                                  className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold transition-all ${badgeColorClass} ${
-                                    isSub
-                                      ? s.statusPengajar === "PERGANTIAN_TETAP"
-                                        ? "ring-1.5 ring-purple-400"
-                                        : "ring-1.5 ring-amber-400"
-                                      : ""
-                                  }`}
+                                  className={`inline-block w-5 h-5 leading-5 rounded text-center font-bold transition-all ${badgeColorClass}`}
                                   title={tooltipText}
                                 >
                                   {cellText}
@@ -831,11 +859,15 @@ export default function RekapClient({
                                 <span className="text-slate-300 font-bold" title={tooltipText}>-</span>
                               )}
 
-                              {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru */}
+                              {/* Indicator dot jika sesi diajar oleh dosen pengganti / dosen baru / tandem */}
                               {isSub && (
                                 <span
                                   className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-white ${
-                                    s.statusPengajar === "PERGANTIAN_TETAP" ? "bg-purple-600" : "bg-amber-500"
+                                    s.statusPengajar === "TANDEM"
+                                      ? "bg-slate-600"
+                                      : s.statusPengajar === "PERGANTIAN_TETAP"
+                                      ? "bg-purple-600"
+                                      : "bg-amber-500"
                                   }`}
                                   title={tooltipText}
                                 />

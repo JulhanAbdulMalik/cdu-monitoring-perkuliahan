@@ -367,6 +367,15 @@ export async function GET(request: NextRequest) {
             cell.alignment = { horizontal: "left", vertical: "middle" };
           }
 
+          // Status Penugasan (Col 9)
+          if (colNumber === 9) {
+            if (cls.statusPenugasan?.includes("Tandem")) {
+              cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF475569" } }; // Slate / Gray
+            } else if (cls.statusPenugasan?.includes("Pergantian") || cls.statusPenugasan?.includes("Pengganti")) {
+              cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB45309" } };
+            }
+          }
+
           // % Kehadiran (Col 11)
           if (colNumber === 11) {
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF047857" } };

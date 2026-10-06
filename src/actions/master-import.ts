@@ -312,6 +312,35 @@ function findBestProdiMatch(
   return match || null;
 }
 
+function findBestDosenMatch(
+  allDosen: Array<{ id: string; nama: string; nidn?: string | null }>,
+  query: string
+) {
+  if (!query || query === "-" || !query.trim()) return null;
+  const clean = query.trim();
+  const queryLower = clean.toLowerCase();
+
+  // 1. Cocokkan NIDN
+  let matched = allDosen.find((d) => d.nidn && d.nidn.trim() === clean);
+  if (matched) return matched;
+
+  // 2. Cocokkan Nama Lengkap Eksak (case-insensitive)
+  matched = allDosen.find((d) => d.nama.toLowerCase() === queryLower);
+  if (matched) return matched;
+
+  // 3. Cocokkan Partial/Substring HANYA jika query cukup panjang (minimal 4 karakter)
+  if (queryLower.length >= 4) {
+    matched = allDosen.find(
+      (d) =>
+        d.nama.toLowerCase().includes(queryLower) ||
+        (d.nama.length >= 4 && queryLower.includes(d.nama.toLowerCase()))
+    );
+    if (matched) return matched;
+  }
+
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. IMPORT KELAS / PERKULIAHAN (DENGAN AUTO GENERATE 16 SESI MONITORING)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -393,6 +422,19 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
       ).trim();
       // Bersihkan enter / newline pada team teaching: "LAZUARDI...\nDr. CHRIS..." -> "LAZUARDI... / Dr. CHRIS..."
       let cleanDosen = rawDosen.replace(/[\r\n]+/g, " / ").replace(/\s{2,}/g, " ").trim();
+
+      // Smart Splitter: Pisahkan Dosen Utama dan Dosen Tandem jika terdapat '/' atau kolom terpisah
+      const dosenParts = cleanDosen
+        .split("/")
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      const explicitDosenTandem = String(
+        row["Dosen Tandem"] || row["Dosen 2"] || row["Pengajar 2"] || row["Tandem"] || row["dosen2"] || ""
+      ).trim();
+
+      const queryDosenUtama = dosenParts[0] || "";
+      const queryDosenTandem = explicitDosenTandem || (dosenParts[1] || "");
 
       // Deteksi Otomatis Kelas Jenis 'BIMBINGAN' (Magang, Skripsi, Riset, PKL, SCP, Thesis/Tesis dll)
       const BIMBINGAN_CODES = [
@@ -526,27 +568,9 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
         }
       }
 
-      // Match Dosen jika sudah ada (HANYA jika nama/query dosen diisi di Excel dan bukan "-")
-      let matchedDosen: any = null;
-      if (cleanDosen && cleanDosen !== "-") {
-        const queryLower = cleanDosen.toLowerCase();
-        // 1. Cocokkan NIDN
-        matchedDosen = allDosen.find((d) => d.nidn && d.nidn.trim() === cleanDosen);
-
-        // 2. Cocokkan Nama Lengkap Eksak (case-insensitive)
-        if (!matchedDosen) {
-          matchedDosen = allDosen.find((d) => d.nama.toLowerCase() === queryLower);
-        }
-
-        // 3. Cocokkan Partial/Substring HANYA jika query cukup panjang (minimal 4 karakter)
-        if (!matchedDosen && queryLower.length >= 4) {
-          matchedDosen = allDosen.find(
-            (d) =>
-              d.nama.toLowerCase().includes(queryLower) ||
-              (d.nama.length >= 4 && queryLower.includes(d.nama.toLowerCase()))
-          );
-        }
-      }
+      // Match Dosen Utama & Dosen Tandem jika sudah ada di database
+      const matchedDosenUtama = findBestDosenMatch(allDosen, queryDosenUtama);
+      const matchedDosenTandem = queryDosenTandem ? findBestDosenMatch(allDosen, queryDosenTandem) : null;
 
       previewList.push({
         rowIndex: idx + 2,
@@ -564,10 +588,14 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
           prodiQuery: prodiQuery || matchedProdi?.nama || "Umum",
           prodiId: matchedProdi?.id || null,
           prodiNama: matchedProdi?.nama || prodiQuery || "-",
-          // Dosen data (kosong jika tidak ada di Excel)
-          dosenQuery: cleanDosen && cleanDosen !== "-" ? cleanDosen : "",
-          dosenId: matchedDosen?.id || null,
-          dosenNama: matchedDosen?.nama || (cleanDosen && cleanDosen !== "-" ? cleanDosen : "-"),
+          // Dosen Utama data (kosong jika tidak ada di Excel)
+          dosenQuery: queryDosenUtama && queryDosenUtama !== "-" ? queryDosenUtama : "",
+          dosenId: matchedDosenUtama?.id || null,
+          dosenNama: matchedDosenUtama?.nama || (queryDosenUtama && queryDosenUtama !== "-" ? queryDosenUtama : "-"),
+          // Dosen Tandem data (opsional jika ada di Excel)
+          dosen2Query: queryDosenTandem && queryDosenTandem !== "-" ? queryDosenTandem : "",
+          dosen2Id: matchedDosenTandem?.id || null,
+          dosen2Nama: matchedDosenTandem?.nama || (queryDosenTandem && queryDosenTandem !== "-" ? queryDosenTandem : null),
           // Jadwal, Ruangan & Mode
           jadwalHari: hari,
           jadwalJam: jam,
@@ -700,7 +728,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
       }
       const mataKuliahId = existingMk.id;
 
-      // 3. Dapatkan atau Buat Dosen
+      // 3. Dapatkan atau Buat Dosen Utama
       let dosenId = r.dosenId;
       const cleanDosenNama = String(r.dosenNama || r.dosenQuery || "").trim();
       const dosenNamaToUse =
@@ -730,6 +758,39 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
         });
       }
       dosenId = existingDosen.id;
+
+      // 3b. Dapatkan atau Buat Dosen Tandem (jika ada)
+      let dosen2Id = r.dosen2Id || null;
+      const cleanDosen2Nama = String(r.dosen2Nama || r.dosen2Query || "").trim();
+
+      if (cleanDosen2Nama && cleanDosen2Nama !== "-") {
+        let existingDosen2 = dosen2Id
+          ? await prisma.dosen.findUnique({ where: { id: dosen2Id } })
+          : null;
+
+        if (!existingDosen2) {
+          existingDosen2 = await prisma.dosen.findFirst({
+            where: {
+              nama: { equals: cleanDosen2Nama, mode: "insensitive" },
+            },
+          });
+        }
+
+        if (!existingDosen2) {
+          existingDosen2 = await prisma.dosen.create({
+            data: {
+              nama: cleanDosen2Nama,
+              prodiId: prodiId,
+            },
+          });
+        }
+        dosen2Id = existingDosen2.id;
+      }
+
+      // Hindari duplikasi: dosen tandem tidak boleh sama dengan dosen utama
+      if (dosen2Id && dosen2Id === dosenId) {
+        dosen2Id = null;
+      }
 
       // 4. Cari kelas yang sudah ada (termasuk jika sebelumnya salah terhubung ke semester lain atau MK prodi lain)
       let existing = await prisma.kelas.findFirst({
@@ -774,6 +835,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
             semesterId: semesterId,
             mataKuliahId: mataKuliahId,
             dosenId: dosenId,
+            dosen2Id: dosen2Id || null,
             jadwalHari: r.jadwalHari,
             jadwalJam: r.jadwalJam,
             ruangan: r.modePembelajaran !== "DARING" ? (r.ruangan?.trim() || null) : null,
@@ -789,6 +851,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
               semesterId: semesterId,
               mataKuliahId: mataKuliahId,
               dosenId: dosenId,
+              dosen2Id: dosen2Id || null,
               jadwalHari: r.jadwalHari,
               jadwalJam: r.jadwalJam,
               ruangan: r.modePembelajaran !== "DARING" ? (r.ruangan?.trim() || null) : null,

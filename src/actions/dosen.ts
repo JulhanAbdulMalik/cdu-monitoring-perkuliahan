@@ -22,7 +22,7 @@ export async function getDosenList() {
             include: { fakultas: true },
           },
           _count: {
-            select: { kelas: true },
+            select: { kelas: true, kelasTandem: true },
           },
         },
         orderBy: { nama: "asc" },
@@ -149,16 +149,17 @@ export async function deleteDosen(id: string) {
     const dosen = await prisma.dosen.findUnique({
       where: { id },
       include: {
-        _count: { select: { kelas: true } },
+        _count: { select: { kelas: true, kelasTandem: true } },
       },
     });
 
     if (!dosen) return { success: false, error: "Dosen tidak ditemukan" };
 
-    if (dosen._count.kelas > 0) {
+    const totalActiveKelas = dosen._count.kelas + (dosen._count.kelasTandem || 0);
+    if (totalActiveKelas > 0) {
       return {
         success: false,
-        error: `Tidak dapat menghapus dosen karena mengampu ${dosen._count.kelas} kelas aktif. Hapus kelas terlebih dahulu.`,
+        error: `Tidak dapat menghapus dosen karena terdaftar di ${totalActiveKelas} kelas aktif (Utama/Tandem). Hapus atau ubah penugasan kelas terlebih dahulu.`,
       };
     }
 
@@ -191,12 +192,13 @@ export async function getResetDosenStats(options: { prodiId?: string }) {
         where: {
           ...whereBase,
           kelas: { none: {} },
+          kelasTandem: { none: {} },
         },
       }),
       prisma.dosen.count({
         where: {
           ...whereBase,
-          kelas: { some: {} },
+          OR: [{ kelas: { some: {} } }, { kelasTandem: { some: {} } }],
         },
       }),
     ]);
@@ -233,6 +235,7 @@ export async function resetDosenData(options: {
 
     if (options.onlyZeroClasses) {
       whereFilter.kelas = { none: {} };
+      whereFilter.kelasTandem = { none: {} };
     }
 
     // Ambil list dosen yang sesuai kriteria
@@ -241,7 +244,7 @@ export async function resetDosenData(options: {
       select: {
         id: true,
         nama: true,
-        _count: { select: { kelas: true } },
+        _count: { select: { kelas: true, kelasTandem: true } },
       },
     });
 
@@ -254,11 +257,13 @@ export async function resetDosenData(options: {
     }
 
     // Periksa apakah ada dosen yang masih mengampu kelas (jika onlyZeroClasses = false)
-    const dosenWithClasses = targetDosen.filter((d) => d._count.kelas > 0);
+    const dosenWithClasses = targetDosen.filter(
+      (d) => d._count.kelas > 0 || (d._count.kelasTandem || 0) > 0
+    );
     if (dosenWithClasses.length > 0 && !options.onlyZeroClasses) {
       return {
         success: false,
-        error: `Terdapat ${dosenWithClasses.length} dosen yang masih terhubung ke kelas aktif. Bersihkan data di menu Data Perkuliahan terlebih dahulu, atau pilih opsi 'Hanya hapus dosen tanpa kelas aktif'.`,
+        error: `Terdapat ${dosenWithClasses.length} dosen yang masih terhubung ke kelas aktif (Utama/Tandem). Bersihkan data di menu Data Perkuliahan terlebih dahulu, atau pilih opsi 'Hanya hapus dosen tanpa kelas aktif'.`,
       };
     }
 

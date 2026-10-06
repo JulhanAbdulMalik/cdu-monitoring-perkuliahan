@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getRekapLaporan } from "@/actions/laporan";
-import { formatPct } from "@/lib/utils";
+import { formatPct, formatSesiRange } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
     worksheet.mergeCells("A4:AE4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
-      "KETERANGAN KEHADIRAN (WARNA): [H] Hadir (Hijau)  •  [T] HTL (Kuning)  •  [A] Alpa (Merah)   |   SKOR 3 PILAR (ANGKA): [3] Lengkap (3/3)  •  [2] Baik (2/3)  •  [1] Sebagian (1/3)  •  [0] Kosong   |   PENGAJAR: Dosen Baru (Border Ungu)  •  Dosen Pengganti (Border Amber)";
+      "KETERANGAN KEHADIRAN (WARNA): [H] Hadir (Hijau)  •  [T] HTL (Kuning)  •  [A] Alpa (Merah)   |   SKOR 3 PILAR (ANGKA): [3] Lengkap (3/3)  •  [2] Baik (2/3)  •  [1] Sebagian (1/3)  •  [0] Kosong   |   PENGAJAR: Kotak Abu-abu (Dosen Tandem)  •  Kotak Ungu (Dosen Baru)  •  Kotak Kuning (Dosen Pengganti)";
     legendCell.font = { name: "Rockwell", size: 8.5, bold: false, color: { argb: "FF475569" } };
     legendCell.alignment = { horizontal: "center", vertical: "middle" };
     legendCell.fill = {
@@ -304,31 +304,44 @@ export async function GET(request: NextRequest) {
         return scoreValue;
       });
 
-      // 2. Format Teks Dosen Pengampu (Mendukung Split Multi-line)
-      let dosenDisplayText = cls.dosen.nama;
+      // 2. Format Teks Dosen Pengampu (Mendukung Split Multi-line & Dosen Tandem)
+      const lines: string[] = [];
       if (cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1) {
         const dosenUtamaPeran = cls.dosenPengajarList.find((p) => p.id === cls.dosen.id);
         const subPeranList = cls.dosenPengajarList.filter((p) => p.id !== cls.dosen.id);
 
-        const lines: string[] = [];
         if (dosenUtamaPeran && dosenUtamaPeran.sesiList.length > 0) {
-          const minU = Math.min(...dosenUtamaPeran.sesiList);
-          const maxU = Math.max(...dosenUtamaPeran.sesiList);
-          lines.push(`${cls.dosen.nama} (Utama: S${minU}–${maxU})`);
+          const sesiRange = formatSesiRange(dosenUtamaPeran.sesiList);
+          lines.push(`${cls.dosen.nama} (Utama: ${sesiRange})`);
         } else {
           lines.push(`${cls.dosen.nama} (Utama)`);
         }
 
         subPeranList.forEach((sub) => {
-          const label = sub.statusPengajar === "PERGANTIAN_TETAP" ? "Baru" : "Ganti";
-          const minS = Math.min(...sub.sesiList);
-          const maxS = Math.max(...sub.sesiList);
-          const sesiStr = minS === maxS ? `S${minS}` : `S${minS}–${maxS}`;
+          const label =
+            sub.statusPengajar === "TANDEM"
+              ? "Tandem"
+              : sub.statusPengajar === "PERGANTIAN_TETAP"
+              ? "Baru"
+              : "Ganti";
+          const sesiStr = formatSesiRange(sub.sesiList);
           lines.push(`${sub.nama} (${label}: ${sesiStr})`);
         });
 
-        dosenDisplayText = lines.join("\n");
+        // Tetap cantumkan Dosen Tandem resmi terdaftar jika belum dialokasikan sesi tertentu
+        if (cls.dosen2 && !subPeranList.some((s) => s.id === cls.dosen2?.id)) {
+          lines.push(`${cls.dosen2.nama} (Tandem)`);
+        }
+      } else if (cls.dosen2) {
+        // Kelas dengan Dosen Tandem resmi terdaftar
+        lines.push(`${cls.dosen.nama} (Utama)`);
+        lines.push(`${cls.dosen2.nama} (Tandem)`);
+      } else {
+        // Normal 1 Dosen Pengampu Penuh
+        lines.push(cls.dosen.nama);
       }
+
+      const dosenDisplayText = lines.join("\n");
 
       // 3. Format Teks Jadwal Kuliah (Hari & Jam Compact)
       let jadwalKuliahText = "-";
@@ -343,20 +356,27 @@ export async function GET(request: NextRequest) {
       // 4. Format Ringkasan Pergantian Dosen (Kolom 31)
       let statusPengajarText = "Normal (1 Dosen Penuh)";
       if (cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 1) {
-        const lines: string[] = [];
+        const statusLines: string[] = [];
         cls.dosenPengajarList.forEach((p) => {
-          const minS = Math.min(...p.sesiList);
-          const maxS = Math.max(...p.sesiList);
-          const sesiStr = minS === maxS ? `S${minS}` : `S${minS}–${maxS}`;
+          const sesiStr = formatSesiRange(p.sesiList);
           const roleStr =
-            p.statusPengajar === "PERGANTIAN_TETAP"
+            p.statusPengajar === "TANDEM"
+              ? "Dosen Tandem"
+              : p.statusPengajar === "PERGANTIAN_TETAP"
               ? "Dosen Baru"
               : p.statusPengajar === "PENGGANTI_INSIDENTAL"
               ? "Pengganti"
               : "Utama";
-          lines.push(`${sesiStr}: ${p.nama} [${roleStr}${p.catatan ? ` • ${p.catatan}` : ""}]`);
+          statusLines.push(`${sesiStr}: ${p.nama} [${roleStr}${p.catatan ? ` • ${p.catatan}` : ""}]`);
         });
-        statusPengajarText = lines.join("\n");
+
+        if (cls.dosen2 && !cls.dosenPengajarList.some((p) => p.id === cls.dosen2?.id)) {
+          statusLines.push(`Tandem Terdaftar: ${cls.dosen2.nama} (Belum Dialokasikan Sesi)`);
+        }
+
+        statusPengajarText = statusLines.join("\n");
+      } else if (cls.dosen2) {
+        statusPengajarText = `Tandem Terdaftar: ${cls.dosen2.nama} (Belum Dialokasikan Sesi)`;
       }
 
       const rowValues = [
@@ -385,7 +405,11 @@ export async function GET(request: NextRequest) {
       ];
 
       const row = worksheet.addRow(rowValues);
-      row.height = cls.isSplitPengajar ? 36 : (cls.jadwalHari && cls.jadwalJam ? 28 : 20);
+      const dosenLineCount = dosenDisplayText.split("\n").length;
+      const jadwalLineCount = jadwalKuliahText.split("\n").length;
+      const statusLineCount = statusPengajarText.split("\n").length;
+      const maxLines = Math.max(dosenLineCount, jadwalLineCount, Math.min(statusLineCount, 4));
+      row.height = Math.max(22, maxLines * 16 + 6);
 
       row.eachCell((cell, colNumber) => {
         cell.font = { name: "Rockwell", size: 9 };
@@ -444,15 +468,44 @@ export async function GET(request: NextRequest) {
             };
             cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB91C1C" } };
           } else {
-            cell.font = { name: "Rockwell", size: 9, bold: false, color: { argb: "FF94A3B8" } };
+            // Sesi Belum Diisi: Beri highlight background jika diajar Dosen Pengganti/Baru/Tandem
+            if (isSub) {
+              if (s.statusPengajar === "TANDEM") {
+                cell.fill = {
+                  type: "pattern",
+                  pattern: "solid",
+                  fgColor: { argb: "FFF1F5F9" }, // Slate 100 (Kotak Gray Dosen Tandem)
+                };
+                cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF475569" } };
+              } else if (s.statusPengajar === "PERGANTIAN_TETAP") {
+                cell.fill = {
+                  type: "pattern",
+                  pattern: "solid",
+                  fgColor: { argb: "FFF5F3FF" }, // Soft Purple (Dosen Baru)
+                };
+                cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF7C3AED" } };
+              } else {
+                cell.fill = {
+                  type: "pattern",
+                  pattern: "solid",
+                  fgColor: { argb: "FFFFFBEB" }, // Soft Amber (Dosen Pengganti)
+                };
+                cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFD97706" } };
+              }
+            } else {
+              cell.font = { name: "Rockwell", size: 9, bold: false, color: { argb: "FF94A3B8" } };
+            }
           }
 
-          // Indikator Border Pengganti jika diajar Dosen Baru atau Pengganti (Persis ring/dot di Web)
+          // Indikator Border jika diajar Dosen Tandem/Baru/Pengganti
           if (isSub) {
             const borderColor =
-              s.statusPengajar === "PERGANTIAN_TETAP"
+              s.statusPengajar === "TANDEM"
+                ? "FF64748B" // Slate / Gray (Dosen Tandem)
+                : s.statusPengajar === "PERGANTIAN_TETAP"
                 ? "FF9333EA" // Purple (Dosen Baru)
                 : "FFD97706"; // Amber (Dosen Pengganti)
+
             cell.border = {
               top: { style: "medium", color: { argb: borderColor } },
               left: { style: "medium", color: { argb: borderColor } },
@@ -529,7 +582,7 @@ export async function GET(request: NextRequest) {
     worksheet.getColumn(5).width = 22; // Prodi
     worksheet.getColumn(6).width = 28; // Mata Kuliah
     worksheet.getColumn(7).width = 6; // SKS
-    worksheet.getColumn(8).width = 32; // Dosen Pengampu (Lebar cukup untuk multi-line)
+    worksheet.getColumn(8).width = 38; // Dosen Pengampu (Lebar cukup untuk multi-line)
     for (let c = 9; c <= 24; c++) {
       worksheet.getColumn(c).width = 9; // Sesi 1-16
     }
@@ -616,7 +669,9 @@ export async function GET(request: NextRequest) {
         const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
         if (isSub) {
           const jenisStr =
-            s.statusPengajar === "PERGANTIAN_TETAP"
+            s.statusPengajar === "TANDEM"
+              ? "Dosen Tandem (Resmi)"
+              : s.statusPengajar === "PERGANTIAN_TETAP"
               ? "Dosen Baru (Pergantian Tetap)"
               : "Dosen Pengganti (Sementara)";
 
@@ -660,7 +715,9 @@ export async function GET(request: NextRequest) {
             }
 
             if (colNumber === 9) {
-              if (s.statusPengajar === "PERGANTIAN_TETAP") {
+              if (s.statusPengajar === "TANDEM") {
+                cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF475569" } }; // Slate / Gray
+              } else if (s.statusPengajar === "PERGANTIAN_TETAP") {
                 cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF6B21A8" } };
               } else {
                 cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB45309" } };

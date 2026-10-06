@@ -49,6 +49,7 @@ export async function getKelasList(semesterId?: string) {
           include: { prodi: true },
         },
         dosen: true,
+        dosen2: true,
       },
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
     });
@@ -82,7 +83,9 @@ export interface UnifiedKelasPayload {
   sks?: number;
   prodiId?: string;
   dosenId?: string;
+  dosen2Id?: string | null;
   namaDosen?: string;
+  namaDosen2?: string;
 }
 
 export async function createKelas(formData: UnifiedKelasPayload) {
@@ -156,6 +159,35 @@ export async function createKelas(formData: UnifiedKelasPayload) {
       dosenId = existingDosen.id;
     }
 
+    // 2b. Resolve Dosen Tandem (Opsional)
+    let dosen2Id = formData.dosen2Id ? formData.dosen2Id.trim() : null;
+    if (!dosen2Id && formData.namaDosen2 && formData.namaDosen2.trim()) {
+      const d2Nama = formData.namaDosen2.trim();
+      const pId = formData.prodiId;
+      if (pId) {
+        let existingDosen2 = await prisma.dosen.findFirst({
+          where: {
+            nama: { equals: d2Nama, mode: "insensitive" },
+          },
+        });
+
+        if (!existingDosen2) {
+          existingDosen2 = await prisma.dosen.create({
+            data: {
+              nama: d2Nama,
+              prodiId: pId,
+            },
+          });
+        }
+        dosen2Id = existingDosen2.id;
+      }
+    }
+
+    // Hindari duplikasi: dosen tandem tidak boleh sama dengan dosen utama
+    if (dosen2Id && dosen2Id === dosenId) {
+      dosen2Id = null;
+    }
+
     // 3. Cek duplikasi kode kelas pada semester dan mata kuliah yang sama
     const existing = await prisma.kelas.findFirst({
       where: {
@@ -180,6 +212,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
           semesterId: formData.semesterId,
           mataKuliahId: mataKuliahId!,
           dosenId: dosenId!,
+          dosen2Id: dosen2Id || null,
           jadwalHari: (formData.jadwalHari || "Senin").trim(),
           jadwalJam: (formData.jadwalJam || "08:00 - 09:40").trim(),
           ruangan: formData.modePembelajaran !== "DARING" ? (formData.ruangan?.trim() || null) : null,
@@ -217,6 +250,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
           semester: true,
           mataKuliah: { include: { prodi: true } },
           dosen: true,
+          dosen2: true,
           monitoringSesi: { orderBy: { nomorSesi: "asc" } },
         },
       });
@@ -304,6 +338,41 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
     const finalMataKuliahId = mataKuliahId || currentKelas.mataKuliahId;
     const finalDosenId = dosenId || currentKelas.dosenId;
 
+    // Resolve Dosen Tandem pada update
+    let finalDosen2Id: string | null = null;
+    if (formData.dosen2Id !== undefined) {
+      finalDosen2Id = formData.dosen2Id ? formData.dosen2Id.trim() : null;
+    } else {
+      finalDosen2Id = currentKelas.dosen2Id;
+    }
+
+    if (!finalDosen2Id && formData.namaDosen2 && formData.namaDosen2.trim()) {
+      const d2Nama = formData.namaDosen2.trim();
+      const pId = formData.prodiId;
+      if (pId) {
+        let existingDosen2 = await prisma.dosen.findFirst({
+          where: {
+            nama: { equals: d2Nama, mode: "insensitive" },
+          },
+        });
+
+        if (!existingDosen2) {
+          existingDosen2 = await prisma.dosen.create({
+            data: {
+              nama: d2Nama,
+              prodiId: pId,
+            },
+          });
+        }
+        finalDosen2Id = existingDosen2.id;
+      }
+    }
+
+    // Hindari duplikasi: dosen tandem tidak boleh sama dengan dosen utama
+    if (finalDosen2Id && finalDosen2Id === finalDosenId) {
+      finalDosen2Id = null;
+    }
+
     const existing = await prisma.kelas.findFirst({
       where: {
         kodeKelas: kodeKelas,
@@ -327,6 +396,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
         semesterId: finalSemesterId,
         mataKuliahId: finalMataKuliahId,
         dosenId: finalDosenId,
+        dosen2Id: finalDosen2Id,
         jadwalHari: formData.jadwalHari?.trim(),
         jadwalJam: formData.jadwalJam?.trim(),
         ruangan: formData.modePembelajaran !== "DARING" ? (formData.ruangan?.trim() || null) : null,
@@ -336,6 +406,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
         semester: true,
         mataKuliah: { include: { prodi: true } },
         dosen: true,
+        dosen2: true,
         monitoringSesi: { orderBy: { nomorSesi: "asc" } },
       },
     });

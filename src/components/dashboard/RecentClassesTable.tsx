@@ -10,6 +10,7 @@ interface ClassItem {
   mataKuliah: string;
   sks: number;
   dosen: string;
+  dosen2?: string | null;
   prodi: string;
   progress: number;
   status: "LENGKAP" | "SEBAGIAN" | "BELUM";
@@ -87,9 +88,16 @@ export default function RecentClassesTable({ classes }: RecentClassesTableProps)
                       <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-[10px] shrink-0">
                         {item.dosen[0]}
                       </div>
-                      <span className="font-medium text-xs text-slate-700 truncate max-w-[150px]">
-                        {item.dosen}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium text-xs text-slate-700 truncate max-w-[150px] block" title={item.dosen}>
+                          {item.dosen}
+                        </span>
+                        {item.dosen2 && (
+                          <span className="text-[9.5px] text-slate-400 font-medium truncate max-w-[150px] block" title={`Tandem: ${item.dosen2}`}>
+                            Tandem: {item.dosen2}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
 

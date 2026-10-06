@@ -645,7 +645,16 @@ export default function MasterImportModal({
                               </td>
                               <td className="py-2.5 px-3 font-medium text-slate-800">
                                 {row.data.dosenNama && row.data.dosenNama !== "-" ? (
-                                  <span>{row.data.dosenNama}</span>
+                                  <div>
+                                    <span>{row.data.dosenNama}</span>
+                                    {row.data.dosen2Nama && row.data.dosen2Nama !== "-" && (
+                                      <div className="mt-0.5">
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-semibold">
+                                          {row.data.dosen2Nama}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="text-amber-700 font-semibold text-[11px] italic bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                     Belum ada Dosen
@@ -895,7 +904,7 @@ export default function MasterImportModal({
                     </div>
                     <div className="col-span-2">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block font-semibold text-slate-700">Pengajar / Dosen</label>
+                        <label className="block font-semibold text-slate-700">Pengajar / Dosen Utama</label>
                         {(!editFormData.dosenNama || editFormData.dosenNama === "-") && (
                           <button
                             type="button"
@@ -911,9 +920,20 @@ export default function MasterImportModal({
                         value={editFormData.dosenNama && editFormData.dosenNama !== "-" ? editFormData.dosenNama : (editFormData.dosenQuery && editFormData.dosenQuery !== "-" ? editFormData.dosenQuery : "")}
                         onChange={(e) => setEditFormData({ ...editFormData, dosenNama: e.target.value, dosenQuery: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                        placeholder="Nama Dosen & Gelar"
+                        placeholder="Nama Dosen Utama & Gelar"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Dosen Tandem (Opsional)</label>
+                    <input
+                      type="text"
+                      value={editFormData.dosen2Nama && editFormData.dosen2Nama !== "-" ? editFormData.dosen2Nama : (editFormData.dosen2Query && editFormData.dosen2Query !== "-" ? editFormData.dosen2Query : "")}
+                      onChange={(e) => setEditFormData({ ...editFormData, dosen2Nama: e.target.value, dosen2Query: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
+                      placeholder="Nama Dosen Tandem (kosongkan jika tidak ada)"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

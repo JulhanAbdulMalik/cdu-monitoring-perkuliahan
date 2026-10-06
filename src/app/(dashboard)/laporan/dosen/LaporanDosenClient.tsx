@@ -43,6 +43,7 @@ interface DosenReportItem {
     totalSesiBeban?: number;
     sesiDiajar?: number[];
     statusPenugasan?: string;
+    peranPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     totalHadir: number;
     persenKehadiran: number;
     totalSkorKonten: number;
@@ -600,7 +601,18 @@ export default function LaporanDosenClient({
                                               {cls.mataKuliah.nama} ({cls.mataKuliah.sks} SKS)
                                             </p>
                                             {cls.statusPenugasan && cls.statusPenugasan !== "Penuh (Sesi 1–16)" && (
-                                              <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                                              <span
+                                                className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                                  cls.peranPengajar === "TANDEM"
+                                                    ? "bg-slate-100 text-slate-700 border-slate-200"
+                                                    : cls.peranPengajar === "PERGANTIAN_TETAP"
+                                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                    : cls.peranPengajar === "PENGGANTI_INSIDENTAL"
+                                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                    : "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
+                                                }`}
+                                              >
+                                                {cls.peranPengajar === "TANDEM" ? " " : ""}
                                                 {cls.statusPenugasan}
                                               </span>
                                             )}

@@ -59,7 +59,7 @@ export function generateTemplate(type: "dosen" | "mata-kuliah" | "kelas" | "prod
         2,
         "Teknik Informatika",
         "TI26A",
-        "Julhan Abdul Malik, S.Kom",
+        "Julhan Abdul Malik, S.Kom / Dr. Budi Santoso, M.T.",
         "Senin",
         "09:10 s.d 10:50",
         "B5C",

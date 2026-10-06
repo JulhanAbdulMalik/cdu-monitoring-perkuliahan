@@ -54,6 +54,7 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
         },
         mataKuliah: { include: { prodi: true } },
         dosen: true,
+        dosen2: true,
         monitoringSesi: {
           include: {
             dosenPengajar: true,
@@ -110,6 +111,11 @@ export async function getSimpleKelasList(semesterId?: string, prodiId?: string) 
           },
         },
         dosen: {
+          select: {
+            nama: true,
+          },
+        },
+        dosen2: {
           select: {
             nama: true,
           },
@@ -253,6 +259,11 @@ export interface MonitoringKelasProcessedItem {
     nama: string;
     nidn: string | null;
   };
+  dosen2?: {
+    id: string;
+    nama: string;
+    nidn: string | null;
+  } | null;
   monitoringSesi: Array<{
     id: string;
     nomorSesi: number;
@@ -265,7 +276,7 @@ export interface MonitoringKelasProcessedItem {
     tugas: boolean | null;
     kuis: boolean | null;
     dosenPengajarId?: string | null;
-    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     catatanGantiDosen?: string | null;
     dosenPengajar?: {
       id: string;
@@ -339,6 +350,9 @@ const LEAN_KELAS_INCLUDE = {
     },
   },
   dosen: {
+    select: { id: true, nama: true, nidn: true },
+  },
+  dosen2: {
     select: { id: true, nama: true, nidn: true },
   },
   monitoringSesi: {
@@ -542,6 +556,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         { mataKuliah: { nama: { contains: q, mode: "insensitive" } } },
         { mataKuliah: { kode: { contains: q, mode: "insensitive" } } },
         { dosen: { nama: { contains: q, mode: "insensitive" } } },
+        { dosen2: { nama: { contains: q, mode: "insensitive" } } },
         {
           monitoringSesi: {
             some: {
@@ -873,6 +888,7 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         { mataKuliah: { nama: { contains: q, mode: "insensitive" } } },
         { mataKuliah: { kode: { contains: q, mode: "insensitive" } } },
         { dosen: { nama: { contains: q, mode: "insensitive" } } },
+        { dosen2: { nama: { contains: q, mode: "insensitive" } } },
         {
           monitoringSesi: {
             some: {
@@ -942,6 +958,7 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
       kodeKelas: string;
       mataKuliah: { nama: string; kode: string; prodi?: { id: string; nama: string } };
       dosen: { nama: string };
+      dosen2?: { nama: string } | null;
       jadwalHari?: string | null;
       jadwalJam?: string | null;
     }> = [];
@@ -1048,6 +1065,11 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
               nama: true,
             },
           },
+          dosen2: {
+            select: {
+              nama: true,
+            },
+          },
         },
       });
 
@@ -1065,6 +1087,9 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         dosen: {
           nama: c.dosen.nama,
         },
+        dosen2: c.dosen2 ? {
+          nama: c.dosen2.nama,
+        } : null,
         jadwalHari: c.jadwalHari,
         jadwalJam: c.jadwalJam,
       }));
@@ -1087,10 +1112,19 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
             },
           },
           dosen: { select: { nama: true } },
+          dosen2: { select: { nama: true } },
         },
       });
       if (currentK) {
-        resultList.push(currentK);
+        resultList.push({
+          id: currentK.id,
+          kodeKelas: currentK.kodeKelas,
+          jadwalHari: currentK.jadwalHari,
+          jadwalJam: currentK.jadwalJam,
+          mataKuliah: currentK.mataKuliah,
+          dosen: currentK.dosen,
+          dosen2: currentK.dosen2 ? { nama: currentK.dosen2.nama } : null,
+        });
       }
     }
 
@@ -1123,6 +1157,7 @@ export async function getMonitoringKelasDetail(kelasId: string) {
           },
           mataKuliah: { include: { prodi: true } },
           dosen: true,
+          dosen2: true,
           monitoringSesi: {
             include: {
               dosenPengajar: true,
@@ -1186,7 +1221,7 @@ export async function updateSingleMonitoringSesi(
     catatan?: string | null;
     tanggal?: string | Date | null;
     dosenPengajarId?: string | null;
-    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     catatanGantiDosen?: string | null;
   }
 ) {
@@ -1250,7 +1285,7 @@ export async function updateBatchMonitoringSesi(
     catatan?: string | null;
     tanggal?: string | Date | null;
     dosenPengajarId?: string | null;
-    statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     catatanGantiDosen?: string | null;
   }>
 ) {
@@ -1303,7 +1338,7 @@ export interface GantiDosenParams {
   nomorSesiMulai: number;
   nomorSesiSampai: number;
   dosenPengajarId: string | null; // null jika reset ke dosen utama
-  statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  statusPengajar: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
   catatanGantiDosen?: string | null;
 }
 

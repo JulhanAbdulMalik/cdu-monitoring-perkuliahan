@@ -23,6 +23,7 @@ import {
   Calendar,
   FileSpreadsheet,
   BookOpen,
+  User,
   UserCheck,
   Download,
   GraduationCap,
@@ -32,6 +33,7 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
+  Users,
 } from "lucide-react";
 import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/kelas";
 import MasterImportModal from "@/components/master/MasterImportModal";
@@ -47,6 +49,7 @@ interface KelasItem {
   semesterId: string;
   mataKuliahId: string;
   dosenId: string;
+  dosen2Id?: string | null;
   jadwalHari: string;
   jadwalJam: string;
   ruangan?: string | null;
@@ -72,6 +75,10 @@ interface KelasItem {
     id: string;
     nama: string;
   };
+  dosen2?: {
+    id: string;
+    nama: string;
+  } | null;
   monitoringSesi?: {
     id: string;
     nomorSesi: number;
@@ -173,6 +180,7 @@ export default function KelasClient({
 
   const [modeDosen, setModeDosen] = useState<"EXISTING_PRODI" | "EXISTING_UNIV" | "NEW">("EXISTING_PRODI");
   const [dosenId, setDosenId] = useState("");
+  const [dosen2Id, setDosen2Id] = useState("");
   const [namaDosen, setNamaDosen] = useState("");
 
   const [kodeKelas, setKodeKelas] = useState("");
@@ -199,6 +207,7 @@ export default function KelasClient({
     const dosensInProdi = allDosenList.filter((d) => !d.prodi?.id || d.prodi?.id === defaultProdi);
     setModeDosen(dosensInProdi.length > 0 ? "EXISTING_PRODI" : "NEW");
     setDosenId(dosensInProdi[0]?.id || allDosenList[0]?.id || "");
+    setDosen2Id("");
     setNamaDosen("");
 
     setKodeKelas("");
@@ -222,6 +231,7 @@ export default function KelasClient({
 
     setModeDosen("EXISTING_PRODI");
     setDosenId(cls.dosenId);
+    setDosen2Id(cls.dosen2Id || cls.dosen2?.id || "");
     setNamaDosen(cls.dosen.nama);
 
     setKodeKelas(cls.kodeKelas);
@@ -252,6 +262,12 @@ export default function KelasClient({
     setLoading(true);
 
     try {
+      if (dosen2Id && dosen2Id === (modeDosen === "NEW" ? "" : dosenId)) {
+        toast.error("Dosen Tandem tidak boleh sama dengan Dosen Utama");
+        setLoading(false);
+        return;
+      }
+
       const payload = {
         kodeKelas: kodeKelas.trim().toUpperCase(),
         semesterId,
@@ -265,6 +281,7 @@ export default function KelasClient({
         sks: modeMk === "NEW" ? Number(sks) || 3 : undefined,
         prodiId,
         dosenId: (modeDosen === "EXISTING_PRODI" || modeDosen === "EXISTING_UNIV") ? dosenId : undefined,
+        dosen2Id: dosen2Id ? dosen2Id.trim() : null,
         namaDosen: modeDosen === "NEW" ? namaDosen.trim() : undefined,
       };
 
@@ -317,6 +334,7 @@ export default function KelasClient({
       k.mataKuliah.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       k.mataKuliah.kode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       k.dosen.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (k.dosen2?.nama && k.dosen2.nama.toLowerCase().includes(searchQuery.toLowerCase())) ||
       k.mataKuliah.prodi.nama.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchSemester && matchProdi && matchHari && matchMode && matchSearch;
@@ -341,8 +359,7 @@ export default function KelasClient({
     | "DOSEN"
     | "HARI"
     | "RUANG"
-    | "MODE"
-    | "MONITORING";
+    | "MODE";
 
   type KelasSortKey =
     | "KODEMK_ASC"
@@ -360,9 +377,7 @@ export default function KelasClient({
     | "RUANG_ASC"
     | "RUANG_DESC"
     | "MODE_ASC"
-    | "MODE_DESC"
-    | "MONITORING_DESC"
-    | "MONITORING_ASC";
+    | "MODE_DESC";
 
   const [sortBy, setSortBy] = useState<KelasSortKey>("MK_ASC");
 
@@ -408,16 +423,6 @@ export default function KelasClient({
         return a.modePembelajaran.localeCompare(b.modePembelajaran);
       case "MODE_DESC":
         return b.modePembelajaran.localeCompare(a.modePembelajaran);
-      case "MONITORING_DESC": {
-        const filledA = a.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
-        const filledB = b.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
-        return filledB - filledA;
-      }
-      case "MONITORING_ASC": {
-        const filledA = a.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
-        const filledB = b.monitoringSesi?.filter((s) => s.kehadiran !== "BELUM_DIISI").length || 0;
-        return filledA - filledB;
-      }
       default:
         return 0;
     }
@@ -455,9 +460,6 @@ export default function KelasClient({
       case "MODE":
         setSortBy(sortBy === "MODE_ASC" ? "MODE_DESC" : "MODE_ASC");
         break;
-      case "MONITORING":
-        setSortBy(sortBy === "MONITORING_DESC" ? "MONITORING_ASC" : "MONITORING_DESC");
-        break;
     }
   }
 
@@ -475,8 +477,7 @@ export default function KelasClient({
       (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
       (columnKey === "HARI" && (sortBy === "HARI_ASC" || sortBy === "HARI_DESC")) ||
       (columnKey === "RUANG" && (sortBy === "RUANG_ASC" || sortBy === "RUANG_DESC")) ||
-      (columnKey === "MODE" && (sortBy === "MODE_ASC" || sortBy === "MODE_DESC")) ||
-      (columnKey === "MONITORING" && (sortBy === "MONITORING_DESC" || sortBy === "MONITORING_ASC"));
+      (columnKey === "MODE" && (sortBy === "MODE_ASC" || sortBy === "MODE_DESC"));
 
     const isAsc =
       sortBy === "KODEMK_ASC" ||
@@ -486,8 +487,7 @@ export default function KelasClient({
       sortBy === "DOSEN_ASC" ||
       sortBy === "HARI_ASC" ||
       sortBy === "RUANG_ASC" ||
-      sortBy === "MODE_ASC" ||
-      sortBy === "MONITORING_ASC";
+      sortBy === "MODE_ASC";
 
     return (
       <th
@@ -709,26 +709,22 @@ export default function KelasClient({
                 {renderSortHeader("Mata Kuliah", "MK", "left", "min-w-[180px]")}
                 {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[160px]")}
                 {renderSortHeader("Kelas", "KELAS", "left", "w-24 min-w-[80px]")}
-                {renderSortHeader("Pengajar (Dosen)", "DOSEN", "left", "min-w-[180px]")}
+                {renderSortHeader("Dosen Pengajar", "DOSEN", "left", "min-w-[180px]")}
                 {renderSortHeader("Jadwal", "HARI", "left", "min-w-[150px]")}
                 {renderSortHeader("Ruang Kelas", "RUANG", "left", "w-28 min-w-[100px]")}
                 {renderSortHeader("Mode", "MODE", "center", "w-28")}
-                {renderSortHeader("Monitoring", "MONITORING", "center", "w-36 min-w-[130px]")}
                 <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-28">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedKelas.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-xs text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-xs text-slate-400">
                     Belum ada data perkuliahan yang sesuai dengan filter. Klik "Tambah Perkuliahan" atau "Import Excel" untuk menambahkan data.
                   </td>
                 </tr>
               ) : (
                 paginatedKelas.map((k, idx) => {
-                  const filledSessions = k.monitoringSesi?.filter(
-                    (s) => s.kehadiran !== "BELUM_DIISI"
-                  ).length || 0;
                   const isOdd = idx % 2 === 1;
 
                   return (
@@ -781,13 +777,29 @@ export default function KelasClient({
 
                       {/* Dosen Pengampu */}
                       <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-[10px] shrink-0">
-                            {k.dosen.nama[0]}
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                            <User size={12} className="text-[#a80063] shrink-0" />
+                            <span
+                              className="font-semibold truncate max-w-[220px] text-xs leading-tight text-slate-900"
+                              title={k.dosen.nama}
+                            >
+                              {k.dosen.nama}
+                            </span>
                           </div>
-                          <span className="font-medium text-xs text-slate-800">
-                            {k.dosen.nama}
-                          </span>
+                          {k.dosen2 && (
+                            <div className="flex items-center gap-1.5 text-slate-500 pt-0.5">
+                              <div className="w-3 flex justify-center shrink-0">
+                                <Users size={10.5} className="text-slate-400" />
+                              </div>
+                              <span
+                                className="truncate max-w-[220px] text-[10px] leading-tight text-slate-500 font-medium"
+                                title={`Dosen Tandem: ${k.dosen2.nama}`}
+                              >
+                                {k.dosen2.nama}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -849,20 +861,6 @@ export default function KelasClient({
                             </>
                           )}
                         </span>
-                      </td>
-
-                      {/* Progress Sesi Monitoring */}
-                      <td className="py-2.5 px-3 min-w-[130px]">
-                        <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-0.5">
-                          <span>{filledSessions}/16 Sesi</span>
-                          <span>{Math.round((filledSessions / 16) * 100)}%</span>
-                        </div>
-                        <div className="w-full h-1 rounded-full bg-slate-100 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#a80063] to-[#c026d3] rounded-full transition-all duration-300"
-                            style={{ width: `${(filledSessions / 16) * 100}%` }}
-                          />
-                        </div>
                       </td>
 
                       {/* Aksi */}
@@ -1072,7 +1070,7 @@ export default function KelasClient({
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                     <UserCheck size={13} className="text-[#a80063]" />
-                    <span>Pengajar (Dosen)</span>
+                    <span>Dosen Pengajar</span>
                   </span>
                   <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
                     <button
@@ -1146,6 +1144,52 @@ export default function KelasClient({
                     />
                   </div>
                 )}
+              </div>
+
+              {/* ── Section: Dosen Tandem (Opsional) ──────────────── */}
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Users size={13} className="text-[#a80063]" />
+                    <span>Dosen Tandem (Opsional)</span>
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    Co-Lecturer / Pengajar Kedua
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={dosen2Id}
+                      onChange={setDosen2Id}
+                      options={[
+                        { value: "", label: "-- Tanpa Dosen Tandem --" },
+                        ...allDosenList
+                          .filter((d) => d.id !== (modeDosen === "NEW" ? "" : dosenId))
+                          .map((d) => ({
+                            value: d.id,
+                            label: `${d.nama} ${d.prodi ? `(${d.prodi.kode})` : ""}`,
+                          })),
+                      ]}
+                      placeholder="-- Pilih Dosen Tandem (Opsional) --"
+                    />
+                  </div>
+                  {dosen2Id && (
+                    <button
+                      type="button"
+                      onClick={() => setDosen2Id("")}
+                      className="px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                      title="Hapus Dosen Tandem"
+                    >
+                      Batal
+                    </button>
+                  )}
+                </div>
+
+                {/* <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Default: Sesi 1–16 diajar Dosen Utama. Anda dapat membagi/mengalihkan sesi ke Dosen Tandem kapan saja melalui menu <strong>Monitoring Sesi</strong>.
+                </p> */}
               </div>
 
               {/* ── Section: Nama Kelas, Jadwal & Mode ─────────────── */}
@@ -1280,12 +1324,12 @@ export default function KelasClient({
               )}
 
               {/* Info Sesi Otomatis */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
+              {/* <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-center gap-2">
                 <Sparkles size={14} className="text-[#a80063] shrink-0 mt-0.5" />
                 <span>
                   <strong>16 Sesi Monitoring otomatis:</strong> Sesi 1–7 & 9–15 (Reguler), Sesi 8 (UTS) dan Sesi 16 (UAS). Langsung siap dipantau di lembar monitoring.
                 </span>
-              </div>
+              </div> */}
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">

@@ -40,6 +40,7 @@ interface DosenItem {
   };
   _count: {
     kelas: number;
+    kelasTandem?: number;
   };
 }
 
@@ -232,10 +233,16 @@ export default function DosenClient({
         return a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
       case "PRODI_DESC":
         return b.prodi.nama.localeCompare(a.prodi.nama, "id", { sensitivity: "base" });
-      case "KELAS_DESC":
-        return b._count.kelas - a._count.kelas;
-      case "KELAS_ASC":
-        return a._count.kelas - b._count.kelas;
+      case "KELAS_DESC": {
+        const totalA = a._count.kelas + (a._count.kelasTandem || 0);
+        const totalB = b._count.kelas + (b._count.kelasTandem || 0);
+        return totalB - totalA;
+      }
+      case "KELAS_ASC": {
+        const totalA = a._count.kelas + (a._count.kelasTandem || 0);
+        const totalB = b._count.kelas + (b._count.kelasTandem || 0);
+        return totalA - totalB;
+      }
       default:
         return 0;
     }
@@ -517,7 +524,9 @@ export default function DosenClient({
                       <td className="py-2.5 px-3 text-center">
                         <div className="inline-flex items-center gap-1 text-slate-600 text-xs font-medium">
                           <School size={13} className="text-slate-400" />
-                          <span>{d._count.kelas} Kelas</span>
+                          <span>
+                            {d._count.kelas + (d._count.kelasTandem || 0)} Kelas
+                          </span>
                         </div>
                       </td>
 

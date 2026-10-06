@@ -1,21 +1,17 @@
 "use client";
 // src/components/monitoring/GantiDosenModal.tsx
-// Modal Popup Cepat untuk Mengganti Dosen Sesi (Insidental 1 Sesi atau Estafet S1-8 / S9-16)
+// Modal Popup Cepat untuk Mengelola Pengajar (Dosen Utama / Dosen Tandem / Pengganti Luar) Sesi Perkuliahan
 
 import { useState, useMemo, useEffect } from "react";
 import {
   X,
   User,
-  UserCheck,
+  Users,
   UserCog,
   RefreshCw,
   Search,
   CheckCircle2,
-  AlertCircle,
-  HelpCircle,
   ArrowRight,
-  ShieldCheck,
-  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { gantiDosenSesiAction } from "@/actions/monitoring";
@@ -42,29 +38,26 @@ interface GantiDosenModalProps {
     nama: string;
     nidn?: string | null;
   };
+  dosenTandem?: {
+    id: string;
+    nama: string;
+    nidn?: string | null;
+  } | null;
   dosenList: DosenItemOption[];
   initialTargetMode?: "SINGLE" | "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM";
   initialSesiNomor?: number;
   initialDosenPengajarId?: string | null;
-  initialStatusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  initialStatusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
   initialCatatan?: string | null;
   onSuccess?: (result: {
     nomorSesiMulai: number;
     nomorSesiSampai: number;
     dosenPengajarId: string | null;
-    statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    statusPengajar: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     catatanGantiDosen: string | null;
     dosenPengajarObj: DosenItemOption | null;
   }) => void;
 }
-
-const CATATAN_PRESETS = [
-  "Sakit / Izin",
-  "Dinas Luar",
-  "Cuti",
-  "Evaluasi CDU (Pergantian Dosen)",
-  "Jadwal Bentrok",
-] as const;
 
 export default function GantiDosenModal({
   isOpen,
@@ -73,11 +66,12 @@ export default function GantiDosenModal({
   kodeKelas,
   mataKuliahNama,
   dosenUtama,
+  dosenTandem,
   dosenList,
   initialTargetMode = "SINGLE",
   initialSesiNomor = 1,
   initialDosenPengajarId = null,
-  initialStatusPengajar = "UTAMA",
+  initialStatusPengajar,
   initialCatatan = "",
   onSuccess,
 }: GantiDosenModalProps) {
@@ -89,29 +83,51 @@ export default function GantiDosenModal({
   const [customSesiMulai, setCustomSesiMulai] = useState<number>(initialSesiNomor);
   const [customSesiSampai, setCustomSesiSampai] = useState<number>(16);
 
-  // Dosen Pengganti terpilih
-  // Jika null / sama dengan dosenUtama.id -> kembali ke Dosen Utama
+  // Dosen Pengganti / Pengajar terpilih
   const [selectedDosenId, setSelectedDosenId] = useState<string>(
     initialDosenPengajarId || dosenUtama.id
   );
   const [searchDosenQuery, setSearchDosenQuery] = useState<string>("");
 
-  // Jenis Pergantian
-  const [statusPengajar, setStatusPengajar] = useState<"UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP">(
-    initialStatusPengajar || "PENGGANTI_INSIDENTAL"
+  // Jenis Status Pengajar
+  const isDosenTandemInitial = Boolean(
+    dosenTandem && initialDosenPengajarId && initialDosenPengajarId === dosenTandem.id
   );
+  const defaultStatus: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP" =
+    initialStatusPengajar ||
+    (isDosenTandemInitial
+      ? "TANDEM"
+      : initialDosenPengajarId && initialDosenPengajarId !== dosenUtama.id
+      ? "PENGGANTI_INSIDENTAL"
+      : "UTAMA");
+
+  const [statusPengajar, setStatusPengajar] = useState<
+    "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP"
+  >(defaultStatus);
   const [catatan, setCatatan] = useState<string>(initialCatatan || "");
   const [saving, setSaving] = useState<boolean>(false);
 
-  // Sinkronisasi state setiap kali modal dibuka atau sesi/props berubah
+  // Sinkronisasi state setiap kali modal dibuka
   useEffect(() => {
     if (isOpen) {
       setTargetMode(initialTargetMode);
       setSesiNomor(initialSesiNomor);
       setCustomSesiMulai(initialSesiNomor);
       setCustomSesiSampai(16);
-      setSelectedDosenId(initialDosenPengajarId || dosenUtama.id);
-      setStatusPengajar(initialStatusPengajar || "PENGGANTI_INSIDENTAL");
+      const chosenDosenId = initialDosenPengajarId || dosenUtama.id;
+      setSelectedDosenId(chosenDosenId);
+
+      const isTandemChosen = Boolean(dosenTandem && chosenDosenId === dosenTandem.id);
+      const isUtamaChosen = chosenDosenId === dosenUtama.id;
+      const computedStatus =
+        initialStatusPengajar ||
+        (isTandemChosen
+          ? "TANDEM"
+          : isUtamaChosen
+          ? "UTAMA"
+          : "PENGGANTI_INSIDENTAL");
+
+      setStatusPengajar(computedStatus);
       setCatatan(initialCatatan || "");
       setSearchDosenQuery("");
     }
@@ -123,6 +139,7 @@ export default function GantiDosenModal({
     initialStatusPengajar,
     initialCatatan,
     dosenUtama.id,
+    dosenTandem,
   ]);
 
   // Hitung rentang sesi efektif
@@ -156,19 +173,39 @@ export default function GantiDosenModal({
   }, [dosenList, searchDosenQuery]);
 
   const isKembaliKeUtama = selectedDosenId === dosenUtama.id;
-  const selectedDosenObj = dosenList.find((d) => d.id === selectedDosenId) || (isKembaliKeUtama ? dosenUtama : null);
+  const isDosenTandem = Boolean(dosenTandem && selectedDosenId === dosenTandem.id);
+  const isDosenLuar = !isKembaliKeUtama && !isDosenTandem;
+
+  const selectedDosenObj =
+    isKembaliKeUtama
+      ? dosenUtama
+      : isDosenTandem
+      ? dosenTandem
+      : dosenList.find((d) => d.id === selectedDosenId) || null;
 
   if (!isOpen) return null;
 
   async function handleApply() {
     setSaving(true);
     try {
-      const finalDosenId = isKembaliKeUtama ? null : selectedDosenId;
-      const finalStatus = isKembaliKeUtama
-        ? "UTAMA"
-        : statusPengajar === "UTAMA"
-        ? (targetMode === "SINGLE" ? "PENGGANTI_INSIDENTAL" : "PERGANTIAN_TETAP")
-        : statusPengajar;
+      let finalDosenId: string | null = null;
+      let finalStatus: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP" = "UTAMA";
+
+      if (isKembaliKeUtama) {
+        finalDosenId = null;
+        finalStatus = "UTAMA";
+      } else if (isDosenTandem) {
+        finalDosenId = dosenTandem!.id;
+        finalStatus = "TANDEM";
+      } else {
+        finalDosenId = selectedDosenId;
+        finalStatus =
+          statusPengajar === "UTAMA" || statusPengajar === "TANDEM"
+            ? targetMode === "SINGLE"
+              ? "PENGGANTI_INSIDENTAL"
+              : "PERGANTIAN_TETAP"
+            : statusPengajar;
+      }
 
       const res = await gantiDosenSesiAction({
         kelasId,
@@ -180,15 +217,19 @@ export default function GantiDosenModal({
       });
 
       if (!res.success) {
-        toast.error(res.error || "Gagal menyimpan pergantian dosen");
+        toast.error(res.error || "Gagal menyimpan pengajar sesi");
         return;
       }
 
-      toast.success(
-        isKembaliKeUtama
-          ? `Sesi ${sesiMulai === sesiSampai ? sesiMulai : `${sesiMulai}–${sesiSampai}`} dikembalikan ke Dosen Utama (${dosenUtama.nama})`
-          : `Pengajar Sesi ${sesiMulai === sesiSampai ? sesiMulai : `${sesiMulai}–${sesiSampai}`} berhasil diatur ke ${selectedDosenObj?.nama}`
-      );
+      const sesiLabel = sesiMulai === sesiSampai ? `Sesi ${sesiMulai}` : `Sesi ${sesiMulai}–${sesiSampai}`;
+
+      if (isKembaliKeUtama) {
+        toast.success(`${sesiLabel} dikembalikan ke Dosen Utama (${dosenUtama.nama})`);
+      } else if (isDosenTandem) {
+        toast.success(`${sesiLabel} berhasil ditugaskan ke Dosen Tandem (${dosenTandem?.nama})`);
+      } else {
+        toast.success(`Pengajar ${sesiLabel} berhasil diatur ke ${selectedDosenObj?.nama}`);
+      }
 
       onSuccess?.({
         nomorSesiMulai: sesiMulai,
@@ -207,9 +248,11 @@ export default function GantiDosenModal({
     }
   }
 
+  const sesiLabel = sesiMulai === sesiSampai ? `Sesi ${sesiMulai}` : `Sesi ${sesiMulai}–${sesiSampai}`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl sm:max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* ── 1. Modal Header ──────────────────────────────────────────────── */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-[#fdf2f8] to-white">
           <div className="flex items-center gap-3">
@@ -237,46 +280,126 @@ export default function GantiDosenModal({
 
         {/* ── 2. Modal Body (Scrollable) ────────────────────────────────────── */}
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-          {/* Info Dosen Utama Saat Ini */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 font-bold">
-                <User size={15} />
+          {/* Quick-Select: Dosen Resmi Kelas Ini */}
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Pengajar Resmi Kelas:
+            </label>
+            {dosenTandem ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Card Dosen Utama */}
+                <div
+                  onClick={() => {
+                    setSelectedDosenId(dosenUtama.id);
+                    setStatusPengajar("UTAMA");
+                    setCatatan("");
+                  }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                    isKembaliKeUtama
+                      ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
+                      : "border-slate-200 bg-slate-50 hover:bg-slate-100/80"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isKembaliKeUtama ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      <User size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500 block leading-tight">
+                        Dosen Utama
+                      </span>
+                      <p className="text-xs font-bold text-slate-900 truncate" title={dosenUtama.nama}>
+                        {dosenUtama.nama}
+                      </p>
+                    </div>
+                  </div>
+                  {isKembaliKeUtama && (
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0 ml-2" />
+                  )}
+                </div>
+
+                {/* Card Dosen Tandem */}
+                <div
+                  onClick={() => {
+                    setSelectedDosenId(dosenTandem.id);
+                    setStatusPengajar("TANDEM");
+                    setCatatan("");
+                  }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                    isDosenTandem
+                      ? "border-slate-500 bg-slate-100/80 shadow-xs ring-1 ring-slate-400"
+                      : "border-slate-200 bg-slate-50 hover:bg-slate-100/80"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isDosenTandem ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      <Users size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-600 block leading-tight">
+                        Dosen Tandem
+                      </span>
+                      <p className="text-xs font-bold text-slate-900 truncate" title={dosenTandem.nama}>
+                        {dosenTandem.nama}
+                      </p>
+                    </div>
+                  </div>
+                  {isDosenTandem && (
+                    <CheckCircle2 size={16} className="text-slate-700 shrink-0 ml-2" />
+                  )}
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">
-                  Dosen Utama Kelas
-                </p>
-                <p className="text-xs font-bold text-slate-900 mt-1 truncate" title={dosenUtama.nama}>
-                  {dosenUtama.nama}
-                </p>
-                {dosenUtama.nidn && (
-                  <p className="text-[10px] text-slate-500 mt-0.5">NIDN: {dosenUtama.nidn}</p>
+            ) : (
+              /* Single Dosen Utama info (no tandem on this class) */
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 font-bold">
+                    <User size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">
+                      Dosen Utama Kelas
+                    </p>
+                    <p className="text-xs font-bold text-slate-900 mt-1 truncate" title={dosenUtama.nama}>
+                      {dosenUtama.nama}
+                    </p>
+                    {dosenUtama.nidn && (
+                      <p className="text-[10px] text-slate-500 mt-0.5">NIDN: {dosenUtama.nidn}</p>
+                    )}
+                  </div>
+                </div>
+
+                {!isKembaliKeUtama && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDosenId(dosenUtama.id);
+                      setStatusPengajar("UTAMA");
+                      setCatatan("");
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-[#a80063] text-[11px] font-bold text-[#a80063] transition-all shadow-2xs shrink-0 cursor-pointer"
+                    title="Gunakan Dosen Utama"
+                  >
+                    <RefreshCw size={11} />
+                    <span>Reset ke Utama</span>
+                  </button>
                 )}
               </div>
-            </div>
-
-            {selectedDosenId !== dosenUtama.id && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedDosenId(dosenUtama.id);
-                  setStatusPengajar("UTAMA");
-                  setCatatan("");
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-[#a80063] text-[11px] font-bold text-[#a80063] transition-all shadow-2xs shrink-0 cursor-pointer"
-                title="Gunakan Dosen Utama"
-              >
-                <RefreshCw size={11} />
-                <span>Reset ke Utama</span>
-              </button>
             )}
           </div>
 
           {/* Cakupan Sesi (Target Mode) */}
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-              Cakupan Sesi yang Diganti:
+              Cakupan Sesi yang Dikelola:
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               <button
@@ -296,7 +419,7 @@ export default function GantiDosenModal({
                 type="button"
                 onClick={() => {
                   setTargetMode("RANGE_S1_8");
-                  setStatusPengajar("PERGANTIAN_TETAP");
+                  if (isDosenLuar) setStatusPengajar("PERGANTIAN_TETAP");
                 }}
                 className={`py-2 px-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
                   targetMode === "RANGE_S1_8"
@@ -312,7 +435,7 @@ export default function GantiDosenModal({
                 type="button"
                 onClick={() => {
                   setTargetMode("RANGE_S9_16");
-                  setStatusPengajar("PERGANTIAN_TETAP");
+                  if (isDosenLuar) setStatusPengajar("PERGANTIAN_TETAP");
                 }}
                 className={`py-2 px-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
                   targetMode === "RANGE_S9_16"
@@ -425,9 +548,10 @@ export default function GantiDosenModal({
                 onClick={() => {
                   setSelectedDosenId(dosenUtama.id);
                   setStatusPengajar("UTAMA");
+                  setCatatan("");
                 }}
                 className={`w-full text-left p-2.5 text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                  selectedDosenId === dosenUtama.id
+                  isKembaliKeUtama
                     ? "bg-[#fdf2f8] font-bold text-[#a80063]"
                     : "hover:bg-slate-50 text-slate-700"
                 }`}
@@ -443,14 +567,46 @@ export default function GantiDosenModal({
                     <p className="text-[10px] text-slate-400 font-normal">NIDN: {dosenUtama.nidn}</p>
                   )}
                 </div>
-                {selectedDosenId === dosenUtama.id && (
+                {isKembaliKeUtama && (
                   <CheckCircle2 size={15} className="text-[#a80063] shrink-0" />
                 )}
               </button>
 
-              {/* Opsi Dosen Lainnya */}
+              {/* Opsi 2: Dosen Tandem (Jika ada di kelas) */}
+              {dosenTandem && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDosenId(dosenTandem.id);
+                    setStatusPengajar("TANDEM");
+                    setCatatan("");
+                  }}
+                  className={`w-full text-left p-2.5 text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                    isDosenTandem
+                      ? "bg-[#fdf2f8] font-bold text-[#a80063]"
+                      : "hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate">{dosenTandem.nama}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[9px] font-bold border border-slate-200 shrink-0">
+                        Dosen Tandem
+                      </span>
+                    </div>
+                    {dosenTandem.nidn && (
+                      <p className="text-[10px] text-slate-400 font-normal">NIDN: {dosenTandem.nidn}</p>
+                    )}
+                  </div>
+                  {isDosenTandem && (
+                    <CheckCircle2 size={15} className="text-[#a80063] shrink-0" />
+                  )}
+                </button>
+              )}
+
+              {/* Opsi Dosen Lainnya (Dosen Luar) */}
               {filteredDosen
-                .filter((d) => d.id !== dosenUtama.id)
+                .filter((d) => d.id !== dosenUtama.id && (!dosenTandem || d.id !== dosenTandem.id))
                 .map((d) => {
                   const isSelected = selectedDosenId === d.id;
                   return (
@@ -459,7 +615,7 @@ export default function GantiDosenModal({
                       type="button"
                       onClick={() => {
                         setSelectedDosenId(d.id);
-                        if (statusPengajar === "UTAMA") {
+                        if (statusPengajar === "UTAMA" || statusPengajar === "TANDEM") {
                           setStatusPengajar(
                             targetMode === "SINGLE" ? "PENGGANTI_INSIDENTAL" : "PERGANTIAN_TETAP"
                           );
@@ -493,8 +649,23 @@ export default function GantiDosenModal({
             </div>
           </div>
 
-          {/* Status & Jenis Pergantian */}
-          {!isKembaliKeUtama && (
+          {/* Form Alasan / Catatan jika Dosen Tandem */}
+          {isDosenTandem && (
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                Alasan Pergantian (Opsional):
+              </label>
+              <input
+                type="text"
+                value={catatan}
+                onChange={(e) => setCatatan(e.target.value)}
+                placeholder="Alasan ..."
+                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs outline-none focus:border-[#a80063] focus:bg-white"
+              />
+            </div>
+          )}
+
+          {isDosenLuar && (
             <div className="space-y-3 animate-in fade-in duration-200">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
@@ -520,9 +691,6 @@ export default function GantiDosenModal({
                       <span className="font-bold text-xs text-amber-900 block">
                         Dosen Pengganti Sementara
                       </span>
-                      {/* <span className="text-[10px] text-slate-500 leading-snug block mt-0.5">
-                        Dosen utama berhalangan (sakit, dinas luar, cuti) khusus sesi ini.
-                      </span> */}
                     </div>
                   </label>
 
@@ -545,9 +713,6 @@ export default function GantiDosenModal({
                       <span className="font-bold text-xs text-slate-900 block">
                         Pergantian Resmi (Definitif)
                       </span>
-                      {/* <span className="text-[10px] text-slate-500 leading-snug block mt-0.5">
-                        Evaluasi CDU / SK Dekan: Resmi menggantikan sesi selanjutnya (misal S9–16).
-                      </span> */}
                     </div>
                   </label>
                 </div>
@@ -556,31 +721,15 @@ export default function GantiDosenModal({
               {/* Catatan Alasan Pergantian */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Alasan / Keterangan Pergantian (Opsional):
+                  Alasan Pergantian (Opsional):
                 </label>
                 <input
                   type="text"
                   value={catatan}
                   onChange={(e) => setCatatan(e.target.value)}
-                  placeholder="Alasan..."
+                  placeholder="Alasan ..."
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs outline-none focus:border-[#a80063] focus:bg-white"
                 />
-
-                {/* Preset Chips */}
-                {/* <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-400">Preset:</span>
-                  {CATATAN_PRESETS.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setCatatan(p)}
-                      className="px-2 py-0.5 rounded text-[9.5px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/80 transition-colors cursor-pointer"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div> */}
-
               </div>
             </div>
           )}
@@ -590,33 +739,37 @@ export default function GantiDosenModal({
             <span className="font-bold text-slate-700 block">Ringkasan Konfigurasi:</span>
             <div className="flex items-center gap-2 text-slate-600">
               <span>Sesi Target:</span>
-              <strong className="text-slate-900">
-                Sesi {sesiMulai === sesiSampai ? sesiMulai : `${sesiMulai} s/d ${sesiSampai}`}
-              </strong>
+              <strong className="text-slate-900 font-bold">{sesiLabel}</strong>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
               <span>Pengajar:</span>
-              <strong className="text-slate-900">
+              <strong className="text-slate-900 font-bold">
                 {selectedDosenObj?.nama || dosenUtama.nama}
                 {isKembaliKeUtama && " (Dosen Utama)"}
+                {isDosenTandem && " (Dosen Tandem)"}
               </strong>
             </div>
-            {!isKembaliKeUtama && (
-              <div className="flex items-center gap-2 text-slate-600">
-                <span>Status:</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold ${
-                    statusPengajar === "PERGANTIAN_TETAP"
-                      ? "bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]"
-                      : "bg-amber-100 text-amber-900"
-                  }`}
-                >
-                  {statusPengajar === "PERGANTIAN_TETAP"
-                    ? "Pergantian Resmi (Definitif)"
-                    : "Dosen Pengganti Sementara"}
+            <div className="flex items-center gap-2 text-slate-600">
+              <span>Status:</span>
+              {isKembaliKeUtama ? (
+                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                  Dosen Utama Kelas
                 </span>
-              </div>
-            )}
+              ) : isDosenTandem ? (
+                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                  <Users size={10} />
+                  <span>Dosen Tandem (Resmi)</span>
+                </span>
+              ) : statusPengajar === "PERGANTIAN_TETAP" ? (
+                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                  Pergantian Resmi (Definitif)
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                  Dosen Pengganti Sementara
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -634,7 +787,7 @@ export default function GantiDosenModal({
             type="button"
             onClick={handleApply}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#a80063] hover:bg-[#8e0054] text-white text-xs font-bold transition-all shadow-md shadow-[#a80063]/25 cursor-pointer active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 disabled:opacity-50 bg-[#a80063] hover:bg-[#8e0054] shadow-[#a80063]/25"
           >
             {saving ? (
               <>
@@ -645,7 +798,11 @@ export default function GantiDosenModal({
               <>
                 <CheckCircle2 size={14} />
                 <span>
-                  {isKembaliKeUtama ? "Kembalikan ke Dosen Utama" : "Terapkan Pergantian Dosen"}
+                  {isKembaliKeUtama
+                    ? "Kembalikan ke Dosen Utama"
+                    : isDosenTandem
+                    ? `Tugaskan Dosen Tandem (${sesiLabel})`
+                    : "Terapkan Pergantian Dosen"}
                 </span>
               </>
             )}

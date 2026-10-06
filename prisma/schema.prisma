@@ -104,7 +104,8 @@ model Dosen {
   updatedAt DateTime @updatedAt
 
   prodi                Prodi            @relation(fields: [prodiId], references: [id])
-  kelas                Kelas[]
+  kelas                Kelas[]          @relation("DosenUtamaKelas")
+  kelasTandem          Kelas[]          @relation("DosenTandemKelas")
   monitoringSesiDiajar MonitoringSesi[] @relation("SesiDosenPengajar")
 }
 
@@ -128,6 +129,7 @@ model Kelas {
   semesterId       String
   mataKuliahId     String
   dosenId          String
+  dosen2Id         String?          // Dosen Tandem (opsional)
   jadwalHari       String?          // contoh: "Senin"
   jadwalJam        String?          // contoh: "10:00 - 11:40"
   ruangan          String?          // contoh: "R.204", "Lab Komputer 1" (opsional untuk kelas offline)
@@ -137,7 +139,8 @@ model Kelas {
 
   semester       Semester         @relation(fields: [semesterId], references: [id])
   mataKuliah     MataKuliah       @relation(fields: [mataKuliahId], references: [id])
-  dosen          Dosen            @relation(fields: [dosenId], references: [id])
+  dosen          Dosen            @relation("DosenUtamaKelas", fields: [dosenId], references: [id])
+  dosen2         Dosen?           @relation("DosenTandemKelas", fields: [dosen2Id], references: [id])
   monitoringSesi MonitoringSesi[]
   laporanCdu     LaporCdu[]
 
@@ -218,6 +221,7 @@ enum SumberData {
 
 enum StatusPengajar {
   UTAMA                 // Diajar oleh Dosen Utama kelas
+  TANDEM                // Diajar oleh Dosen Tandem kelas
   PENGGANTI_INSIDENTAL  // Menggantikan sementara pada sesi ini (Kasus 1)
   PERGANTIAN_TETAP      // Pergantian resmi mulai sesi ini ke depan (Kasus 2)
 }

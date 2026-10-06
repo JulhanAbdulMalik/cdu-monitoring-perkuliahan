@@ -87,6 +87,7 @@ export interface Kelas {
   semesterId: string;
   mataKuliahId: string;
   dosenId: string;
+  dosen2Id?: string | null;
   jadwalHari?: string;
   jadwalJam?: string;
   modePembelajaran: ModePembelajaran;
@@ -97,6 +98,7 @@ export interface Kelas {
   semester?: Semester;
   mataKuliah?: MataKuliah;
   dosen?: Dosen;
+  dosen2?: Dosen | null;
   monitoringSesi?: MonitoringSesi[];
 }
 
@@ -124,7 +126,7 @@ export interface MonitoringSesi {
 
   // Dosen Pengajar Sesi (Ganti Dosen / Dosen Baru)
   dosenPengajarId?: string | null;
-  statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
   catatanGantiDosen?: string | null;
 
   // Metadata

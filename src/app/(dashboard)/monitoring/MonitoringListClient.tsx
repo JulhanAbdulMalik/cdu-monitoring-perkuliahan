@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   User,
+  Users,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -37,6 +38,7 @@ import {
   getCurrentActiveSessionNumber,
   DEFAULT_SEMESTER_START_DATE,
   formatPct,
+  formatSesiRange,
 } from "@/lib/utils";
 import TablePagination from "@/components/common/TablePagination";
 
@@ -924,36 +926,52 @@ export default function MonitoringListClient({
 
                       {/* Dosen */}
                       <td className="py-3 px-2.5">
-                        <div>
+                        <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5 font-medium text-slate-800">
                             <User size={12} className="text-[#a80063] shrink-0" />
                             <span
-                              className="font-semibold truncate max-w-[250px] text-xs leading-tight"
+                              className="font-semibold truncate max-w-[250px] text-xs leading-tight text-slate-900"
                               title={cls.dosen.nama}
                             >
                               {cls.dosen.nama}
                             </span>
                           </div>
                           {cls.dosen.nidn && (
-                            <p className="text-[9.5px] text-slate-400 mt-0.5 ml-3.5">
+                            <p className="text-[9.5px] text-slate-400 pl-4.5 leading-none">
                               NIDN: {cls.dosen.nidn}
                             </p>
                           )}
+                          {/* Info Dosen Tandem jika belum ada sesi yang dibagi khusus tandem */}
+                          {cls.dosen2 && !cls.dosenPengajarList?.some((p) => p.id === cls.dosen2?.id) && (
+                            <div className="flex items-center gap-1.5 text-slate-500 pt-0.5">
+                              <div className="w-3 flex justify-center shrink-0">
+                                <Users size={10.5} className="text-slate-400" />
+                              </div>
+                              <span
+                                className="truncate max-w-[250px] text-[10px] leading-tight text-slate-500 font-medium"
+                                title={`Dosen Tandem: ${cls.dosen2.nama}`}
+                              >
+                                {cls.dosen2.nama}
+                              </span>
+                            </div>
+                          )}
                           {cls.isSplitPengajar && cls.dosenPengajarList && cls.dosenPengajarList.length > 0 && (
-                            <div className="mt-0.5 ml-3.5 space-y-0.5">
+                            <div className="space-y-0.5 pt-0.5">
                               {cls.dosenPengajarList.map((p, pIdx) => (
-                                <div key={pIdx} className="flex items-center gap-1 text-[9px]">
+                                <div key={pIdx} className="flex items-center gap-1.5 text-[9.5px]">
                                   <span
-                                    className={`px-1 py-0.2 rounded font-bold shrink-0 border ${
-                                      p.status === "PERGANTIAN_TETAP"
+                                    className={`px-1.5 py-0.2 rounded font-bold shrink-0 border ${
+                                      p.status === "TANDEM"
+                                        ? "bg-slate-100 text-slate-700 border-slate-200"
+                                        : p.status === "PERGANTIAN_TETAP"
                                         ? "bg-purple-50 text-purple-700 border-purple-200"
                                         : "bg-amber-50 text-amber-700 border-amber-200"
                                     }`}
                                   >
-                                    {p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}: S
-                                    {Math.min(...p.sesiList)}–{Math.max(...p.sesiList)}
+                                    {p.status === "TANDEM" ? "Tandem" : p.status === "PERGANTIAN_TETAP" ? "Baru" : "Ganti"}:{" "}
+                                    {formatSesiRange(p.sesiList)}
                                   </span>
-                                  <span className="truncate max-w-[110px] text-slate-600 font-medium" title={p.nama}>
+                                  <span className="truncate max-w-[150px] text-slate-600 font-medium" title={p.nama}>
                                     {p.nama}
                                   </span>
                                 </div>

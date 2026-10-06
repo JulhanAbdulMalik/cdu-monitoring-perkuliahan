@@ -286,6 +286,23 @@ export function getCurrentActiveSessionNumber(
   return 16;
 }
 
+// Format daftar nomor sesi menjadi string range yang rapi dan presisi: [9] -> "S9", [13, 14] -> "S13–14", [1,2,3,4,5,6,7,8,10,11,12,15,16] -> "S1–8, S10–12, S15–16"
+export function formatSesiRange(sesiList: number[]): string {
+  if (!sesiList || sesiList.length === 0) return "";
+  const sorted = [...new Set(sesiList)].sort((a, b) => a - b);
+  const ranges: string[] = [];
+  let start = sorted[0];
+  let end = sorted[0];
 
-
-
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) {
+      end = sorted[i];
+    } else {
+      ranges.push(start === end ? `S${start}` : `S${start}–${end}`);
+      start = sorted[i];
+      end = sorted[i];
+    }
+  }
+  ranges.push(start === end ? `S${start}` : `S${start}–${end}`);
+  return ranges.join(", ");
+}

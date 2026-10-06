@@ -17,6 +17,7 @@ import {
   Save,
   Search,
   User,
+  Users,
   AlertTriangle,
   Sparkles,
   ArrowRight,
@@ -90,7 +91,7 @@ interface MonitoringSesiData {
     nama: string;
     nidn?: string | null;
   } | null;
-  statusPengajar?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
   catatanGantiDosen?: string | null;
 }
 
@@ -124,6 +125,12 @@ interface KelasDetailData {
     nidn: string | null;
     email: string | null;
   };
+  dosen2?: {
+    id: string;
+    nama: string;
+    nidn: string | null;
+    email?: string | null;
+  } | null;
   monitoringSesi: MonitoringSesiData[];
   dosenList?: DosenItemOption[];
 }
@@ -133,6 +140,7 @@ interface SimpleKelasItem {
   kodeKelas: string;
   mataKuliah: { nama: string; kode: string; prodi?: { id: string; nama: string } };
   dosen: { nama: string };
+  dosen2?: { nama: string } | null;
 }
 
 interface MonitoringGridClientProps {
@@ -341,7 +349,7 @@ export default function MonitoringGridClient({
     targetMode: "SINGLE" | "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM";
     sesiNomor: number;
     initialDosenId?: string | null;
-    initialStatus?: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    initialStatus?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     initialCatatan?: string | null;
   }>({
     isOpen: false,
@@ -353,24 +361,39 @@ export default function MonitoringGridClient({
   });
 
   function openGantiDosenForSession(sesi: MonitoringSesiData) {
+    const isTandem = Boolean(
+      currentKelas?.dosen2 &&
+      (sesi.dosenPengajarId === currentKelas.dosen2.id || sesi.statusPengajar === "TANDEM")
+    );
     setGantiDosenModal({
       isOpen: true,
       targetMode: "SINGLE",
       sesiNomor: sesi.nomorSesi,
       initialDosenId: sesi.dosenPengajarId || (sesi.dosenPengajar?.id ?? null),
-      initialStatus: sesi.statusPengajar || "PENGGANTI_INSIDENTAL",
+      initialStatus:
+        sesi.statusPengajar ||
+        (isTandem ? "TANDEM" : sesi.dosenPengajarId ? "PENGGANTI_INSIDENTAL" : "UTAMA"),
       initialCatatan: sesi.catatanGantiDosen || "",
     });
   }
 
   function openGantiDosenRange(mode: "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM") {
+    const defaultDosenId =
+      mode === "RANGE_S9_16" && currentKelas?.dosen2 ? currentKelas.dosen2.id : null;
+    const defaultStatus = defaultDosenId ? "TANDEM" : "PERGANTIAN_TETAP";
+    const defaultCatatan = defaultDosenId
+      ? "Pembagian Sesi Tandem"
+      : mode === "RANGE_S9_16"
+      ? "Evaluasi CDU: Pergantian Dosen Pasca-UTS"
+      : "";
+
     setGantiDosenModal({
       isOpen: true,
       targetMode: mode,
       sesiNomor: mode === "RANGE_S1_8" ? 1 : mode === "RANGE_S9_16" ? 9 : 1,
-      initialDosenId: null,
-      initialStatus: "PERGANTIAN_TETAP",
-      initialCatatan: mode === "RANGE_S9_16" ? "Evaluasi CDU: Pergantian Dosen Pasca-UTS" : "",
+      initialDosenId: defaultDosenId,
+      initialStatus: defaultStatus,
+      initialCatatan: defaultCatatan,
     });
   }
 
@@ -378,7 +401,7 @@ export default function MonitoringGridClient({
     nomorSesiMulai: number;
     nomorSesiSampai: number;
     dosenPengajarId: string | null;
-    statusPengajar: "UTAMA" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+    statusPengajar: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
     catatanGantiDosen: string | null;
     dosenPengajarObj: DosenItemOption | null;
   }) {
@@ -1093,6 +1116,19 @@ export default function MonitoringGridClient({
                   </span>
                 </div>
 
+                {/* Info Dosen Tandem jika terdaftar di kelas */}
+                {currentKelas.dosen2 && (
+                  <div className="flex items-center gap-1.5 truncate min-w-0 pt-0.5">
+                    <Users size={10.5} className="text-[#a80063] shrink-0" />
+                    <span className="truncate font-medium max-w-[250px] text-[10px] text-slate-800 text-xs" title={currentKelas.dosen2.nama}>
+                      {currentKelas.dosen2.nama}
+                    </span>
+                    <span className="text-[8.5px] px-1 py-0.2 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200 shrink-0">
+                      Tandem
+                    </span>
+                  </div>
+                )}
+
                 {/* Jadwal & Ruang sejajar */}
                 <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pt-0.5 flex-wrap">
                   <div className="flex items-center gap-1 shrink-0">
@@ -1314,6 +1350,18 @@ export default function MonitoringGridClient({
                     Klik tombol kehadiran atau aktifkan chip pilar (cukup 1 dari tiap pilar untuk memenuhi pilar tersebut)
                   </p>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openGantiDosenRange(currentKelas.dosen2 ? "RANGE_S9_16" : "CUSTOM")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-xs cursor-pointer active:scale-95"
+                    title="Atur pembagian sesi dosen pengajar (Dosen Utama / Dosen Tandem / Pengganti Luar)"
+                  >
+                    <UserCog size={13} className="text-slate-600" />
+                    <span>Kelola Pengajar Sesi {currentKelas.dosen2 ? "(Tandem)" : ""}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto w-full">
@@ -1440,6 +1488,33 @@ export default function MonitoringGridClient({
                             {(() => {
                               const isSub = sesi.dosenPengajar && sesi.statusPengajar && sesi.statusPengajar !== "UTAMA";
                               const namaPengajar = isSub ? sesi.dosenPengajar!.nama : currentKelas?.dosen.nama;
+
+                              if (sesi.statusPengajar === "TANDEM" && isSub) {
+                                return (
+                                  <div className="flex items-center justify-between gap-1 p-1 px-1.5 rounded-md bg-slate-100/90 border border-slate-300">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0" />
+                                        <span className="text-[10px] font-bold text-slate-900 truncate block" title={namaPengajar}>
+                                          {namaPengajar}
+                                        </span>
+                                      </div>
+                                      <span className="block text-[8.5px] font-bold text-slate-600 truncate" title={sesi.catatanGantiDosen || "Dosen Tandem"}>
+                                        Dosen Tandem {sesi.catatanGantiDosen ? `• ${sesi.catatanGantiDosen}` : ""}
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => openGantiDosenForSession(sesi)}
+                                      className="p-1 rounded text-slate-600 hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                      title="Ubah / Atur Pengajar Sesi Ini"
+                                    >
+                                      <UserCog size={13} />
+                                    </button>
+                                  </div>
+                                );
+                              }
 
                               if (sesi.statusPengajar === "PERGANTIAN_TETAP" && isSub) {
                                 return (
@@ -1918,6 +1993,7 @@ export default function MonitoringGridClient({
           kodeKelas={currentKelas.kodeKelas}
           mataKuliahNama={currentKelas.mataKuliah.nama}
           dosenUtama={currentKelas.dosen}
+          dosenTandem={currentKelas.dosen2}
           dosenList={currentKelas.dosenList || []}
           initialTargetMode={gantiDosenModal.targetMode}
           initialSesiNomor={gantiDosenModal.sesiNomor}
