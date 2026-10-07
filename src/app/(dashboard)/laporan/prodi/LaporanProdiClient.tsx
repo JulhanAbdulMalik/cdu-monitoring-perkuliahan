@@ -1172,6 +1172,7 @@ export default function LaporanProdiClient({
                   {renderSortHeader("Kode", "KODE", "left", "w-20 min-w-[75px]")}
                   {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[180px]")}
                   {renderSortHeader("Dosen Aktif", "DOSEN", "center", "w-36 min-w-[140px]")}
+                  {renderSortHeader("Kelas Aktif", "KELAS", "center", "w-36 min-w-[140px]")}
                   {renderSortHeader(
                     isSesiActive ? `Kelas di Sesi ${selectedSesi}` : isAppliedAllTime ? "Total Sesi" : "Sesi di Rentang",
                     "SESI",
