@@ -14,6 +14,11 @@ export const revalidate = 0;
 
 export default async function MasterDosenPage() {
   const res = await getDosenList();
+  if (!res.success) {
+    console.error("MasterDosenPage getDosenList error:", res.error);
+  } else {
+    console.log("MasterDosenPage getDosenList success:", res.data?.dosen?.length, "dosen loaded");
+  }
   const data = res.success ? res.data! : { dosen: [], prodiList: [] };
 
   return (

@@ -10,7 +10,7 @@ import {
   Edit2,
   Trash2,
   Search,
-  Mail,
+  Download,
   School,
   IdCard,
   Loader2,
@@ -31,7 +31,7 @@ interface DosenItem {
   id: string;
   nama: string;
   nidn: string | null;
-  email: string | null;
+  nuptk: string | null;
   prodiId: string;
   prodi: {
     id: string;
@@ -72,6 +72,11 @@ export default function DosenClient({
     setCurrentPage(1);
   }, [searchQuery, filterProdi]);
 
+  // Sync saat initialDosen dari server berubah
+  useEffect(() => {
+    setDosenList(initialDosen);
+  }, [initialDosen]);
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -79,16 +84,17 @@ export default function DosenClient({
   const [editingDosen, setEditingDosen] = useState<DosenItem | null>(null);
   const [nama, setNama] = useState("");
   const [nidn, setNidn] = useState("");
-  const [email, setEmail] = useState("");
+  const [nuptk, setNuptk] = useState("");
   const [prodiId, setProdiId] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   function openCreateModal() {
     setEditingDosen(null);
     setNama("");
     setNidn("");
-    setEmail("");
+    setNuptk("");
     setProdiId(prodiList[0]?.id || "");
     setIsModalOpen(true);
   }
@@ -97,7 +103,7 @@ export default function DosenClient({
     setEditingDosen(dosen);
     setNama(dosen.nama);
     setNidn(dosen.nidn || "");
-    setEmail(dosen.email || "");
+    setNuptk(dosen.nuptk || "");
     setProdiId(dosen.prodiId);
     setIsModalOpen(true);
   }
@@ -123,7 +129,7 @@ export default function DosenClient({
         const res = await updateDosen(editingDosen.id, {
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
-          email: email.trim() ? email.trim() : undefined,
+          nuptk: nuptk.trim() ? nuptk.trim() : undefined,
           prodiId,
         });
 
@@ -140,7 +146,7 @@ export default function DosenClient({
                     ...d,
                     nama,
                     nidn: nidn.trim() || null,
-                    email: email.trim() || null,
+                    nuptk: nuptk.trim() || null,
                     prodiId,
                     prodi: targetProdi ? { id: targetProdi.id, nama: targetProdi.nama, kode: targetProdi.kode } : d.prodi,
                   }
@@ -152,7 +158,7 @@ export default function DosenClient({
         const res = await createDosen({
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
-          email: email.trim() ? email.trim() : undefined,
+          nuptk: nuptk.trim() ? nuptk.trim() : undefined,
           prodiId,
         });
 
@@ -189,25 +195,59 @@ export default function DosenClient({
     }
   }
 
+  async function handleExportExcel() {
+    try {
+      setIsExporting(true);
+      toast.info("Menyiapkan file Excel Data Master Dosen...");
+      const params = new URLSearchParams();
+      if (filterProdi && filterProdi !== "ALL") {
+        params.set("prodiId", filterProdi);
+      }
+      if (searchQuery.trim()) {
+        params.set("search", searchQuery.trim());
+      }
+      const url = `/api/export/master-dosen-excel?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Gagal mengunduh file Excel");
+      }
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      const prodiKode = filterProdi !== "ALL" ? prodiList.find((p) => p.id === filterProdi)?.kode || "Prodi" : "Semua";
+      a.download = `Master_Dosen_${prodiKode}_${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success("File Excel Data Dosen berhasil diunduh!");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengexport file Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   // Filter dosen list
   const filteredDosen = dosenList.filter((d) => {
     const matchSearch =
       d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.nidn && d.nidn.includes(searchQuery)) ||
-      (d.email && d.email.toLowerCase().includes(searchQuery.toLowerCase()));
+      (d.nuptk && d.nuptk.includes(searchQuery));
     const matchProdi = filterProdi === "ALL" || d.prodiId === filterProdi;
     return matchSearch && matchProdi;
   });
 
   // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
-  type DosenSortColumn = "NAMA" | "NIDN" | "EMAIL" | "PRODI" | "KELAS";
+  type DosenSortColumn = "NAMA" | "NIDN" | "NUPTK" | "PRODI" | "KELAS";
   type DosenSortKey =
     | "NAMA_ASC"
     | "NAMA_DESC"
     | "NIDN_ASC"
     | "NIDN_DESC"
-    | "EMAIL_ASC"
-    | "EMAIL_DESC"
+    | "NUPTK_ASC"
+    | "NUPTK_DESC"
     | "PRODI_ASC"
     | "PRODI_DESC"
     | "KELAS_DESC"
@@ -225,10 +265,10 @@ export default function DosenClient({
         return (a.nidn || "").localeCompare(b.nidn || "", "id");
       case "NIDN_DESC":
         return (b.nidn || "").localeCompare(a.nidn || "", "id");
-      case "EMAIL_ASC":
-        return (a.email || "").localeCompare(b.email || "", "id");
-      case "EMAIL_DESC":
-        return (b.email || "").localeCompare(a.email || "", "id");
+      case "NUPTK_ASC":
+        return (a.nuptk || "").localeCompare(b.nuptk || "", "id");
+      case "NUPTK_DESC":
+        return (b.nuptk || "").localeCompare(a.nuptk || "", "id");
       case "PRODI_ASC":
         return a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
       case "PRODI_DESC":
@@ -262,8 +302,8 @@ export default function DosenClient({
       case "NIDN":
         setSortBy(sortBy === "NIDN_ASC" ? "NIDN_DESC" : "NIDN_ASC");
         break;
-      case "EMAIL":
-        setSortBy(sortBy === "EMAIL_ASC" ? "EMAIL_DESC" : "EMAIL_ASC");
+      case "NUPTK":
+        setSortBy(sortBy === "NUPTK_ASC" ? "NUPTK_DESC" : "NUPTK_ASC");
         break;
       case "PRODI":
         setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
@@ -283,14 +323,14 @@ export default function DosenClient({
     const isCurrent =
       (columnKey === "NAMA" && (sortBy === "NAMA_ASC" || sortBy === "NAMA_DESC")) ||
       (columnKey === "NIDN" && (sortBy === "NIDN_ASC" || sortBy === "NIDN_DESC")) ||
-      (columnKey === "EMAIL" && (sortBy === "EMAIL_ASC" || sortBy === "EMAIL_DESC")) ||
+      (columnKey === "NUPTK" && (sortBy === "NUPTK_ASC" || sortBy === "NUPTK_DESC")) ||
       (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
       (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC"));
 
     const isAsc =
       sortBy === "NAMA_ASC" ||
       sortBy === "NIDN_ASC" ||
-      sortBy === "EMAIL_ASC" ||
+      sortBy === "NUPTK_ASC" ||
       sortBy === "PRODI_ASC" ||
       sortBy === "KELAS_ASC";
 
@@ -347,6 +387,25 @@ export default function DosenClient({
           </button>
 
           <button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+            title={
+              filterProdi !== "ALL"
+                ? `Export Data Dosen prodi ${prodiList.find((p) => p.id === filterProdi)?.nama || ""} ke Excel`
+                : "Export Seluruh Data Master Dosen ke Excel"
+            }
+          >
+            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            <span>Export Excel</span>
+            {filterProdi !== "ALL" && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded bg-emerald-200/60 text-[10px] font-bold">
+                {prodiList.find((p) => p.id === filterProdi)?.kode}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setIsImportOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer"
           >
@@ -378,7 +437,7 @@ export default function DosenClient({
               />
               <input
                 type="text"
-                placeholder="Cari nama, NIDN, atau email..."
+                placeholder="Cari nama, NIDN, atau NUPTK..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
@@ -449,7 +508,7 @@ export default function DosenClient({
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
                 {renderSortHeader("Nama Dosen", "NAMA", "left", "min-w-[200px]")}
                 {renderSortHeader("NIDN", "NIDN", "left", "w-36 min-w-[120px]")}
-                {renderSortHeader("Email", "EMAIL", "left", "min-w-[180px]")}
+                {renderSortHeader("NUPTK", "NUPTK", "left", "w-36 min-w-[120px]")}
                 {renderSortHeader("Homebase Prodi", "PRODI", "left", "min-w-[180px]")}
                 {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-36")}
                 <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
@@ -501,13 +560,13 @@ export default function DosenClient({
                         )}
                       </td>
 
-                      {/* Email */}
-                      <td className="py-2.5 px-3 text-slate-600">
-                        {d.email ? (
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <Mail size={11} className="text-slate-400" />
-                            <span>{d.email}</span>
-                          </div>
+                      {/* NUPTK */}
+                      <td className="py-2.5 px-3">
+                        {d.nuptk ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium font-mono">
+                            <IdCard size={11} className="text-slate-400" />
+                            <span>{d.nuptk}</span>
+                          </span>
                         ) : (
                           <span className="text-slate-400 text-[11px]">-</span>
                         )}
@@ -620,14 +679,14 @@ export default function DosenClient({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Alamat Email
+                  NUPTK (Nomor Unik Pendidik & Tenaga Kependidikan)
                 </label>
                 <input
-                  type="email"
-                  placeholder="dosen@nusaputra.ac.id (opsional)"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none"
+                  type="text"
+                  placeholder="Contoh: 1234567890123456 (opsional)"
+                  value={nuptk}
+                  onChange={(e) => setNuptk(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none font-mono"
                 />
               </div>
 

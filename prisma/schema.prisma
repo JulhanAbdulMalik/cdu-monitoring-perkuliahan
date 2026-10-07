@@ -98,7 +98,7 @@ model Dosen {
   id        String   @id @default(cuid())
   nama      String
   nidn      String?  @unique
-  email     String?
+  nuptk     String?
   prodiId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

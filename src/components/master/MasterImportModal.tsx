@@ -590,7 +590,7 @@ export default function MasterImportModal({
                         <>
                           <th className="py-2.5 px-3">Nama Dosen & Gelar</th>
                           <th className="py-2.5 px-3">NIDN</th>
-                          <th className="py-2.5 px-3">Email</th>
+                          <th className="py-2.5 px-3">NUPTK</th>
                           <th className="py-2.5 px-3">Program Studi</th>
                         </>
                       )}
@@ -697,7 +697,7 @@ export default function MasterImportModal({
                             <>
                               <td className="py-2.5 px-3 font-bold text-slate-800">{row.data.nama}</td>
                               <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.nidn || "-"}</td>
-                              <td className="py-2.5 px-3 text-slate-600 text-[11px]">{row.data.email || "-"}</td>
+                              <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.nuptk || "-"}</td>
                               <td className="py-2.5 px-3 font-semibold text-slate-700">{row.data.kodeProdi || row.data.prodiNama}</td>
                             </>
                           )}
@@ -1025,12 +1025,12 @@ export default function MasterImportModal({
                       />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Email</label>
+                      <label className="block font-semibold text-slate-700 mb-1">NUPTK</label>
                       <input
-                        type="email"
-                        value={editFormData.email || ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
+                        type="text"
+                        value={editFormData.nuptk || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, nuptk: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-[#a80063]"
                       />
                     </div>
                   </div>

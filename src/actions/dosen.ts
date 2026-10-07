@@ -9,7 +9,7 @@ import { z } from "zod";
 const dosenSchema = z.object({
   nama: z.string().min(1, "Nama dosen wajib diisi"),
   nidn: z.string().optional().nullable(),
-  email: z.string().email("Format email tidak valid").optional().nullable().or(z.literal("")),
+  nuptk: z.string().optional().nullable().or(z.literal("")),
   prodiId: z.string().min(1, "Program studi wajib dipilih"),
 });
 
@@ -41,7 +41,7 @@ export async function getDosenList() {
 export async function createDosen(formData: {
   nama: string;
   nidn?: string;
-  email?: string;
+  nuptk?: string;
   prodiId: string;
 }) {
   try {
@@ -56,21 +56,13 @@ export async function createDosen(formData: {
       }
     }
 
-    const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
-    if (cleanEmail) {
-      const existingEmail = await prisma.dosen.findFirst({
-        where: { email: cleanEmail },
-      });
-      if (existingEmail) {
-        return { success: false, error: `Email "${cleanEmail}" sudah digunakan` };
-      }
-    }
+    const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
 
     const data = await prisma.dosen.create({
       data: {
         nama: parsed.nama.trim(),
         nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
-        email: cleanEmail,
+        nuptk: cleanNuptk,
         prodiId: parsed.prodiId,
       },
       include: {
@@ -94,7 +86,7 @@ export async function updateDosen(
   formData: {
     nama: string;
     nidn?: string;
-    email?: string;
+    nuptk?: string;
     prodiId: string;
   }
 ) {
@@ -110,22 +102,14 @@ export async function updateDosen(
       }
     }
 
-    const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
-    if (cleanEmail) {
-      const existingEmail = await prisma.dosen.findFirst({
-        where: { email: cleanEmail, NOT: { id } },
-      });
-      if (existingEmail) {
-        return { success: false, error: `Email "${cleanEmail}" sudah digunakan` };
-      }
-    }
+    const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
 
     const data = await prisma.dosen.update({
       where: { id },
       data: {
         nama: parsed.nama.trim(),
         nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
-        email: cleanEmail,
+        nuptk: cleanNuptk,
         prodiId: parsed.prodiId,
       },
       include: {

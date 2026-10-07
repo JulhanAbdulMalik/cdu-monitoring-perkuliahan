@@ -117,7 +117,7 @@ async function main() {
     create: {
       nama: "Dr. Contoh Dosen, S.T., M.Kom.",
       nidn: "0000000001",
-      email: "dosen1@nusaputra.ac.id",
+      nuptk: "1234567890123456",
       prodiId: prodiTI.id,
     },
     update: {},
