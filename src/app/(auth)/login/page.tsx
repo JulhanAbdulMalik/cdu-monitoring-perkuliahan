@@ -588,7 +588,7 @@ function LoginForm() {
                 </div>
                 <div>
                   <span className="font-bold block text-slate-900 text-xs sm:text-[13px]">
-                    WhatsApp Staff CDU
+                    WhatsApp Admin CDU
                   </span>
                   <span className="text-slate-500 text-[11px] sm:text-xs block mt-0.5">
                     0831-1103-0309

@@ -381,7 +381,7 @@ export default function LaporanDosenClient({
             >
               <option value="ALL">Semua Kinerja</option>
               <option value="SANGAT_BAIK">Sangat Baik</option>
-              <option value="PERLU_PEMBINAAN">Perlu Pembinaan</option>
+              <option value="PERLU_PEMBINAAN">Perlu Perbaikan</option>
             </select>
 
             {/* Reset All Filters Button */}
@@ -524,7 +524,7 @@ export default function LaporanDosenClient({
                             </span>
                           ) : (
                             <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                              Perlu Pembinaan
+                              Perlu Perbaikan
                             </span>
                           )}
                         </td>

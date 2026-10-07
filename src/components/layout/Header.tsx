@@ -66,7 +66,7 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
       ? effectiveProdis.map((p) => p.nama)
       : ((session?.user as any)?.prodiNames as string[] | undefined) || [];
 
-  let roleLabel = "Staff CDU";
+  let roleLabel = "Admin";
   let roleBadgeClass = "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]";
   let roleSubtextColor = "text-[#a80063]";
   let RoleIcon = ShieldCheck;
@@ -77,7 +77,7 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
     roleSubtextColor = "text-[#a80063]";
     RoleIcon = ShieldCheck;
   } else if (userRole === "ADMIN") {
-    roleLabel = "Staff CDU";
+    roleLabel = "Admin";
     roleBadgeClass = "bg-blue-50 text-blue-700 border-blue-200";
     roleSubtextColor = "text-blue-600";
     RoleIcon = Shield;

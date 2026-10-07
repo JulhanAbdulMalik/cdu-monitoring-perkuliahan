@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     worksheet.mergeCells("A4:K4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
-      "STANDAR KINERJA CDU: Sangat Baik (≥90% Kehadiran & Konten)  •  Baik (75%–89%)  •  Perlu Pembinaan (<75% Kehadiran atau <60% Konten atau ≥4 Alpha)  |  *Kelas Bimbingan Bebas Kewajiban Konten 3 Pilar";
+      "STANDAR KINERJA CDU: Sangat Baik (≥90% Kehadiran & Konten)  •  Baik (75%–89%)  •  Perlu Perbaikan (<75% Kehadiran atau <60% Konten atau ≥4 Alpha)  |  *Kelas Bimbingan Bebas Kewajiban Konten 3 Pilar";
     legendCell.font = { name: "Rockwell", size: 8.5, color: { argb: "FF475569" } };
     legendCell.alignment = { horizontal: "center", vertical: "middle" };
     legendCell.fill = {
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       const statusLabel =
         d.status === "SANGAT_BAIK"
           ? "Sangat Baik"
-          : "Perlu Pembinaan";
+          : "Perlu Perbaikan";
 
       const rowValues = [
         idx + 1,

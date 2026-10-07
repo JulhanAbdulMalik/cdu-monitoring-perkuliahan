@@ -452,7 +452,7 @@ export default async function DashboardPage() {
     console.error("Dashboard database fetch error:", err);
   }
 
-  const userName = session?.user?.name || "Staff CDU";
+  const userName = session?.user?.name || "Admin";
 
   return (
     <div className="space-y-4">
