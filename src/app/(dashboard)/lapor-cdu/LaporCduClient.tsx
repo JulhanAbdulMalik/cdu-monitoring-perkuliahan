@@ -730,16 +730,15 @@ export default function LaporCduClient({
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
       <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs min-w-[1050px]">
+          <table className="w-full text-left border-collapse text-xs min-w-[1020px]">
             <thead>
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
-                {renderSortHeader("Tanggal Lapor", "tanggal", "left", "w-32")}
-                {renderSortHeader("Pelapor", "pelapor", "left", "w-32 max-w-[135px]")}
+                {renderSortHeader("Tanggal Lapor", "tanggal", "center", "w-32")}
+                {renderSortHeader("Pelapor", "pelapor", "left", "w-48 min-w-[175px]")}
                 {renderSortHeader("Program Studi", "prodi", "left", "w-28")}
-                {renderSortHeader("Mata Kuliah", "matakuliah", "left", "min-w-[150px]")}
+                {renderSortHeader("Mata Kuliah & Dosen", "matakuliah", "left", "min-w-[190px]")}
                 {renderSortHeader("Kelas", "kelas", "center", "w-20")}
-                {renderSortHeader("Dosen", "dosen", "left", "w-36 max-w-[160px]")}
                 {renderSortHeader("Sesi", "sesi", "center", "w-14")}
                 <th className="py-2.5 px-3 text-slate-700 font-bold min-w-[155px]">Kategori Masalah</th>
                 {renderSortHeader("Status", "status", "center", "w-32")}
@@ -749,14 +748,14 @@ export default function LaporCduClient({
             <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     <Loader2 size={20} className="animate-spin mx-auto text-[#a80063] mb-2" />
                     <p>Memuat data laporan...</p>
                   </td>
                 </tr>
               ) : sortedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     Tidak ada laporan kendala yang ditemukan untuk filter ini.
                   </td>
                 </tr>
@@ -788,19 +787,19 @@ export default function LaporCduClient({
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
-                      {/* Tanggal Lapor (2 Baris: Tanggal + Jam WIB) */}
-                      <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                      {/* Tanggal Lapor (2 Baris: Tanggal + Jam WIB, Center) */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <div className="font-semibold text-slate-900 leading-tight">
                           {dateStr}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                        <div className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1 mt-0.5">
                           <Clock size={11} className="text-slate-400 shrink-0" />
                           <span>{timeStr} WIB</span>
                         </div>
                       </td>
 
-                      {/* Pelapor (Compact & Truncate) */}
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 max-w-[135px]">
+                      {/* Pelapor (Wider & Truncate on Overflow) */}
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 max-w-[200px]">
                         <div
                           className="flex items-center gap-1.5 min-w-0"
                           title={`${item.pelapor.name} (${item.pelapor.email})`}
@@ -820,30 +819,23 @@ export default function LaporCduClient({
                         </div>
                       </td>
 
-                      {/* Mata Kuliah */}
+                      {/* Mata Kuliah & Dosen (Digabung) */}
                       <td className="py-2.5 px-3">
                         <span className="font-semibold text-slate-900 text-xs block leading-tight">
                           {item.kelas.mataKuliah.nama}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {item.kelas.mataKuliah.kode}
-                        </span>
+                        <p
+                          className="text-[11px] text-slate-500 font-normal mt-0.5 truncate"
+                          title={item.kelas.dosen.nama}
+                        >
+                          Dosen: <strong className="text-slate-700 font-medium">{item.kelas.dosen.nama}</strong>
+                        </p>
                       </td>
 
                       {/* Kelas */}
                       <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <span className="inline-block px-2 py-0.5 rounded text-[10.5px] font-extrabold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
                           {item.kelas.kodeKelas}
-                        </span>
-                      </td>
-
-                      {/* Dosen */}
-                      <td className="py-2.5 px-3 text-slate-700 max-w-[160px]">
-                        <span
-                          className="text-xs font-medium block truncate"
-                          title={item.kelas.dosen.nama}
-                        >
-                          {item.kelas.dosen.nama}
                         </span>
                       </td>
 
