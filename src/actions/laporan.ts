@@ -801,7 +801,7 @@ export interface ProdiReportItem {
 export interface KendalaKehadiranItem {
   sesiId: string;
   nomorSesi: number;
-  status: "ALPHA" | "BELUM_DIISI" | "HTL";
+  status: "ALPHA" | "BELUM_DIISI";
   catatan: string | null;
   dosenId: string;
   dosenNama: string;
@@ -1119,23 +1119,6 @@ export async function getLaporanProdi(
             entry.totalHadirRentang++;
           } else if (isHadirTdkLengkap) {
             entry.totalHadirTdkLengkapRentang++;
-            // HTL MASUK KENDALA (Konten Perkuliahan Belum Lengkap)
-            entry.kendalaList.push({
-              sesiId: s.id,
-              nomorSesi: s.nomorSesi,
-              status: "HTL",
-              catatan: s.catatanCdu ?? "Konten perkuliahan belum lengkap",
-              dosenId: pengajarId,
-              dosenNama: pengajarNama,
-              dosenNidn: pengajarNidn,
-              mataKuliahNama: cls.mataKuliah.nama,
-              mataKuliahKode: cls.mataKuliah.kode,
-              kelasKode: cls.kodeKelas,
-              kelasId: cls.id,
-              jadwalHari: cls.jadwalHari,
-              jadwalJam: cls.jadwalJam,
-              tanggal: s.tanggal ? new Date(s.tanggal).toISOString() : (effectiveDate ? effectiveDate.toISOString() : null),
-            });
           } else if (isAlpha) {
             entry.totalAlphaRentang++;
             // ALPHA SELALU MASUK KENDALA
@@ -1241,14 +1224,12 @@ export async function getLaporanProdi(
       } else if (
         (avgKehadiranRentang ?? 0) < 75 ||
         (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 60) ||
-        p.totalAlphaRentang >= 2 ||
-        p.totalHadirTdkLengkapRentang >= 5
+        p.totalAlphaRentang >= 2
       ) {
         statusKinerjaRentang = "PERLU_PEMBINAAN";
       } else if (
         (avgKehadiranRentang ?? 0) < 90 ||
-        (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80) ||
-        p.totalHadirTdkLengkapRentang >= 2
+        (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80)
       ) {
         statusKinerjaRentang = "BAIK";
       }
