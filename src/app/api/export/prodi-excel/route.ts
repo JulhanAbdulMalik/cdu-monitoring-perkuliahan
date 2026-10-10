@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
 
     sheetKendala.mergeCells("A2:I2");
     const kSub = sheetKendala.getCell("A2");
-    kSub.value = `RINCIAN SESI KENDALA KEHADIRAN DOSEN (ALPHA & BELUM DIISI) - PERIODE (${periodeText.toUpperCase()})${subtitleJenis}`;
+    kSub.value = `RINCIAN SESI KENDALA PERKULIAHAN (ALPHA, HTL & BELUM DIISI) - PERIODE (${periodeText.toUpperCase()})${subtitleJenis}`;
     kSub.font = { name: "Rockwell", size: 10.5, bold: true, color: { argb: "FF334155" } };
     kSub.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(2).height = 20;
@@ -240,10 +240,11 @@ export async function GET(request: NextRequest) {
     sheetKendala.mergeCells("A3:I3");
     const kSem = sheetKendala.getCell("A3");
     const totalAlphaCount = allKendalaList.filter((k) => k.status === "ALPHA").length;
+    const totalHtlCount = allKendalaList.filter((k) => k.status === "HTL").length;
     const totalBelumDiisiCount = allKendalaList.filter((k) => k.status === "BELUM_DIISI").length;
     kSem.value = `Semester: ${
       currentSem ? `${currentSem.tahunAkademik} (${currentSem.periode})` : "Aktif"
-    }${jenisInfo} | Total Sesi Berkendala: ${allKendalaList.length} Sesi (${totalAlphaCount} Alpha, ${totalBelumDiisiCount} Belum Diisi)`;
+    }${jenisInfo} | Total Sesi Berkendala: ${allKendalaList.length} Sesi (${totalAlphaCount} Alpha, ${totalHtlCount} HTL, ${totalBelumDiisiCount} Belum Diisi)`;
     kSem.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     kSem.alignment = { horizontal: "center", vertical: "middle" };
     sheetKendala.getRow(3).height = 18;
@@ -299,7 +300,7 @@ export async function GET(request: NextRequest) {
           k.mataKuliahNama,
           k.kelasKode,
           `Sesi ${k.nomorSesi}`,
-          k.status === "ALPHA" ? "ALPHA / TIDAK HADIR" : "BELUM DIISI",
+          k.status === "ALPHA" ? "ALPHA / TIDAK HADIR" : k.status === "HTL" ? "HTL (KONTEN TIDAK LENGKAP)" : "BELUM DIISI",
           k.catatan || "- (Belum ada catatan)",
         ]);
         kRow.height = 20;
@@ -323,6 +324,8 @@ export async function GET(request: NextRequest) {
           if (colNumber === 8) {
             if (k.status === "ALPHA") {
               cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB91C1C" } };
+            } else if (k.status === "HTL") {
+              cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FFB45309" } };
             } else {
               cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF64748B" } };
             }

@@ -1344,7 +1344,7 @@ export default function LaporanProdiClient({
                                     </div>
                                     <div>
                                       <h4 className="text-xs font-bold text-slate-900">
-                                        Rincian Sesi Alpha & Belum Diisi - {p.nama}
+                                        Rincian Sesi Berkendala (Alpha, HTL & Belum Diisi) - {p.nama}
                                       </h4>
                                       <p className="text-[10.5px] text-slate-500 font-normal">
                                         {isAppliedAllTime
@@ -1357,6 +1357,9 @@ export default function LaporanProdiClient({
                                   <div className="flex items-center gap-2 text-[11px]">
                                     <span className="px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200 text-[10px]">
                                       {p.kendalaList.filter((k) => k.status === "ALPHA").length} Alpha
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200 text-[10px]">
+                                      {p.kendalaList.filter((k) => k.status === "HTL").length} HTL
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700 border border-slate-200 text-[10px]">
                                       {p.kendalaList.filter((k) => k.status === "BELUM_DIISI").length} Belum Diisi
@@ -1372,7 +1375,7 @@ export default function LaporanProdiClient({
                                       Semua Sesi Terlaksana & Terisi
                                     </p>
                                     <p className="text-[11px] text-slate-400 mt-0.5">
-                                      Tidak ada sesi perkuliahan yang berstatus Alpha maupun Belum Diisi pada periode ini.
+                                      Tidak ada sesi perkuliahan yang berstatus Alpha, HTL, maupun Belum Diisi pada periode ini.
                                     </p>
                                   </div>
                                 ) : (
@@ -1427,6 +1430,10 @@ export default function LaporanProdiClient({
                                               {k.status === "ALPHA" ? (
                                                 <span className="inline-flex px-2 py-0.5 rounded font-bold text-[9.5px] bg-rose-50 text-rose-700 border border-rose-200">
                                                   Alpha / Tidak Hadir
+                                                </span>
+                                              ) : k.status === "HTL" ? (
+                                                <span className="inline-flex px-2 py-0.5 rounded font-bold text-[9.5px] bg-amber-50 text-amber-800 border border-amber-200">
+                                                  HTL (Konten Tidak Lengkap)
                                                 </span>
                                               ) : (
                                                 <span className="inline-flex px-2 py-0.5 rounded font-semibold text-[9.5px] bg-slate-100 text-slate-600 border border-slate-200">
