@@ -210,6 +210,10 @@ export default function LaporCduClient({
     };
   }, [formKelasId, formNomorSesi, isCreateOpen]);
 
+  const selectedFormClass = useMemo(() => {
+    return availableClasses.find((c) => c.id === formKelasId);
+  }, [availableClasses, formKelasId]);
+
   function handleSort(field: SortField) {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -881,23 +885,40 @@ export default function LaporCduClient({
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
           <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
-            <button
-              onClick={() => setIsCreateOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-[#fdf2f8] text-[#a80063] flex items-center justify-center">
-                  <Send size={14} />
+            {/* Header Modal & Navigasi */}
+            <div className="pb-4 border-b border-slate-100 space-y-3">
+              {/* Baris 1: Status Badges (Kiri) & Tombol Tutup (Kanan) */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                    <Send size={12} className="text-[#a80063]" />
+                    <span>Form Pengaduan CDU</span>
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                    Tahun Ajaran Aktif
+                  </span>
                 </div>
-                <span>Buat Laporan Kendala Perkuliahan</span>
-              </h3>
-              <p className="text-xs text-slate-500 font-normal mt-1">
-                Ajukan laporan jika ada ketidaksesuaian data perkuliahan ke tim CDU.
-              </p>
+
+                {/* Tombol Tutup Modal */}
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Tutup (Esc)"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Baris 2: Judul & Subjudul */}
+              <div className="space-y-1 pt-0.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  Buat Laporan Kendala Perkuliahan
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Ajukan sanggahan atau pengaduan ketidaksesuaian data perkuliahan untuk ditinjau oleh tim CDU.
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleSubmitCreate} className="space-y-4">
@@ -905,7 +926,7 @@ export default function LaporCduClient({
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 {/* Pilihan Prodi */}
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Program Studi <span className="text-rose-500">*</span>
                   </label>
                   <SearchableSelect
@@ -922,7 +943,7 @@ export default function LaporCduClient({
 
                 {/* Pilihan Kelas (Lebar) */}
                 <div className="sm:col-span-6">
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Mata Kuliah & Kelas <span className="text-rose-500">*</span>
                   </label>
                   {classesLoading ? (
@@ -931,7 +952,7 @@ export default function LaporCduClient({
                       <span>Memuat daftar kelas prodi...</span>
                     </div>
                   ) : availableClasses.length === 0 ? (
-                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
                       Tidak ada kelas aktif di prodi ini pada semester terpilih.
                     </p>
                   ) : (
@@ -949,7 +970,7 @@ export default function LaporCduClient({
 
                 {/* Sesi Ke- (Sempit / Compact) */}
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Sesi Ke- <span className="text-rose-500">*</span>
                   </label>
                   <SearchableSelect
@@ -964,103 +985,110 @@ export default function LaporCduClient({
                 </div>
               </div>
 
-              {/* Status Monitoring Sesi Saat Ini (Format persis sama dengan Detail Modal) */}
-              <div className="p-2.5 rounded-xl bg-[#fdf2f8]/60 border border-[#fbcfe8] text-xs">
-                <span className="text-[10px] font-bold text-[#a80063] uppercase tracking-wider block mb-1">
-                  Data Monitoring Sesi {formNomorSesi} saat ini:
+              {/* Ringkasan Kelas Terpilih (Sama formatnya dengan Modal Laporan) */}
+              {selectedFormClass && (
+                <div className="flex flex-wrap items-center gap-2 text-xs pt-0.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#fdf2f8] text-[#a80063] font-bold border border-[#fbcfe8]">
+                    <Calendar size={13} className="text-[#a80063]" />
+                    <span>Sesi {formNomorSesi}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 font-medium border border-slate-200">
+                    <GraduationCap size={13} className="text-slate-500" />
+                    <span>{selectedFormClass.mataKuliah.nama}</span>
+                    <span className="text-slate-400 font-mono text-[11px]">[{selectedFormClass.kodeKelas}]</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 font-medium border border-slate-200">
+                    <User size={13} className="text-slate-500" />
+                    <span>Dosen:</span>
+                    <strong className="text-slate-900 font-semibold">{selectedFormClass.dosen.nama}</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Status Sesi di Sistem Saat Ini (Format persis sama dengan Detail Modal) */}
+              <div className="p-3 rounded-xl bg-white border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                  <Clock size={13} className="text-[#a80063]" />
+                  <span>Status Sesi {formNomorSesi} di Sistem Saat Ini:</span>
                 </span>
+
                 {previewLoading ? (
                   <div className="flex items-center gap-1.5 text-xs text-slate-400 py-0.5">
                     <Loader2 size={13} className="animate-spin text-[#a80063]" />
                     <span>Memuat data monitoring sesi...</span>
                   </div>
                 ) : sesiPreview ? (
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-slate-700 text-[11px] whitespace-nowrap overflow-x-auto py-0.5">
-                    <span>
-                      Kehadiran:{" "}
-                      <strong
-                        className={
-                          sesiPreview.kehadiran === "HADIR"
-                            ? "text-emerald-600 font-bold"
-                            : sesiPreview.kehadiran === "TIDAK_HADIR"
-                            ? "text-rose-600 font-bold"
-                            : sesiPreview.kehadiran === "HADIR_TIDAK_LENGKAP"
-                            ? "text-amber-600 font-bold"
-                            : "text-slate-500 font-medium"
-                        }
-                      >
-                        {formatKehadiranLabel(sesiPreview.kehadiran)}
-                      </strong>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span
+                      className={`px-2 py-0.5 rounded-md font-bold text-[10.5px] border ${
+                        sesiPreview.kehadiran === "HADIR"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : sesiPreview.kehadiran === "TIDAK_HADIR"
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                          : sesiPreview.kehadiran === "HADIR_TIDAK_LENGKAP"
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      Kehadiran: {formatKehadiranLabel(sesiPreview.kehadiran)}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      LN:{" "}
-                      <strong
-                        className={
-                          sesiPreview.lectureNote ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.lectureNote ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.lectureNote
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      LN {sesiPreview.lectureNote ? "✓" : "–"}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      Slide:{" "}
-                      <strong
-                        className={
-                          sesiPreview.slide ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.slide ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.slide
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      Slide {sesiPreview.slide ? "✓" : "–"}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      Tugas:{" "}
-                      <strong
-                        className={
-                          sesiPreview.tugas ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.tugas ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.tugas
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      Tugas {sesiPreview.tugas ? "✓" : "–"}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      Kuis:{" "}
-                      <strong
-                        className={
-                          sesiPreview.kuis ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.kuis ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.kuis
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      Kuis {sesiPreview.kuis ? "✓" : "–"}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      Video:{" "}
-                      <strong
-                        className={
-                          sesiPreview.video ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.video ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.video
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      Video {sesiPreview.video ? "✓" : "–"}
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      Live Conf:{" "}
-                      <strong
-                        className={
-                          sesiPreview.conference ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"
-                        }
-                      >
-                        {sesiPreview.conference ? "Ada" : "Tidak Ada"}
-                      </strong>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                        sesiPreview.conference
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200"
+                      }`}
+                    >
+                      Live Conf {sesiPreview.conference ? "✓" : "–"}
                     </span>
                   </div>
                 ) : (
-                  <span className="text-slate-400 italic text-[11px] py-0.5 block">
+                  <span className="text-slate-400 italic text-[11px] py-0.5">
                     Belum ada data monitoring untuk sesi ini
                   </span>
                 )}
@@ -1068,7 +1096,7 @@ export default function LaporCduClient({
 
               {/* Kategori Kendala (5 tombol sebaris) */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Kategori Kendala <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -1085,8 +1113,8 @@ export default function LaporCduClient({
                       onClick={() => setFormKategori(k.val as any)}
                       className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
                         formKategori === k.val
-                          ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
+                          : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                       }`}
                     >
                       <p className="text-xs font-bold leading-tight">{k.label}</p>
@@ -1098,7 +1126,7 @@ export default function LaporCduClient({
 
               {/* Penjelasan Kendala */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Penjelasan & Kronologi <span className="text-rose-500">*</span>
                 </label>
                 <textarea
@@ -1106,14 +1134,14 @@ export default function LaporCduClient({
                   required
                   value={formKeterangan}
                   onChange={(e) => setFormKeterangan(e.target.value)}
-                  placeholder="Penjelasan detail..."
-                  className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none leading-relaxed"
+                  placeholder="Tuliskan penjelasan detail kendala atau kronologi sanggahan..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none leading-relaxed transition-all placeholder:text-slate-400"
                 />
               </div>
 
               {/* Tautan URL Bukti (Opsional) */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span>Tautan URL Bukti (Opsional)</span>
                   <span className="text-[10px] text-slate-400 font-normal lowercase">(link drive/zoom/rekaman)</span>
                 </label>
@@ -1121,27 +1149,31 @@ export default function LaporCduClient({
                   type="url"
                   value={formTautanBukti}
                   onChange={(e) => setFormTautanBukti(e.target.value)}
-                  placeholder="Link..."
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+                  placeholder="https://drive.google.com/... atau tautan bukti pendukung lainnya"
+                  className="w-full px-3.5 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all placeholder:text-slate-400"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   disabled={submitting}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || availableClasses.length === 0}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#a80063] hover:bg-[#8f0054] text-white rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {submitting && <Loader2 size={13} className="animate-spin" />}
+                  {submitting ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Send size={13} />
+                  )}
                   <span>Kirim Laporan ke CDU</span>
                 </button>
               </div>
