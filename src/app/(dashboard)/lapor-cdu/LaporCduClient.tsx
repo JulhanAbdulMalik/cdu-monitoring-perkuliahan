@@ -440,26 +440,32 @@ export default function LaporCduClient({
     }
   }
 
-  function getStatusBadge(status: StatusLapor) {
+  function getStatusBadge(status: StatusLapor, size: "sm" | "md" = "sm") {
+    const isMd = size === "md";
+    const baseClass = isMd
+      ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+      : "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold";
+    const iconSize = isMd ? 12 : 11;
+
     switch (status) {
       case "PENDING":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            <Clock size={11} className="text-amber-500 animate-pulse" />
+          <span className={`${baseClass} bg-amber-50 text-amber-700 border border-amber-200`}>
+            <Clock size={iconSize} className="text-amber-500 animate-pulse" />
             <span>Menunggu Review</span>
           </span>
         );
       case "DISETUJUI":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 size={11} className="text-emerald-600" />
+          <span className={`${baseClass} bg-emerald-50 text-emerald-700 border border-emerald-200`}>
+            <CheckCircle2 size={iconSize} className="text-emerald-600" />
             <span>Disetujui CDU</span>
           </span>
         );
       case "DITOLAK":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-            <XCircle size={11} className="text-rose-600" />
+          <span className={`${baseClass} bg-rose-50 text-rose-700 border border-rose-200`}>
+            <XCircle size={iconSize} className="text-rose-600" />
             <span>Ditolak</span>
           </span>
         );
@@ -1154,50 +1160,64 @@ export default function LaporCduClient({
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
           <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
-            <button
-              onClick={() => setIsDetailOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
             {/* Header Modal & Navigasi Langsung */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-slate-100">
-              <div className="space-y-1">
+            <div className="pb-4 border-b border-slate-100 space-y-3">
+              {/* Baris 1: Status Badges (Kiri) & Tombol Aksi + Tutup (Kanan) */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200/80">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                     #{selectedItem.id.slice(-6).toUpperCase()}
                   </span>
-                  {getStatusBadge(selectedItem.status)}
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]">
+                  {getStatusBadge(selectedItem.status, "md")}
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
                     {getKategoriLabel(selectedItem.kategori).label}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                  [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-1.5">
-                  <span className="font-bold text-[#a80063]">Sesi {selectedItem.nomorSesi}</span>
-                  <span className="text-slate-300">•</span>
-                  <span>{selectedItem.prodi.nama} ({selectedItem.prodi.kode})</span>
-                  <span className="text-slate-300">•</span>
-                  <span>Dosen: <strong>{selectedItem.kelas.dosen.nama}</strong></span>
-                </p>
+
+                {/* Tombol Menuju Kelas Tersebut & Tombol Tutup Modal */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={`/monitoring/${selectedItem.kelasId}?sesi=${selectedItem.nomorSesi}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all shadow-2xs group"
+                    title="Buka halaman monitoring sesi untuk kelas ini di tab baru"
+                  >
+                    <Radio size={13} className="text-[#a80063]" />
+                    <span>Buka Monitoring Kelas</span>
+                    <ExternalLink size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                  <button
+                    onClick={() => setIsDetailOpen(false)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                    title="Tutup (Esc)"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
-              {/* Tombol Menuju Kelas Tersebut di Monitoring */}
-              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                <a
-                  href={`/monitoring/${selectedItem.kelasId}?sesi=${selectedItem.nomorSesi}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all shadow-2xs group"
-                  title="Buka halaman monitoring sesi untuk kelas ini di tab baru"
-                >
-                  <Radio size={13} className="text-[#a80063]" />
-                  <span>Buka Monitoring Kelas</span>
-                  <ExternalLink size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
-                </a>
+              {/* Baris 2: Judul Mata Kuliah & Informasi Kelas yang Terstruktur Rapi */}
+              <div className="space-y-2 pt-0.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#fdf2f8] text-[#a80063] font-bold border border-[#fbcfe8]">
+                    <Calendar size={13} className="text-[#a80063]" />
+                    <span>Sesi {selectedItem.nomorSesi}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 font-medium border border-slate-200">
+                    <GraduationCap size={13} className="text-slate-500" />
+                    <span>{selectedItem.prodi.nama}</span>
+                    <span className="text-slate-400 font-mono text-[11px]">({selectedItem.prodi.kode})</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 font-medium border border-slate-200">
+                    <User size={13} className="text-slate-500" />
+                    <span>Dosen:</span>
+                    <strong className="text-slate-900 font-semibold">{selectedItem.kelas.dosen.nama}</strong>
+                  </span>
+                </div>
               </div>
             </div>
 
