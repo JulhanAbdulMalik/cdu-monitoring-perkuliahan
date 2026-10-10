@@ -47,6 +47,7 @@ import {
   deleteLaporCdu,
 } from "@/actions/lapor-cdu";
 import TablePagination from "@/components/common/TablePagination";
+import SearchableSelect from "@/components/common/SearchableSelect";
 import { KategoriLapor, StatusLapor } from "@prisma/client";
 
 interface LaporCduClientProps {
@@ -67,6 +68,7 @@ interface LaporCduClientProps {
     prodiIds: string[];
   };
   defaultSemesterId: string;
+  defaultStatus?: string;
 }
 
 type SortField = "tanggal" | "pelapor" | "prodi" | "matakuliah" | "sesi" | "status";
@@ -79,16 +81,17 @@ export default function LaporCduClient({
   accessibleProdis,
   currentUser,
   defaultSemesterId,
+  defaultStatus = "PENDING",
 }: LaporCduClientProps) {
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<LaporCduItem[]>(initialItems);
   const [stats, setStats] = useState(initialStats);
   const [loading, setLoading] = useState(false);
 
-  // Filter States
+  // Filter States (Default: PENDING / Menunggu Review)
   const [selectedSemester, setSelectedSemester] = useState<string>(defaultSemesterId);
   const [selectedProdi, setSelectedProdi] = useState<string>("ALL");
-  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<string>(defaultStatus || "PENDING");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sort State
@@ -485,6 +488,14 @@ export default function LaporCduClient({
     }
   }
 
+  function formatKehadiranLabel(k?: string | null) {
+    if (k === "HADIR") return "Hadir";
+    if (k === "TIDAK_HADIR") return "Tidak Hadir";
+    if (k === "HADIR_TIDAK_LENGKAP") return "Hadir Tdk Lengkap";
+    if (k === "BELUM_DIISI" || !k) return "Belum diisi";
+    return k;
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
@@ -510,30 +521,9 @@ export default function LaporCduClient({
         </button>
       </div>
 
-      {/* ── Summary Stats Cards ─────────────────────────────────────────────── */}
+      {/* ── Summary Stats Cards (Urutan: Menunggu Review, Disetujui CDU, Ditolak, Total Laporan) ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Total */}
-        <div
-          onClick={() => {
-            setSelectedStatus("ALL");
-            reloadData(selectedSemester, selectedProdi, "ALL", searchQuery);
-          }}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-            selectedStatus === "ALL"
-              ? "bg-slate-50 border-slate-400 shadow-xs"
-              : "bg-white border-slate-200/70 hover:bg-slate-50/50"
-          } flex items-center gap-3`}
-        >
-          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-            <FileText size={18} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Laporan</p>
-            <p className="text-base font-extrabold text-slate-900 leading-tight">{stats.totalAll}</p>
-          </div>
-        </div>
-
-        {/* Pending */}
+        {/* 1. Menunggu Review (Default Focus) */}
         <div
           onClick={() => {
             setSelectedStatus("PENDING");
@@ -554,7 +544,7 @@ export default function LaporCduClient({
           </div>
         </div>
 
-        {/* Disetujui */}
+        {/* 2. Disetujui CDU */}
         <div
           onClick={() => {
             setSelectedStatus("DISETUJUI");
@@ -575,7 +565,7 @@ export default function LaporCduClient({
           </div>
         </div>
 
-        {/* Ditolak */}
+        {/* 3. Ditolak */}
         <div
           onClick={() => {
             setSelectedStatus("DITOLAK");
@@ -593,6 +583,27 @@ export default function LaporCduClient({
           <div>
             <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Ditolak</p>
             <p className="text-base font-extrabold text-rose-700 leading-tight">{stats.totalDitolak}</p>
+          </div>
+        </div>
+
+        {/* 4. Total Laporan */}
+        <div
+          onClick={() => {
+            setSelectedStatus("ALL");
+            reloadData(selectedSemester, selectedProdi, "ALL", searchQuery);
+          }}
+          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+            selectedStatus === "ALL"
+              ? "bg-slate-50 border-slate-400 shadow-xs"
+              : "bg-white border-slate-200/70 hover:bg-slate-50/50"
+          } flex items-center gap-3`}
+        >
+          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+            <FileText size={18} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Laporan</p>
+            <p className="text-base font-extrabold text-slate-900 leading-tight">{stats.totalAll}</p>
           </div>
         </div>
       </div>
@@ -677,21 +688,21 @@ export default function LaporCduClient({
               }`}
               title="Filter Status"
             >
-              <option value="ALL">Semua Status</option>
               <option value="PENDING">Menunggu Review</option>
               <option value="DISETUJUI">Disetujui CDU</option>
               <option value="DITOLAK">Ditolak</option>
+              <option value="ALL">Semua Status</option>
             </select>
 
             {/* Reset All Filters Button */}
-            {(searchQuery || selectedProdi !== "ALL" || selectedStatus !== "ALL") && (
+            {(searchQuery || selectedProdi !== "ALL" || selectedStatus !== "PENDING") && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedProdi("ALL");
-                  setSelectedStatus("ALL");
-                  reloadData(selectedSemester, "ALL", "ALL", "");
+                  setSelectedStatus("PENDING");
+                  reloadData(selectedSemester, "ALL", "PENDING", "");
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 title="Reset semua filter ke default"
@@ -869,7 +880,7 @@ export default function LaporCduClient({
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
+          <div className="w-full max-w-5xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
             <button
               onClick={() => setIsCreateOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -897,22 +908,19 @@ export default function LaporCduClient({
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Program Studi <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formProdiId}
-                    onChange={(e) => setFormProdiId(e.target.value)}
-                    required
+                    onChange={(val) => setFormProdiId(val)}
                     disabled={accessibleProdis.length === 1}
-                    className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
-                  >
-                    {accessibleProdis.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nama} ({p.kode})
-                      </option>
-                    ))}
-                  </select>
+                    options={accessibleProdis.map((p) => ({
+                      value: p.id,
+                      label: `${p.nama} (${p.kode})`,
+                    }))}
+                    placeholder="-- Pilih Program Studi --"
+                  />
                 </div>
 
-                {/* Pilihan Kelas */}
+                {/* Pilihan Kelas (Lebar) */}
                 <div className="sm:col-span-6">
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Mata Kuliah & Kelas <span className="text-rose-500">*</span>
@@ -927,37 +935,32 @@ export default function LaporCduClient({
                       Tidak ada kelas aktif di prodi ini pada semester terpilih.
                     </p>
                   ) : (
-                    <select
+                    <SearchableSelect
                       value={formKelasId}
-                      onChange={(e) => setFormKelasId(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-semibold"
-                    >
-                      {availableClasses.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          [{c.kodeKelas}] {c.mataKuliah.nama} - {c.dosen.nama}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormKelasId(val)}
+                      options={availableClasses.map((c) => ({
+                        value: c.id,
+                        label: `[${c.kodeKelas}] ${c.mataKuliah.nama} - ${c.dosen.nama}`,
+                      }))}
+                      placeholder="-- Pilih Mata Kuliah & Kelas --"
+                    />
                   )}
                 </div>
 
-                {/* Sesi Ke- */}
+                {/* Sesi Ke- (Sempit / Compact) */}
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Sesi Ke- <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={formNomorSesi}
-                    onChange={(e) => setFormNomorSesi(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-bold"
-                  >
-                    {Array.from({ length: 16 }, (_, i) => i + 1).map((s) => (
-                      <option key={s} value={s}>
-                        Sesi {s} {s === 8 ? "(UTS)" : s === 16 ? "(UAS)" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={String(formNomorSesi)}
+                    onChange={(val) => setFormNomorSesi(Number(val))}
+                    options={Array.from({ length: 16 }, (_, i) => i + 1).map((s) => ({
+                      value: String(s),
+                      label: `Sesi ${s}${s === 8 ? " (UTS)" : s === 16 ? " (UAS)" : ""}`,
+                    }))}
+                    placeholder="Pilih Sesi..."
+                  />
                 </div>
               </div>
 
@@ -981,14 +984,12 @@ export default function LaporCduClient({
                             ? "text-emerald-600 font-bold"
                             : sesiPreview.kehadiran === "TIDAK_HADIR"
                             ? "text-rose-600 font-bold"
-                            : "text-slate-600 font-bold"
+                            : sesiPreview.kehadiran === "HADIR_TIDAK_LENGKAP"
+                            ? "text-amber-600 font-bold"
+                            : "text-slate-500 font-medium"
                         }
                       >
-                        {sesiPreview.kehadiran === "HADIR"
-                          ? "Hadir"
-                          : sesiPreview.kehadiran === "TIDAK_HADIR"
-                          ? "Tidak Hadir"
-                          : sesiPreview.kehadiran}
+                        {formatKehadiranLabel(sesiPreview.kehadiran)}
                       </strong>
                     </span>
                     <span className="text-slate-300">•</span>
@@ -1249,14 +1250,12 @@ export default function LaporCduClient({
                           ? "text-emerald-600 font-bold"
                           : selectedItem.monitoringSesi.kehadiran === "TIDAK_HADIR"
                           ? "text-rose-600 font-bold"
-                          : "text-slate-600 font-bold"
+                          : selectedItem.monitoringSesi.kehadiran === "HADIR_TIDAK_LENGKAP"
+                          ? "text-amber-600 font-bold"
+                          : "text-slate-500 font-medium"
                       }
                     >
-                      {selectedItem.monitoringSesi.kehadiran === "HADIR"
-                        ? "Hadir"
-                        : selectedItem.monitoringSesi.kehadiran === "TIDAK_HADIR"
-                        ? "Tidak Hadir"
-                        : selectedItem.monitoringSesi.kehadiran}
+                      {formatKehadiranLabel(selectedItem.monitoringSesi.kehadiran)}
                     </strong>
                   </span>
                   <span className="text-slate-300">•</span>

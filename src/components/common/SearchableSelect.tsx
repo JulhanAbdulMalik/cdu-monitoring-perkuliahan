@@ -55,7 +55,7 @@ export default function SearchableSelect({
   );
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${isOpen ? "z-30" : ""} ${className}`} ref={containerRef}>
       <div
         className={`w-full px-3 py-1.5 text-xs text-slate-900 rounded-lg border flex items-center justify-between transition-colors ${
           disabled ? "bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed" : 

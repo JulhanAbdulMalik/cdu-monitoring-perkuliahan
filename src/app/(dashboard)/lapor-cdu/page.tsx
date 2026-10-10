@@ -49,11 +49,13 @@ export default async function LaporCduPage({ searchParams }: LaporCduPageProps) 
 
   const defaultSemesterId = resolvedSearchParams.semesterId || activeSemester?.id || "";
 
+  const defaultStatus = resolvedSearchParams.status || "PENDING";
+
   // Ambil data laporan awal
   const res = await getLaporCduList({
     semesterId: defaultSemesterId,
     prodiId: resolvedSearchParams.prodiId,
-    status: resolvedSearchParams.status,
+    status: defaultStatus === "ALL" ? undefined : defaultStatus,
     search: resolvedSearchParams.search,
   });
 
@@ -83,6 +85,7 @@ export default async function LaporCduPage({ searchParams }: LaporCduPageProps) 
         prodiIds: userProdiIds,
       }}
       defaultSemesterId={defaultSemesterId}
+      defaultStatus={defaultStatus}
     />
   );
 }
