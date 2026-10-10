@@ -31,9 +31,35 @@ export default async function LaporanProdiPage({
 
   const resolvedSearchParams = await searchParams;
 
-  const targetStartDate = resolvedSearchParams.startDate || "";
-  const targetEndDate = resolvedSearchParams.endDate || "";
   const parsedSesi = resolvedSearchParams.sesi ? parseInt(resolvedSearchParams.sesi, 10) : undefined;
+  const isSesiMode = Boolean(parsedSesi && parsedSesi >= 1 && parsedSesi <= 16);
+
+  const isExplicitAllTime =
+    (resolvedSearchParams as any).allTime === "true" ||
+    resolvedSearchParams.startDate === "ALL" ||
+    resolvedSearchParams.startDate === "all";
+
+  // Hitung tanggal Minggu Lalu sebagai default awal
+  const today = new Date();
+  const lastWeekBase = new Date(today);
+  lastWeekBase.setDate(today.getDate() - 7);
+  const defaultLastWeek = getWeekDates(lastWeekBase);
+
+  let targetStartDate = "";
+  let targetEndDate = "";
+
+  if (isSesiMode || isExplicitAllTime) {
+    targetStartDate = "";
+    targetEndDate = "";
+  } else if (resolvedSearchParams.startDate && resolvedSearchParams.endDate) {
+    targetStartDate = resolvedSearchParams.startDate;
+    targetEndDate = resolvedSearchParams.endDate;
+  } else {
+    // Default ke Minggu Lalu
+    targetStartDate = defaultLastWeek.mondayStr;
+    targetEndDate = defaultLastWeek.sundayStr;
+  }
+
   const targetJenisKelas = resolvedSearchParams.jenisKelas || "ALL";
 
   const res = await getLaporanProdi(

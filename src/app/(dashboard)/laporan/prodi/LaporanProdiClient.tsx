@@ -162,8 +162,12 @@ export default function LaporanProdiClient({
   function navigateToRange(start: string, end: string, semId = selectedSemester, jenis = jenisKelas) {
     startTransition(() => {
       const params = new URLSearchParams();
-      if (start) params.set("startDate", start);
-      if (end) params.set("endDate", end);
+      if (start === "ALL" || (!start && !end)) {
+        params.set("allTime", "true");
+      } else {
+        if (start) params.set("startDate", start);
+        if (end) params.set("endDate", end);
+      }
       if (semId) params.set("semesterId", semId);
       if (jenis && jenis !== "ALL") params.set("jenisKelas", jenis);
       const queryStr = params.toString();
@@ -199,7 +203,7 @@ export default function LaporanProdiClient({
       if (startDate && endDate) {
         navigateToRange(startDate, endDate);
       } else {
-        applyPreset("this_week");
+        applyPreset("last_week");
       }
     }
   }
@@ -430,7 +434,7 @@ export default function LaporanProdiClient({
     hasActiveJenisKelas ||
     hasActiveSort ||
     isSesiActive ||
-    !isAppliedAllTime ||
+    !isLastWeekApplied ||
     isDateDirty ||
     isSesiDirty;
 
@@ -804,14 +808,14 @@ export default function LaporanProdiClient({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => applyPreset("all_time")}
+                    onClick={() => applyPreset("last_week")}
                     className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                      isAppliedAllTime && !isDateDirty
+                      isLastWeekApplied && !isDateDirty
                         ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
                         : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                     }`}
                   >
-                    All Time
+                    Minggu Lalu
                   </button>
                   <button
                     type="button"
@@ -826,14 +830,14 @@ export default function LaporanProdiClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => applyPreset("last_week")}
+                    onClick={() => applyPreset("all_time")}
                     className={`px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                      isLastWeekApplied && !isDateDirty
+                      isAppliedAllTime && !isDateDirty
                         ? "bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold"
                         : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                     }`}
                   >
-                    Minggu Lalu
+                    All Time
                   </button>
                 </div>
 
@@ -935,9 +939,9 @@ export default function LaporanProdiClient({
                     setSelectedSesi(1);
                     navigateToSesi(1, selectedSemester, "ALL");
                   } else {
-                    setStartDate("");
-                    setEndDate("");
-                    navigateToRange("", "", selectedSemester, "ALL");
+                    setStartDate(lastWeek.mondayStr);
+                    setEndDate(lastWeek.sundayStr);
+                    navigateToRange(lastWeek.mondayStr, lastWeek.sundayStr, selectedSemester, "ALL");
                   }
                 }}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
