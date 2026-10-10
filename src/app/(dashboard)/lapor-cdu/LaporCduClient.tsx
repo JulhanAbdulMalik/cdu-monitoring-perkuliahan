@@ -735,7 +735,7 @@ export default function LaporCduClient({
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
                 {renderSortHeader("Tanggal Lapor", "tanggal", "center", "w-32")}
-                {renderSortHeader("Pelapor", "pelapor", "left", "min-w-[220px]")}
+                {renderSortHeader("Pelapor", "pelapor", "left", "w-44 min-w-[170px]")}
                 {renderSortHeader("Program Studi", "prodi", "left", "w-28")}
                 {renderSortHeader("Mata Kuliah & Dosen", "matakuliah", "left", "min-w-[190px]")}
                 {renderSortHeader("Kelas", "kelas", "center", "w-20")}
@@ -798,8 +798,8 @@ export default function LaporCduClient({
                         </div>
                       </td>
 
-                      {/* Pelapor (Wider) */}
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 min-w-[220px]">
+                      {/* Pelapor */}
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 w-44 max-w-[190px]">
                         <div
                           className="flex items-center gap-1.5 min-w-0"
                           title={`${item.pelapor.name} (${item.pelapor.email})`}
@@ -846,11 +846,9 @@ export default function LaporCduClient({
                         </span>
                       </td>
 
-                      {/* Kategori */}
+                      {/* Kategori (Tanpa Warna) */}
                       <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${katBadge.color}`}
-                        >
+                        <span className="text-xs text-slate-600 font-medium">
                           {katBadge.label}
                         </span>
                       </td>
