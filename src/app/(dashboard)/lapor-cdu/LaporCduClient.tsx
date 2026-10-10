@@ -71,7 +71,7 @@ interface LaporCduClientProps {
   defaultStatus?: string;
 }
 
-type SortField = "tanggal" | "pelapor" | "prodi" | "matakuliah" | "sesi" | "status";
+type SortField = "tanggal" | "pelapor" | "prodi" | "matakuliah" | "kelas" | "dosen" | "sesi" | "status";
 type SortOrder = "asc" | "desc";
 
 export default function LaporCduClient({
@@ -284,6 +284,14 @@ export default function LaporCduClient({
         case "matakuliah":
           valA = a.kelas.mataKuliah.nama.toLowerCase();
           valB = b.kelas.mataKuliah.nama.toLowerCase();
+          break;
+        case "kelas":
+          valA = a.kelas.kodeKelas.toLowerCase();
+          valB = b.kelas.kodeKelas.toLowerCase();
+          break;
+        case "dosen":
+          valA = a.kelas.dosen.nama.toLowerCase();
+          valB = b.kelas.dosen.nama.toLowerCase();
           break;
         case "sesi":
           valA = a.nomorSesi;
@@ -722,16 +730,18 @@ export default function LaporCduClient({
       {/* ── Table Card ──────────────────────────────────────────────────────── */}
       <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs min-w-[920px]">
+          <table className="w-full text-left border-collapse text-xs min-w-[1050px]">
             <thead>
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
-                {renderSortHeader("Tanggal Lapor", "tanggal", "left", "w-36")}
-                {renderSortHeader("Pelapor", "pelapor", "left", "min-w-[180px]")}
-                {renderSortHeader("Program Studi", "prodi", "left", "w-32")}
-                {renderSortHeader("Mata Kuliah & Kelas", "matakuliah", "left", "min-w-[180px]")}
-                {renderSortHeader("Sesi", "sesi", "center", "w-16")}
-                <th className="py-2.5 px-3 text-slate-700 font-bold min-w-[175px]">Kategori Masalah</th>
+                {renderSortHeader("Tanggal Lapor", "tanggal", "left", "w-32")}
+                {renderSortHeader("Pelapor", "pelapor", "left", "w-32 max-w-[135px]")}
+                {renderSortHeader("Program Studi", "prodi", "left", "w-28")}
+                {renderSortHeader("Mata Kuliah", "matakuliah", "left", "min-w-[150px]")}
+                {renderSortHeader("Kelas", "kelas", "center", "w-20")}
+                {renderSortHeader("Dosen", "dosen", "left", "w-36 max-w-[160px]")}
+                {renderSortHeader("Sesi", "sesi", "center", "w-14")}
+                <th className="py-2.5 px-3 text-slate-700 font-bold min-w-[155px]">Kategori Masalah</th>
                 {renderSortHeader("Status", "status", "center", "w-32")}
                 <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
@@ -739,26 +749,31 @@ export default function LaporCduClient({
             <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     <Loader2 size={20} className="animate-spin mx-auto text-[#a80063] mb-2" />
                     <p>Memuat data laporan...</p>
                   </td>
                 </tr>
               ) : sortedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     Tidak ada laporan kendala yang ditemukan untuk filter ini.
                   </td>
                 </tr>
               ) : (
                 paginatedItems.map((item, idx) => {
-                  const formattedDate = new Date(item.createdAt).toLocaleDateString("id-ID", {
+                  const d = new Date(item.createdAt);
+                  const dateStr = d.toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
                   });
+                  const timeStr = d
+                    .toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                    .replace(".", ":");
                   const katBadge = getKategoriLabel(item.kategori);
 
                   return (
@@ -773,16 +788,25 @@ export default function LaporCduClient({
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
 
-                      {/* Tanggal */}
-                      <td className="py-2.5 px-3 text-slate-600 font-medium whitespace-nowrap">
-                        {formattedDate}
+                      {/* Tanggal Lapor (2 Baris: Tanggal + Jam WIB) */}
+                      <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                        <div className="font-semibold text-slate-900 leading-tight">
+                          {dateStr}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                          <Clock size={11} className="text-slate-400 shrink-0" />
+                          <span>{timeStr} WIB</span>
+                        </div>
                       </td>
 
-                      {/* Pelapor */}
-                      <td className="py-2.5 px-3 font-semibold text-slate-900">
-                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      {/* Pelapor (Compact & Truncate) */}
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 max-w-[135px]">
+                        <div
+                          className="flex items-center gap-1.5 min-w-0"
+                          title={`${item.pelapor.name} (${item.pelapor.email})`}
+                        >
                           <User size={13} className="text-slate-400 shrink-0" />
-                          <span>{item.pelapor.name}</span>
+                          <span className="truncate">{item.pelapor.name}</span>
                         </div>
                       </td>
 
@@ -796,19 +820,31 @@ export default function LaporCduClient({
                         </div>
                       </td>
 
-                      {/* Mata Kuliah & Kelas */}
+                      {/* Mata Kuliah */}
                       <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-900 text-xs">
-                            {item.kelas.mataKuliah.nama}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
-                            {item.kelas.kodeKelas}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-normal mt-0.5">
-                          Dosen: {item.kelas.dosen.nama}
-                        </p>
+                        <span className="font-semibold text-slate-900 text-xs block leading-tight">
+                          {item.kelas.mataKuliah.nama}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {item.kelas.mataKuliah.kode}
+                        </span>
+                      </td>
+
+                      {/* Kelas */}
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10.5px] font-extrabold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
+                          {item.kelas.kodeKelas}
+                        </span>
+                      </td>
+
+                      {/* Dosen */}
+                      <td className="py-2.5 px-3 text-slate-700 max-w-[160px]">
+                        <span
+                          className="text-xs font-medium block truncate"
+                          title={item.kelas.dosen.nama}
+                        >
+                          {item.kelas.dosen.nama}
+                        </span>
                       </td>
 
                       {/* Sesi */}
@@ -884,7 +920,7 @@ export default function LaporCduClient({
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
+          <div className="w-full max-w-5xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
             {/* Header Modal & Navigasi */}
             <div className="pb-4 border-b border-slate-100 flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -911,7 +947,7 @@ export default function LaporCduClient({
               {/* Baris 1: Prodi, Kelas, Sesi */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 {/* Pilihan Prodi */}
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-3">
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Program Studi <span className="text-rose-500">*</span>
                   </label>
@@ -928,7 +964,7 @@ export default function LaporCduClient({
                 </div>
 
                 {/* Pilihan Kelas (Lebar) */}
-                <div className="sm:col-span-6">
+                <div className="sm:col-span-7">
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Mata Kuliah & Kelas <span className="text-rose-500">*</span>
                   </label>
@@ -995,7 +1031,7 @@ export default function LaporCduClient({
               <div className="p-3 rounded-xl bg-white border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
                 <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
                   <Clock size={13} className="text-[#a80063]" />
-                  <span>Status Sesi {formNomorSesi} di Sistem Saat Ini:</span>
+                  <span>Status Sesi {formNomorSesi} saat ini:</span>
                 </span>
 
                 {previewLoading ? (
