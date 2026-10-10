@@ -376,7 +376,7 @@ export default function RekapClient({
             <span>Rekapitulasi Monitoring Perkuliahan (3 Pilar)</span>
           </h1>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Matriks evaluasi kehadiran dosen, keterpenuhan 3 pilar materi (L/S, Q/T, T/V), dan kuota Live Conf
+            Matriks evaluasi kehadiran dosen, keterpenuhan 3 pilar materi (L/S, Q/T, V/C).
           </p>
         </div>
 
