@@ -735,12 +735,12 @@ export default function LaporCduClient({
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
                 {renderSortHeader("Tanggal Lapor", "tanggal", "center", "w-32")}
-                {renderSortHeader("Pelapor", "pelapor", "left", "w-48 min-w-[175px]")}
+                {renderSortHeader("Pelapor", "pelapor", "left", "min-w-[220px]")}
                 {renderSortHeader("Program Studi", "prodi", "left", "w-28")}
                 {renderSortHeader("Mata Kuliah & Dosen", "matakuliah", "left", "min-w-[190px]")}
                 {renderSortHeader("Kelas", "kelas", "center", "w-20")}
                 {renderSortHeader("Sesi", "sesi", "center", "w-14")}
-                <th className="py-2.5 px-3 text-slate-700 font-bold min-w-[155px]">Kategori Masalah</th>
+                <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-28">Kategori</th>
                 {renderSortHeader("Status", "status", "center", "w-32")}
                 <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
@@ -798,8 +798,8 @@ export default function LaporCduClient({
                         </div>
                       </td>
 
-                      {/* Pelapor (Wider & Truncate on Overflow) */}
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 max-w-[200px]">
+                      {/* Pelapor (Wider) */}
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 min-w-[220px]">
                         <div
                           className="flex items-center gap-1.5 min-w-0"
                           title={`${item.pelapor.name} (${item.pelapor.email})`}
@@ -847,7 +847,7 @@ export default function LaporCduClient({
                       </td>
 
                       {/* Kategori */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${katBadge.color}`}
                         >
