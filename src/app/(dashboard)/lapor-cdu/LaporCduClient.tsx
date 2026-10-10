@@ -886,32 +886,8 @@ export default function LaporCduClient({
         >
           <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
             {/* Header Modal & Navigasi */}
-            <div className="pb-4 border-b border-slate-100 space-y-3">
-              {/* Baris 1: Status Badges (Kiri) & Tombol Tutup (Kanan) */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
-                    <Send size={12} className="text-[#a80063]" />
-                    <span>Form Pengaduan CDU</span>
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    Tahun Ajaran Aktif
-                  </span>
-                </div>
-
-                {/* Tombol Tutup Modal */}
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                  title="Tutup (Esc)"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Baris 2: Judul & Subjudul */}
-              <div className="space-y-1 pt-0.5">
+            <div className="pb-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div className="space-y-1">
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Buat Laporan Kendala Perkuliahan
                 </h3>
@@ -919,6 +895,16 @@ export default function LaporCduClient({
                   Ajukan sanggahan atau pengaduan ketidaksesuaian data perkuliahan untuk ditinjau oleh tim CDU.
                 </p>
               </div>
+
+              {/* Tombol Tutup Modal */}
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                title="Tutup (Esc)"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <form onSubmit={handleSubmitCreate} className="space-y-4">
