@@ -14,7 +14,7 @@ export type Kehadiran =
   | "TIDAK_HADIR"
   | "HADIR_TIDAK_LENGKAP"
   | "BELUM_DIISI";
-export type SumberData = "MANUAL" | "IMPORT_EXCEL";
+export type SumberData = "MANUAL" | "IMPORT_EXCEL" | "EDLINK_API";
 
 export const LABEL_MODE_PEMBELAJARAN: Record<string, string> = {
   DARING: "Online",

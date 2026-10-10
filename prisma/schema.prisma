@@ -134,6 +134,8 @@ model Kelas {
   jadwalJam        String?          // contoh: "10:00 - 11:40"
   ruangan          String?          // contoh: "R.204", "Lab Komputer 1" (opsional untuk kelas offline)
   modePembelajaran ModePembelajaran @default(DARING)
+  edlinkGroupId    Int?             @unique // ID kelas (group) di Edlink, contoh: 2126659 → https://edlink.id/classes/2126659
+  edlinkSyncedAt   DateTime?        // Terakhir disinkronkan oleh worker integrasi Edlink
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -217,6 +219,7 @@ enum Kehadiran {
 enum SumberData {
   MANUAL        // Diisi manual oleh CDU
   IMPORT_EXCEL  // Dari import file Edlink
+  EDLINK_API    // Dari worker integrasi Edlink (otomatis, via /api/integrasi)
 }
 
 enum StatusPengajar {

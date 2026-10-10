@@ -12,6 +12,8 @@ export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const isLoginPage = nextUrl.pathname === "/login";
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+  // API integrasi memakai Bearer API key sendiri (lihat src/lib/integrasi-auth.ts)
+  if (nextUrl.pathname.startsWith("/api/integrasi")) return NextResponse.next();
 
   // Biarkan API auth route lewat
   if (isApiAuth) return NextResponse.next();
@@ -58,5 +60,5 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|public/).*)"],
+  matcher: ["/((?!api/auth|api/integrasi|_next/static|_next/image|favicon.ico|public/).*)"],
 };
