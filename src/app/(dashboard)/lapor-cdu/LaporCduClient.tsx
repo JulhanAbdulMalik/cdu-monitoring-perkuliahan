@@ -130,7 +130,6 @@ export default function LaporCduClient({
 
   // Form Admin Response States
   const [responCatatan, setResponCatatan] = useState("");
-  const [responUpdateMonitoring, setResponUpdateMonitoring] = useState(true);
   const [processingAction, setProcessingAction] = useState(false);
 
   const isDosen = currentUser.role === "DOSEN";
@@ -318,7 +317,6 @@ export default function LaporCduClient({
   function openDetailModal(item: LaporCduItem) {
     setSelectedItem(item);
     setResponCatatan(item.catatanCdu || "");
-    setResponUpdateMonitoring(true);
     setIsDetailOpen(true);
   }
 
@@ -374,17 +372,13 @@ export default function LaporCduClient({
       const res = await approveLaporCdu({
         id: selectedItem.id,
         catatanCdu: responCatatan.trim() || null,
-        updateMonitoring: responUpdateMonitoring,
+        updateMonitoring: false,
       });
 
       if (!res.success) {
         toast.error(res.error || "Gagal menyetujui laporan");
       } else {
-        toast.success(
-          responUpdateMonitoring
-            ? "Laporan disetujui & data sesi monitoring berhasil disinkronkan!"
-            : "Laporan berhasil disetujui!"
-        );
+        toast.success("Laporan berhasil disetujui!");
         setIsDetailOpen(false);
         await reloadData();
       }
@@ -880,7 +874,7 @@ export default function LaporCduClient({
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-5xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
+          <div className="w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
             <button
               onClick={() => setIsCreateOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -1167,155 +1161,170 @@ export default function LaporCduClient({
               <X size={18} />
             </button>
 
-            {/* Header Modal */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tiket Laporan</span>
-                <span className="text-xs text-slate-300">•</span>
-                <span className="text-xs text-slate-500 font-mono">#{selectedItem.id.slice(-6).toUpperCase()}</span>
-                {getStatusBadge(selectedItem.status)}
-              </div>
-              <h3 className="text-sm font-bold text-slate-900">
-                [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama} - Sesi {selectedItem.nomorSesi}
-              </h3>
-            </div>
-
-            {/* Ringkasan Informasi Sesi */}
-            <div className="grid grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pelapor</span>
-                <p className="font-semibold text-slate-900 mt-0.5">{selectedItem.pelapor.name}</p>
-                <p className="text-[10px] text-slate-400">{selectedItem.pelapor.email}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Program Studi</span>
-                <p className="font-semibold text-slate-900 mt-0.5">{selectedItem.prodi.nama}</p>
-                <p className="text-[10px] text-slate-400">Kode: {selectedItem.prodi.kode}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Dosen Pengampu</span>
-                <p className="font-semibold text-slate-900 mt-0.5">{selectedItem.kelas.dosen.nama}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Kategori Masalah</span>
-                <p className="font-bold text-[#a80063] mt-0.5">
-                  {getKategoriLabel(selectedItem.kategori).label}
+            {/* Header Modal & Navigasi Langsung */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200/80">
+                    #{selectedItem.id.slice(-6).toUpperCase()}
+                  </span>
+                  {getStatusBadge(selectedItem.status)}
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]">
+                    {getKategoriLabel(selectedItem.kategori).label}
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                  [{selectedItem.kelas.kodeKelas}] {selectedItem.kelas.mataKuliah.nama}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-1.5">
+                  <span className="font-bold text-[#a80063]">Sesi {selectedItem.nomorSesi}</span>
+                  <span className="text-slate-300">•</span>
+                  <span>{selectedItem.prodi.nama} ({selectedItem.prodi.kode})</span>
+                  <span className="text-slate-300">•</span>
+                  <span>Dosen: <strong>{selectedItem.kelas.dosen.nama}</strong></span>
                 </p>
               </div>
+
+              {/* Tombol Menuju Kelas Tersebut di Monitoring */}
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                <a
+                  href={`/monitoring/${selectedItem.kelasId}?sesi=${selectedItem.nomorSesi}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all shadow-2xs group"
+                  title="Buka halaman monitoring sesi untuk kelas ini di tab baru"
+                >
+                  <Radio size={13} className="text-[#a80063]" />
+                  <span>Buka Monitoring Kelas</span>
+                  <ExternalLink size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                </a>
+              </div>
             </div>
 
-            {/* Keterangan Pelapor */}
-            <div>
-              <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block mb-1">
-                Keterangan & Kronologi dari Pelapor:
-              </span>
-              <div className="p-3 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 leading-relaxed font-normal whitespace-pre-wrap shadow-2xs">
+            {/* Laporan dari Pelapor & Kronologi */}
+            <div className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
+                    <User size={13} />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-900 block leading-tight">
+                      {selectedItem.pelapor.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {selectedItem.pelapor.email}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedItem.tautanBukti && (
+                  <a
+                    href={selectedItem.tautanBukti}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                    <span>Buka Tautan Bukti</span>
+                  </a>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg p-3 border border-slate-200/80 text-xs text-slate-800 leading-relaxed font-normal whitespace-pre-wrap shadow-2xs">
                 {selectedItem.keterangan}
               </div>
             </div>
 
-            {/* Tautan Bukti jika ada */}
-            {selectedItem.tautanBukti && (
-              <div>
-                <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block mb-1">
-                  Tautan Bukti Terlampir:
-                </span>
-                <a
-                  href={selectedItem.tautanBukti}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-                >
-                  <ExternalLink size={13} />
-                  <span>Buka Tautan Bukti (Google Drive / Rekaman)</span>
-                </a>
-              </div>
-            )}
-
-            {/* Status Monitoring Sesi Saat Ini */}
+            {/* Status Monitoring Sesi Saat Ini di Sistem */}
             {selectedItem.monitoringSesi && (
-              <div className="p-2.5 rounded-xl bg-[#fdf2f8]/60 border border-[#fbcfe8] text-xs">
-                <span className="text-[10px] font-bold text-[#a80063] uppercase tracking-wider block mb-1">
-                  Data Monitoring Sesi {selectedItem.nomorSesi} saat ini:
+              <div className="p-3 rounded-xl bg-white border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                  <Clock size={13} className="text-[#a80063]" />
+                  <span>Status Sesi {selectedItem.nomorSesi} di Sistem Saat Ini:</span>
                 </span>
-                <div className="flex items-center gap-1.5 sm:gap-2 text-slate-700 text-[11px] whitespace-nowrap overflow-x-auto py-0.5">
-                  <span>
-                    Kehadiran:{" "}
-                    <strong
-                      className={
-                        selectedItem.monitoringSesi.kehadiran === "HADIR"
-                          ? "text-emerald-600 font-bold"
-                          : selectedItem.monitoringSesi.kehadiran === "TIDAK_HADIR"
-                          ? "text-rose-600 font-bold"
-                          : selectedItem.monitoringSesi.kehadiran === "HADIR_TIDAK_LENGKAP"
-                          ? "text-amber-600 font-bold"
-                          : "text-slate-500 font-medium"
-                      }
-                    >
-                      {formatKehadiranLabel(selectedItem.monitoringSesi.kehadiran)}
-                    </strong>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span
+                    className={`px-2 py-0.5 rounded-md font-bold text-[10.5px] border ${
+                      selectedItem.monitoringSesi.kehadiran === "HADIR"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : selectedItem.monitoringSesi.kehadiran === "TIDAK_HADIR"
+                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                        : selectedItem.monitoringSesi.kehadiran === "HADIR_TIDAK_LENGKAP"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    Kehadiran: {formatKehadiranLabel(selectedItem.monitoringSesi.kehadiran)}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    LN:{" "}
-                    <strong className={selectedItem.monitoringSesi.lectureNote ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.lectureNote ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.lectureNote
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    LN {selectedItem.monitoringSesi.lectureNote ? "✓" : "–"}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    Slide:{" "}
-                    <strong className={selectedItem.monitoringSesi.slide ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.slide ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.slide
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    Slide {selectedItem.monitoringSesi.slide ? "✓" : "–"}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    Tugas:{" "}
-                    <strong className={selectedItem.monitoringSesi.tugas ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.tugas ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.tugas
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    Tugas {selectedItem.monitoringSesi.tugas ? "✓" : "–"}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    Kuis:{" "}
-                    <strong className={selectedItem.monitoringSesi.kuis ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.kuis ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.kuis
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    Kuis {selectedItem.monitoringSesi.kuis ? "✓" : "–"}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    Video:{" "}
-                    <strong className={selectedItem.monitoringSesi.video ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.video ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.video
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    Video {selectedItem.monitoringSesi.video ? "✓" : "–"}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span>
-                    Live Conf:{" "}
-                    <strong className={selectedItem.monitoringSesi.conference ? "text-emerald-600 font-semibold" : "text-slate-400 font-medium"}>
-                      {selectedItem.monitoringSesi.conference ? "Ada" : "Tidak Ada"}
-                    </strong>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10.5px] font-medium border ${
+                      selectedItem.monitoringSesi.conference
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                    }`}
+                  >
+                    Live Conf {selectedItem.monitoringSesi.conference ? "✓" : "–"}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Riwayat Penanganan (Jika sudah diproses) */}
+            {/* Riwayat Penanganan (Jika sudah selesai diproses) */}
             {selectedItem.status !== "PENDING" && selectedItem.diprosesOleh && (
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Hasil Penanganan oleh Tim CDU:
-                </span>
-                <p className="text-slate-800">
-                  Diproses oleh: <strong>{selectedItem.diprosesOleh.name}</strong>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">
+                    Diproses oleh: <strong>{selectedItem.diprosesOleh.name}</strong>
+                  </span>
                   {selectedItem.tanggalDiproses && (
                     <span className="text-slate-400 text-[11px]">
-                      {" "}
-                      pada{" "}
                       {new Date(selectedItem.tanggalDiproses).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
@@ -1325,23 +1334,18 @@ export default function LaporCduClient({
                       })}
                     </span>
                   )}
-                </p>
+                </div>
                 {selectedItem.catatanCdu && (
-                  <p className="text-slate-700 bg-white p-2 rounded border border-slate-200/80 mt-1 italic">
+                  <p className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 text-xs italic">
                     "{selectedItem.catatanCdu}"
                   </p>
                 )}
               </div>
             )}
 
-            {/* Panel Tindakan CDU (Hanya untuk Admin / Super Admin) */}
+            {/* Panel Tindakan Tim CDU (Hanya untuk Admin / Super Admin dan saat PENDING) */}
             {isAdminOrSuper && selectedItem.status === "PENDING" && (
               <div className="pt-3 border-t border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-[#a80063]" />
-                  <span>Keputusan & Tindakan Tim CDU</span>
-                </span>
-
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Catatan Respon / Feedback ke Pelapor:
@@ -1351,28 +1355,16 @@ export default function LaporCduClient({
                     value={responCatatan}
                     onChange={(e) => setResponCatatan(e.target.value)}
                     placeholder="Tulis catatan balasan (wajib diisi jika menolak laporan)..."
-                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
                   />
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={responUpdateMonitoring}
-                    onChange={(e) => setResponUpdateMonitoring(e.target.checked)}
-                    className="rounded border-slate-300 text-[#a80063] focus:ring-[#a80063] accent-[#a80063] w-4 h-4"
-                  />
-                  <span>
-                    <strong>Otomatis sinkronkan perubahan ke data Monitoring</strong> (Ubah kehadiran menjadi HADIR / centang Live Conference secara otomatis)
-                  </span>
-                </label>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={handleReject}
                     disabled={processingAction}
-                    className="px-3.5 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-colors"
+                    className="px-4 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-colors"
                   >
                     Tolak Laporan
                   </button>
@@ -1383,7 +1375,7 @@ export default function LaporCduClient({
                     className="btn-brand inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shadow-xs cursor-pointer"
                   >
                     {processingAction && <Loader2 size={13} className="animate-spin" />}
-                    <span>Setujui & Selesaikan</span>
+                    <span>Setujui Laporan</span>
                   </button>
                 </div>
               </div>
