@@ -1074,23 +1074,27 @@ export async function getLaporanProdi(
           }
         }
 
-        // Cek apakah sesi ini berstatus Ganti Hari
-        const hasGantiNote = s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false;
+        // Cek apakah sesi ini berstatus Ganti Hari (tanggal bergeser atau memiliki catatan ganti hari)
+        const semStartStr = cls.semester?.tanggalMulai
+          ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
+          : DEFAULT_SEMESTER_START_DATE;
+        const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
+        const defDateStr = estimatedDate ? estimatedDate.toISOString().split("T")[0] : null;
+        const sessionDateStr = s.tanggal ? new Date(s.tanggal).toISOString().split("T")[0] : null;
+        const isDateDifferent = Boolean(sessionDateStr && defDateStr && sessionDateStr !== defDateStr);
+
+        const isGantiHari = isDateDifferent || (s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false);
 
         if (isSesiMode) {
-          if (isInRange && hasGantiNote) {
+          if (isInRange && isGantiHari) {
             entry.totalGantiHariRentang++;
           }
         } else {
-          const semStartStr = cls.semester?.tanggalMulai
-            ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
-            : DEFAULT_SEMESTER_START_DATE;
-          const estimatedDate = getEstimatedSessionDate(s.nomorSesi, cls.jadwalHari, semStartStr, (cls.semester as any)?.hariLibur);
           const isOrigScheduleInRange = estimatedDate
             ? (startDateTime && endDateTime ? (estimatedDate >= startDateTime && estimatedDate <= endDateTime) : true)
             : false;
 
-          if (hasGantiNote && (isInRange || isOrigScheduleInRange)) {
+          if (isGantiHari && (isInRange || isOrigScheduleInRange)) {
             entry.totalGantiHariRentang++;
           }
         }

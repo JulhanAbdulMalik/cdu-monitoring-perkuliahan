@@ -646,14 +646,10 @@ export default function MonitoringGridClient({
           currentKelas.semester?.hariLibur
         ).toISOString().split("T")[0];
 
-        const rawCatatan = s.catatanCdu ?? s.catatan ?? "";
-        const isManualGantiHari = rawCatatan.trim().toLowerCase() === "ganti hari";
-
-        const finalTanggal = isManualGantiHari
-          ? (s.tanggal ? (typeof s.tanggal === "string" ? s.tanggal : s.tanggal.toISOString()) : `${defDate}T00:00:00.000Z`)
-          : (rawCatatan !== "" && s.tanggal)
-            ? (typeof s.tanggal === "string" ? s.tanggal : s.tanggal.toISOString())
-            : `${defDate}T00:00:00.000Z`;
+        const rawDateStr = s.tanggal
+          ? (typeof s.tanggal === "string" ? s.tanggal.split("T")[0] : s.tanggal.toISOString().split("T")[0])
+          : defDate;
+        const finalTanggal = `${rawDateStr}T00:00:00.000Z`;
 
         return {
           id: s.id,
@@ -1445,17 +1441,12 @@ export default function MonitoringGridClient({
                       );
                       const defaultDateStr = defaultEstimatedDate.toISOString().split("T")[0];
                       const rawCatatan = sesi.catatanCdu ?? sesi.catatan ?? "";
-                      const isManualGantiHari = rawCatatan.trim().toLowerCase() === "ganti hari";
 
-                      const currentDateStr = isManualGantiHari
-                        ? (sesi.tanggal
-                            ? (typeof sesi.tanggal === "string" ? sesi.tanggal.split("T")[0] : sesi.tanggal.toISOString().split("T")[0])
-                            : defaultDateStr)
-                        : (rawCatatan !== "" && sesi.tanggal)
-                          ? (typeof sesi.tanggal === "string" ? sesi.tanggal.split("T")[0] : sesi.tanggal.toISOString().split("T")[0])
-                          : defaultDateStr;
+                      const currentDateStr = sesi.tanggal
+                        ? (typeof sesi.tanggal === "string" ? sesi.tanggal.split("T")[0] : sesi.tanggal.toISOString().split("T")[0])
+                        : defaultDateStr;
 
-                      const isRescheduled = isManualGantiHari && currentDateStr !== defaultDateStr;
+                      const isRescheduled = currentDateStr !== defaultDateStr || rawCatatan.trim().toLowerCase() === "ganti hari";
 
                       return (
                         <tr
