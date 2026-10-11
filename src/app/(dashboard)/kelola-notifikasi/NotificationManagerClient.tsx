@@ -254,7 +254,7 @@ export default function NotificationManagerClient({
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#a80063] hover:bg-[#8f0054] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Plus size={14} />
-            <span>+ Buat Notifikasi</span>
+            <span>Buat Notifikasi</span>
           </button>
         </div>
       </div>
