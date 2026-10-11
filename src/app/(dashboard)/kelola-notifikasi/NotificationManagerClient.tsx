@@ -22,6 +22,7 @@ import {
   AlertCircle,
   ChevronRight,
   BookOpen,
+  Send,
 } from "lucide-react";
 import {
   ManagementNotificationItem,
@@ -571,25 +572,34 @@ export default function NotificationManagerClient({
         </div>
       )}
 
-      {/* Modal Form Buat Notifikasi Baru */}
+      {/* Modal Form Buat Notifikasi Baru (Identik dengan Modal Lapor CDU) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-2xs animate-fade-in overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg border bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]">
-                  <Bell size={16} />
-                </span>
-                <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="w-full max-w-4xl bg-white rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
+            {/* Header Modal & Navigasi */}
+            <div className="pb-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Buat Notifikasi Baru
                 </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Publikasikan pengumuman penting atau peringatan resmi dari CDU untuk seluruh dosen atau program studi.
+                </p>
               </div>
+
+              {/* Tombol Tutup Modal */}
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                title="Tutup (Esc)"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
@@ -600,150 +610,149 @@ export default function NotificationManagerClient({
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-              {/* Sasaran Penerima */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Sasaran Target Penerima</label>
-                <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Baris 1: Sasaran Penerima & Program Studi */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div className={formTargetTipe === "PRODI" ? "sm:col-span-5" : "sm:col-span-12"}>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Sasaran Target Penerima <span className="text-rose-500">*</span>
+                  </label>
                   <select
                     value={formTargetTipe}
                     onChange={(e) => setFormTargetTipe(e.target.value as NotificationTarget)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all cursor-pointer font-medium"
                   >
                     <option value="SEMUA">Semua Pengguna (Broadcast)</option>
                     <option value="ROLE_DOSEN">Semua Dosen & Kaprodi</option>
                     <option value="PRODI">Khusus Program Studi Tertentu</option>
                   </select>
+                </div>
 
-                  {formTargetTipe === "PRODI" && (
+                {formTargetTipe === "PRODI" && (
+                  <div className="sm:col-span-7 animate-fade-in">
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Pilih Program Studi <span className="text-rose-500">*</span>
+                    </label>
                     <select
                       value={formTargetProdiId}
                       onChange={(e) => setFormTargetProdiId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
+                      className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all cursor-pointer font-medium"
                     >
                       {targetOptions.prodis.map((p) => (
                         <option key={p.id} value={p.id}>
-                          Prodi {p.nama} ({p.kode})
+                          {p.nama} ({p.kode})
                         </option>
                       ))}
                     </select>
-                  )}
+                  </div>
+                )}
+              </div>
+
+              {/* Baris 2: Tingkat Urgensi (Identik dengan Kategori Kendala di Lapor CDU) */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Tingkat Urgensi <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {[
+                    {
+                      val: "PENTING",
+                      label: "Info Resmi",
+                      desc: "Pengumuman umum atau info perkuliahan resmi",
+                    },
+                    {
+                      val: "PERINGATAN",
+                      label: "Peringatan",
+                      desc: "Pemberitahuan perhatian dan tindak lanjut",
+                    },
+                    {
+                      val: "BAHAYA",
+                      label: "Urgent / Mendesak",
+                      desc: "Instruksi mendesak atau atensi kritis",
+                    },
+                  ].map((k) => (
+                    <button
+                      key={k.val}
+                      type="button"
+                      onClick={() => setFormUrgensi(k.val as any)}
+                      className={`p-2.5 sm:p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        formUrgensi === k.val
+                          ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
+                          : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <p className="text-xs font-bold leading-tight">{k.label}</p>
+                      <p className="text-[10px] text-slate-400 font-normal mt-0.5 leading-snug">{k.desc}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Tingkat Urgensi */}
+              {/* Baris 3: Judul Notifikasi */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Tingkat Urgensi</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <label
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border cursor-pointer font-bold text-[11px] transition-all ${
-                      formUrgensi === "PENTING"
-                        ? "bg-blue-50 border-blue-300 text-blue-700 shadow-2xs"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="urgensi"
-                      value="PENTING"
-                      checked={formUrgensi === "PENTING"}
-                      onChange={() => setFormUrgensi("PENTING")}
-                      className="sr-only"
-                    />
-                    <span>Info Resmi</span>
-                  </label>
-
-                  <label
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border cursor-pointer font-bold text-[11px] transition-all ${
-                      formUrgensi === "PERINGATAN"
-                        ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="urgensi"
-                      value="PERINGATAN"
-                      checked={formUrgensi === "PERINGATAN"}
-                      onChange={() => setFormUrgensi("PERINGATAN")}
-                      className="sr-only"
-                    />
-                    <span>Perhatian</span>
-                  </label>
-
-                  <label
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border cursor-pointer font-bold text-[11px] transition-all ${
-                      formUrgensi === "BAHAYA"
-                        ? "bg-rose-50 border-rose-300 text-rose-700 shadow-2xs"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="urgensi"
-                      value="BAHAYA"
-                      checked={formUrgensi === "BAHAYA"}
-                      onChange={() => setFormUrgensi("BAHAYA")}
-                      className="sr-only"
-                    />
-                    <span>Urgent / Teguran</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Judul Notifikasi */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Judul Notifikasi</label>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Judul Notifikasi <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Batas Akhir Pengisian BAP & Kelengkapan Konten LMS"
+                  required
                   value={formJudul}
                   onChange={(e) => setFormJudul(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-[#a80063] outline-none text-xs font-semibold"
-                  required
+                  placeholder="Tuliskan judul pengumuman atau notifikasi..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none leading-relaxed transition-all placeholder:text-slate-400 font-semibold"
                 />
               </div>
 
-              {/* Isi Pesan */}
+              {/* Baris 4: Penjelasan & Isi Pesan */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Isi Pesan Resmi</label>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Penjelasan & Isi Pesan <span className="text-rose-500">*</span>
+                </label>
                 <textarea
-                  rows={4}
-                  placeholder="Tuliskan isi instruksi, kebijakan, atau uraian notifikasi secara jelas dan profesional..."
+                  rows={3}
+                  required
                   value={formPesan}
                   onChange={(e) => setFormPesan(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-[#a80063] outline-none text-xs leading-relaxed"
-                  required
+                  placeholder="Tuliskan penjelasan detail instruksi, kebijakan, atau uraian notifikasi..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none leading-relaxed transition-all placeholder:text-slate-400"
                 />
               </div>
 
-              {/* Tautan URL Opsional */}
+              {/* Baris 5: Tautan URL (Opsional) */}
               <div>
-                <label className="font-bold text-slate-700 block mb-0.5">Tautan Halaman / URL (Opsional)</label>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Tautan Halaman / URL (Opsional)</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">(contoh: /monitoring atau link dokumen pendukung)</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Contoh: /monitoring atau tautan surat edaran"
                   value={formTautanUrl}
                   onChange={(e) => setFormTautanUrl(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none text-xs"
+                  placeholder="https://... atau /monitoring-perkuliahan"
+                  className="w-full px-3.5 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all placeholder:text-slate-400"
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              {/* Footer Actions (Identik dengan Modal Lapor CDU) */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#a80063] hover:bg-[#8f0054] transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#a80063] hover:bg-[#8f0054] text-white rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                  {isSubmitting ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Send size={13} />
+                  )}
                   <span>Kirim Notifikasi</span>
                 </button>
               </div>
