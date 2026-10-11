@@ -33,6 +33,7 @@ import {
   createNotification,
   deleteNotification,
 } from "@/actions/notification";
+import SearchableSelect from "@/components/common/SearchableSelect";
 
 interface NotificationManagerClientProps {
   initialNotifications: ManagementNotificationItem[];
@@ -110,7 +111,7 @@ export default function NotificationManagerClient({
   const handleOpenCreateModal = () => {
     setFormTargetTipe("SEMUA");
     setFormUrgensi("PENTING");
-    setFormTargetProdiId(targetOptions.prodis[0]?.id || "");
+    setFormTargetProdiId("");
     setFormJudul("");
     setFormPesan("");
     setFormTautanUrl("");
@@ -587,9 +588,9 @@ export default function NotificationManagerClient({
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Buat Notifikasi Baru
                 </h3>
-                <p className="text-xs text-slate-500 font-medium">
+                {/* <p className="text-xs text-slate-500 font-medium">
                   Publikasikan pengumuman penting atau peringatan resmi dari CDU untuk seluruh dosen atau program studi.
-                </p>
+                </p> */}
               </div>
 
               {/* Tombol Tutup Modal */}
@@ -617,15 +618,16 @@ export default function NotificationManagerClient({
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Sasaran Target Penerima <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formTargetTipe}
-                    onChange={(e) => setFormTargetTipe(e.target.value as NotificationTarget)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all cursor-pointer font-medium"
-                  >
-                    <option value="SEMUA">Semua Pengguna (Broadcast)</option>
-                    <option value="ROLE_DOSEN">Semua Dosen & Kaprodi</option>
-                    <option value="PRODI">Khusus Program Studi Tertentu</option>
-                  </select>
+                    onChange={(val) => setFormTargetTipe(val as NotificationTarget)}
+                    options={[
+                      { value: "SEMUA", label: "Semua Pengguna (Broadcast)" },
+                      { value: "ROLE_DOSEN", label: "Semua Dosen & Kaprodi" },
+                      { value: "PRODI", label: "Khusus Program Studi Tertentu" },
+                    ]}
+                    placeholder="-- Pilih Sasaran Target --"
+                  />
                 </div>
 
                 {formTargetTipe === "PRODI" && (
@@ -633,17 +635,15 @@ export default function NotificationManagerClient({
                     <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                       Pilih Program Studi <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <SearchableSelect
                       value={formTargetProdiId}
-                      onChange={(e) => setFormTargetProdiId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all cursor-pointer font-medium"
-                    >
-                      {targetOptions.prodis.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nama} ({p.kode})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormTargetProdiId(val)}
+                      options={targetOptions.prodis.map((p) => ({
+                        value: p.id,
+                        label: `${p.nama} (${p.kode})`,
+                      }))}
+                      placeholder="-- Cari & Pilih Program Studi --"
+                    />
                   </div>
                 )}
               </div>
@@ -728,7 +728,7 @@ export default function NotificationManagerClient({
                   type="text"
                   value={formTautanUrl}
                   onChange={(e) => setFormTautanUrl(e.target.value)}
-                  placeholder="https://... atau /monitoring-perkuliahan"
+                  placeholder="https://..."
                   className="w-full px-3.5 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all placeholder:text-slate-400"
                 />
               </div>

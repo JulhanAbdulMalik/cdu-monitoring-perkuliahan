@@ -917,9 +917,9 @@ export default function LaporCduClient({
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Buat Laporan Kendala Perkuliahan
                 </h3>
-                <p className="text-xs text-slate-500 font-medium">
+                {/* <p className="text-xs text-slate-500 font-medium">
                   Ajukan sanggahan atau pengaduan ketidaksesuaian data perkuliahan untuk ditinjau oleh tim CDU.
-                </p>
+                </p> */}
               </div>
 
               {/* Tombol Tutup Modal */}
@@ -1161,7 +1161,7 @@ export default function LaporCduClient({
                   type="url"
                   value={formTautanBukti}
                   onChange={(e) => setFormTautanBukti(e.target.value)}
-                  placeholder="https://drive.google.com/... atau tautan bukti pendukung lainnya"
+                  placeholder="https://..."
                   className="w-full px-3.5 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all placeholder:text-slate-400"
                 />
               </div>
