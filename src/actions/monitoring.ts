@@ -44,20 +44,65 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
         ...(prodiId && prodiId !== "ALL" ? { mataKuliah: { prodiId } } : {}),
       },
-      include: {
+      select: {
+        id: true,
+        kodeKelas: true,
+        jadwalHari: true,
+        jadwalJam: true,
+        ruangan: true,
+        modePembelajaran: true,
+        updatedAt: true,
         semester: {
-          include: {
+          select: {
+            id: true,
+            tahunAkademik: true,
+            periode: true,
+            tanggalMulai: true,
             hariLibur: {
+              select: {
+                id: true,
+                nama: true,
+                tanggalMulai: true,
+                tanggalSelesai: true,
+                keterangan: true,
+              },
               orderBy: { tanggalMulai: "asc" },
             },
           },
         },
-        mataKuliah: { include: { prodi: true } },
-        dosen: true,
-        dosen2: true,
+        mataKuliah: {
+          select: {
+            id: true,
+            nama: true,
+            kode: true,
+            sks: true,
+            prodi: { select: { id: true, nama: true, kode: true } },
+          },
+        },
+        dosen: {
+          select: { id: true, nama: true, nidn: true },
+        },
+        dosen2: {
+          select: { id: true, nama: true, nidn: true },
+        },
         monitoringSesi: {
-          include: {
-            dosenPengajar: true,
+          select: {
+            id: true,
+            nomorSesi: true,
+            kehadiran: true,
+            conference: true,
+            slide: true,
+            tugas: true,
+            video: true,
+            lectureNote: true,
+            kuis: true,
+            catatanCdu: true,
+            catatanGantiDosen: true,
+            statusPengajar: true,
+            updatedAt: true,
+            dosenPengajar: {
+              select: { id: true, nama: true },
+            },
           },
           orderBy: { nomorSesi: "asc" },
         },
@@ -338,7 +383,19 @@ function getJamStart(jam?: string | null): string {
 }
 
 // Proyeksi kolom ramping untuk menghemat kuota transfer jaringan (Network Egress) hingga 80%+
-const LEAN_KELAS_INCLUDE = {
+const LEAN_KELAS_SELECT = {
+  id: true,
+  kodeKelas: true,
+  semesterId: true,
+  mataKuliahId: true,
+  dosenId: true,
+  dosen2Id: true,
+  jadwalHari: true,
+  jadwalJam: true,
+  ruangan: true,
+  modePembelajaran: true,
+  updatedAt: true,
+  createdAt: true,
   semester: {
     select: { id: true, tahunAkademik: true, periode: true },
   },
@@ -588,7 +645,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
     if (isCustomSortOrFilter) {
       const allMatchingClasses = await prisma.kelas.findMany({
         where: baseWhere,
-        include: LEAN_KELAS_INCLUDE,
+        select: LEAN_KELAS_SELECT,
       });
 
       const allProcessed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
@@ -768,7 +825,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         where: baseWhere,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: LEAN_KELAS_INCLUDE,
+        select: LEAN_KELAS_SELECT,
         orderBy,
       }),
     ]);
@@ -934,7 +991,7 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
     if (isCustomSortOrFilter) {
       const allMatchingClasses = await prisma.kelas.findMany({
         where: baseWhere,
-        include: LEAN_KELAS_INCLUDE,
+        select: LEAN_KELAS_SELECT,
       });
 
       let processed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
@@ -1163,20 +1220,69 @@ export async function getMonitoringKelasDetail(kelasId: string) {
     const [kelas, allDosen] = await Promise.all([
       prisma.kelas.findUnique({
         where: { id: kelasId },
-        include: {
+        select: {
+          id: true,
+          kodeKelas: true,
+          semesterId: true,
+          mataKuliahId: true,
+          dosenId: true,
+          dosen2Id: true,
+          jadwalHari: true,
+          jadwalJam: true,
+          ruangan: true,
+          modePembelajaran: true,
+          updatedAt: true,
           semester: {
-            include: {
+            select: {
+              id: true,
+              tahunAkademik: true,
+              periode: true,
+              tanggalMulai: true,
               hariLibur: {
+                select: {
+                  id: true,
+                  nama: true,
+                  tanggalMulai: true,
+                  tanggalSelesai: true,
+                  keterangan: true,
+                },
                 orderBy: { tanggalMulai: "asc" },
               },
             },
           },
-          mataKuliah: { include: { prodi: true } },
-          dosen: true,
-          dosen2: true,
+          mataKuliah: {
+            select: {
+              id: true,
+              nama: true,
+              kode: true,
+              sks: true,
+              prodi: { select: { id: true, nama: true, kode: true } },
+            },
+          },
+          dosen: {
+            select: { id: true, nama: true, nidn: true },
+          },
+          dosen2: {
+            select: { id: true, nama: true, nidn: true },
+          },
           monitoringSesi: {
-            include: {
-              dosenPengajar: true,
+            select: {
+              id: true,
+              nomorSesi: true,
+              kehadiran: true,
+              conference: true,
+              slide: true,
+              tugas: true,
+              video: true,
+              lectureNote: true,
+              kuis: true,
+              catatanCdu: true,
+              catatanGantiDosen: true,
+              statusPengajar: true,
+              updatedAt: true,
+              dosenPengajar: {
+                select: { id: true, nama: true },
+              },
             },
             orderBy: { nomorSesi: "asc" },
           },
@@ -1424,8 +1530,15 @@ export async function applyExcelImportToKelas(
   try {
     const kelas = await prisma.kelas.findUnique({
       where: { id: kelasId },
-      include: {
-        monitoringSesi: { orderBy: { nomorSesi: "asc" } },
+      select: {
+        id: true,
+        monitoringSesi: {
+          select: {
+            id: true,
+            nomorSesi: true,
+          },
+          orderBy: { nomorSesi: "asc" },
+        },
       },
     });
 

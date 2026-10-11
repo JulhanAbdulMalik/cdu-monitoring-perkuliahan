@@ -90,14 +90,46 @@ export default async function DashboardPage() {
         ...(activeSemester ? { semesterId: activeSemester.id } : {}),
         ...(isDosen ? { mataKuliah: { prodiId: { in: userProdiIds } } } : {}),
       },
-      include: {
+      select: {
+        id: true,
+        kodeKelas: true,
+        modePembelajaran: true,
+        updatedAt: true,
         mataKuliah: {
-          include: { prodi: true },
+          select: {
+            nama: true,
+            sks: true,
+            prodi: {
+              select: {
+                nama: true,
+              },
+            },
+          },
         },
-        dosen: true,
-        dosen2: true,
-        semester: true,
+        dosen: {
+          select: {
+            nama: true,
+          },
+        },
+        dosen2: {
+          select: {
+            nama: true,
+          },
+        },
         monitoringSesi: {
+          select: {
+            id: true,
+            nomorSesi: true,
+            kehadiran: true,
+            lectureNote: true,
+            slide: true,
+            video: true,
+            conference: true,
+            tugas: true,
+            kuis: true,
+            catatanCdu: true,
+            updatedAt: true,
+          },
           orderBy: { nomorSesi: "asc" },
         },
       },

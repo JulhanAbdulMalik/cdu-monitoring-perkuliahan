@@ -1129,7 +1129,7 @@ export default function MonitoringListClient({
                                 className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border border-amber-300 bg-amber-50 text-amber-800 mt-0.5 shadow-2xs"
                                 title={`Presensi Sesi ${selectedSesi} sudah Hadir, namun bukti konten 3 pilar pada sesi ini belum dicek/masih 0 (perlu diverifikasi di LMS)`}
                               >
-                                <span>⚠️ S{selectedSesi}: Perlu Cek Konten</span>
+                                <span>S{selectedSesi}: Perlu Cek Konten</span>
                               </span>
                             )}
                           </div>

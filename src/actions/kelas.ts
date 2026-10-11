@@ -43,13 +43,54 @@ export async function getKelasList(semesterId?: string) {
 
     const kelas = await prisma.kelas.findMany({
       where: isAll ? {} : (targetSemesterId ? { semesterId: targetSemesterId } : {}),
-      include: {
-        semester: true,
-        mataKuliah: {
-          include: { prodi: true },
+      select: {
+        id: true,
+        kodeKelas: true,
+        semesterId: true,
+        mataKuliahId: true,
+        dosenId: true,
+        dosen2Id: true,
+        jadwalHari: true,
+        jadwalJam: true,
+        ruangan: true,
+        modePembelajaran: true,
+        semester: {
+          select: {
+            id: true,
+            tahunAkademik: true,
+            periode: true,
+          },
         },
-        dosen: true,
-        dosen2: true,
+        mataKuliah: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+            sks: true,
+            prodiId: true,
+            prodi: {
+              select: {
+                id: true,
+                nama: true,
+                kode: true,
+              },
+            },
+          },
+        },
+        dosen: {
+          select: {
+            id: true,
+            nama: true,
+            nidn: true,
+          },
+        },
+        dosen2: {
+          select: {
+            id: true,
+            nama: true,
+            nidn: true,
+          },
+        },
       },
       orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
     });
@@ -195,6 +236,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
         semesterId: formData.semesterId,
         mataKuliahId: mataKuliahId,
       },
+      select: { id: true },
     });
 
     if (existing) {
@@ -331,7 +373,16 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
       dosenId = existingDosen.id;
     }
 
-    const currentKelas = await prisma.kelas.findUnique({ where: { id } });
+    const currentKelas = await prisma.kelas.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        semesterId: true,
+        mataKuliahId: true,
+        dosenId: true,
+        dosen2Id: true,
+      },
+    });
     if (!currentKelas) return { success: false, error: "Kelas tidak ditemukan" };
 
     const finalSemesterId = formData.semesterId || currentKelas.semesterId;
@@ -380,6 +431,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
         mataKuliahId: finalMataKuliahId,
         NOT: { id },
       },
+      select: { id: true },
     });
 
     if (existing) {

@@ -806,7 +806,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
           semesterId: semesterId,
           mataKuliahId: mataKuliahId,
         },
-        include: { monitoringSesi: true },
+        select: { id: true },
       });
 
       // Jika tidak ditemukan di semester target, cari apakah kelas ini sebelumnya pernah terbuat di semester lain (misal akibat Kur. 2026 salah masuk semester)
@@ -816,7 +816,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
             kodeKelas: r.kodeKelas.trim().toUpperCase(),
             mataKuliahId: mataKuliahId,
           },
-          include: { monitoringSesi: true },
+          select: { id: true },
         });
       }
 
@@ -830,7 +830,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
               nama: { equals: mkNama, mode: "insensitive" },
             },
           },
-          include: { monitoringSesi: true },
+          select: { id: true },
         });
       }
 
