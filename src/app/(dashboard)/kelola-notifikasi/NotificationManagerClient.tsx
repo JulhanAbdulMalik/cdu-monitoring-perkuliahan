@@ -68,9 +68,7 @@ export default function NotificationManagerClient({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formTargetTipe, setFormTargetTipe] = useState<NotificationTarget>("SEMUA");
-  const [formTargetUserId, setFormTargetUserId] = useState<string>("");
   const [formTargetProdiId, setFormTargetProdiId] = useState<string>("");
-  const [formTargetKelasKode, setFormTargetKelasKode] = useState<string>("");
   const [formJudul, setFormJudul] = useState("");
   const [formPesan, setFormPesan] = useState("");
   const [formUrgensi, setFormUrgensi] = useState<NotificationUrgency>("PENTING");
@@ -111,9 +109,7 @@ export default function NotificationManagerClient({
   const handleOpenCreateModal = () => {
     setFormTargetTipe("SEMUA");
     setFormUrgensi("PENTING");
-    setFormTargetUserId(targetOptions.dosenUsers[0]?.id || "");
     setFormTargetProdiId(targetOptions.prodis[0]?.id || "");
-    setFormTargetKelasKode("");
     setFormJudul("");
     setFormPesan("");
     setFormTautanUrl("");
@@ -133,10 +129,6 @@ export default function NotificationManagerClient({
       setFormError("Isi pesan notifikasi tidak boleh kosong");
       return;
     }
-    if (formTargetTipe === "USER_SPESIFIK" && !formTargetUserId) {
-      setFormError("Pilih dosen / pengguna yang dituju");
-      return;
-    }
     if (formTargetTipe === "PRODI" && !formTargetProdiId) {
       setFormError("Pilih Program Studi target notifikasi");
       return;
@@ -147,9 +139,9 @@ export default function NotificationManagerClient({
       const input: CreateNotificationInput = {
         tipe: "PENGUMUMAN",
         targetTipe: formTargetTipe,
-        targetUserId: formTargetTipe === "USER_SPESIFIK" ? formTargetUserId : null,
+        targetUserId: null,
         targetProdiId: formTargetTipe === "PRODI" ? formTargetProdiId : null,
-        targetKelasKode: formTargetKelasKode.trim() || null,
+        targetKelasKode: null,
         judul: formJudul.trim(),
         pesan: formPesan.trim(),
         urgensi: formUrgensi,
@@ -168,9 +160,7 @@ export default function NotificationManagerClient({
         ...res.data,
         readCount: 0,
         dibuatOleh: { id: "", name: "Anda", role: currentUserRole },
-        targetUser: formTargetTipe === "USER_SPESIFIK"
-          ? targetOptions.dosenUsers.find((u) => u.id === formTargetUserId) || null
-          : null,
+        targetUser: null,
       };
 
       setNotifications([newItem, ...notifications]);
@@ -620,10 +610,9 @@ export default function NotificationManagerClient({
                     onChange={(e) => setFormTargetTipe(e.target.value as NotificationTarget)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
                   >
-                    <option value="SEMUA">Semua Pengguna (Dosen, Kaprodi, Admin)</option>
+                    <option value="SEMUA">Semua Pengguna (Broadcast)</option>
                     <option value="ROLE_DOSEN">Semua Dosen & Kaprodi</option>
                     <option value="PRODI">Khusus Program Studi Tertentu</option>
-                    <option value="USER_SPESIFIK">Khusus Dosen Tertentu (Spesifik)</option>
                   </select>
 
                   {formTargetTipe === "PRODI" && (
@@ -638,38 +627,6 @@ export default function NotificationManagerClient({
                         </option>
                       ))}
                     </select>
-                  )}
-
-                  {formTargetTipe === "USER_SPESIFIK" && (
-                    <div className="space-y-2">
-                      <select
-                        value={formTargetUserId}
-                        onChange={(e) => setFormTargetUserId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
-                      >
-                        {targetOptions.dosenUsers.map((u) => {
-                          const prodiName = u.prodis[0]?.nama ? `(${u.prodis[0].nama})` : "";
-                          return (
-                            <option key={u.id} value={u.id}>
-                              {u.name} — {u.email} {prodiName}
-                            </option>
-                          );
-                        })}
-                      </select>
-
-                      <div>
-                        <label className="text-[11px] font-semibold text-slate-500 block mb-0.5">
-                          Tautkan Kode Kelas (Opsional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Contoh: TI23I atau MN24H"
-                          value={formTargetKelasKode}
-                          onChange={(e) => setFormTargetKelasKode(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs"
-                        />
-                      </div>
-                    </div>
                   )}
                 </div>
               </div>
