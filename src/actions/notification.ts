@@ -1,0 +1,424 @@
+"use server";
+// src/actions/notification.ts
+// Server Actions untuk Fitur Notifikasi Resmi CDU (Pengumuman & Peringatan Pelanggaran)
+
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+
+export type NotificationType = "PENGUMUMAN" | "PERINGATAN";
+export type NotificationTarget = "SEMUA" | "ROLE_DOSEN" | "PRODI" | "USER_SPESIFIK";
+export type NotificationUrgency = "PENTING" | "PERINGATAN" | "BAHAYA";
+
+export interface CreateNotificationInput {
+  tipe: NotificationType;
+  targetTipe: NotificationTarget;
+  targetUserId?: string | null;
+  targetProdiId?: string | null;
+  targetKelasKode?: string | null;
+  judul: string;
+  pesan: string;
+  urgensi: NotificationUrgency;
+  tautanUrl?: string | null;
+}
+
+export interface UserNotificationItem {
+  id: string;
+  tipe: NotificationType;
+  targetTipe: NotificationTarget;
+  targetKelasKode?: string | null;
+  judul: string;
+  pesan: string;
+  urgensi: NotificationUrgency;
+  tautanUrl?: string | null;
+  isRead: boolean;
+  createdAt: Date | string;
+  dibuatOleh: {
+    id: string;
+    name: string;
+    role: string;
+  };
+}
+
+export interface ManagementNotificationItem {
+  id: string;
+  tipe: NotificationType;
+  targetTipe: NotificationTarget;
+  targetUserId?: string | null;
+  targetProdiId?: string | null;
+  targetKelasKode?: string | null;
+  judul: string;
+  pesan: string;
+  urgensi: NotificationUrgency;
+  tautanUrl?: string | null;
+  createdAt: Date | string;
+  readCount: number;
+  dibuatOleh: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  targetUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
+/**
+ * Mengambil notifikasi aktif yang relevan untuk user yang sedang login
+ * (Digunakan oleh ikon Bell di Topbar Header)
+ */
+export async function getUserNotifications(): Promise<{
+  success: boolean;
+  data?: {
+    items: UserNotificationItem[];
+    unreadCount: number;
+  };
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const currentUserId = session.user.id;
+    const userRole = (session.user as any)?.role;
+    const userProdiIds: string[] = ((session.user as any)?.prodiIds as string[]) || [];
+
+    // Filter kondisi target notifikasi
+    const targetConditions: any[] = [
+      { targetTipe: "SEMUA" },
+      { targetTipe: "USER_SPESIFIK", targetUserId: currentUserId },
+    ];
+
+    if (userRole === "DOSEN") {
+      targetConditions.push({ targetTipe: "ROLE_DOSEN" });
+    }
+
+    if (userProdiIds.length > 0) {
+      targetConditions.push({
+        targetTipe: "PRODI",
+        targetProdiId: { in: userProdiIds },
+      });
+    }
+
+    const rawNotifications = await (prisma as any).notification.findMany({
+      where: {
+        OR: targetConditions,
+      },
+      include: {
+        dibuatOleh: {
+          select: { id: true, name: true, role: true },
+        },
+        pembaca: {
+          where: { userId: currentUserId },
+          select: { id: true, readAt: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    });
+
+    let unreadCount = 0;
+    const items: UserNotificationItem[] = rawNotifications.map((n: any) => {
+      const isRead = n.pembaca && n.pembaca.length > 0;
+      if (!isRead) unreadCount++;
+
+      return {
+        id: n.id,
+        tipe: n.tipe,
+        targetTipe: n.targetTipe,
+        targetKelasKode: n.targetKelasKode,
+        judul: n.judul,
+        pesan: n.pesan,
+        urgensi: n.urgensi,
+        tautanUrl: n.tautanUrl,
+        isRead,
+        createdAt: n.createdAt,
+        dibuatOleh: n.dibuatOleh,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        items,
+        unreadCount,
+      },
+    };
+  } catch (error: any) {
+    console.error("Error getUserNotifications:", error);
+    return { success: false, error: error.message || "Gagal memuat notifikasi" };
+  }
+}
+
+/**
+ * Menandai notifikasi spesifik sebagai sudah dibaca oleh user
+ */
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await (prisma as any).notificationRead.upsert({
+      where: {
+        notificationId_userId: {
+          notificationId,
+          userId: session.user.id,
+        },
+      },
+      create: {
+        notificationId,
+        userId: session.user.id,
+      },
+      update: {},
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error markNotificationAsRead:", error);
+    return { success: false, error: error.message || "Gagal menandai notifikasi" };
+  }
+}
+
+/**
+ * Menandai semua notifikasi user sebagai sudah dibaca sekaligus
+ */
+export async function markAllNotificationsAsRead() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const currentUserId = session.user.id;
+    const userRole = (session.user as any)?.role;
+    const userProdiIds: string[] = ((session.user as any)?.prodiIds as string[]) || [];
+
+    const targetConditions: any[] = [
+      { targetTipe: "SEMUA" },
+      { targetTipe: "USER_SPESIFIK", targetUserId: currentUserId },
+    ];
+
+    if (userRole === "DOSEN") {
+      targetConditions.push({ targetTipe: "ROLE_DOSEN" });
+    }
+
+    if (userProdiIds.length > 0) {
+      targetConditions.push({
+        targetTipe: "PRODI",
+        targetProdiId: { in: userProdiIds },
+      });
+    }
+
+    // Ambil semua notifikasi aktif yang belum dibaca oleh user
+    const unreadNotifications = await (prisma as any).notification.findMany({
+      where: {
+        OR: targetConditions,
+        pembaca: {
+          none: { userId: currentUserId },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (unreadNotifications.length > 0) {
+      await (prisma as any).notificationRead.createMany({
+        data: unreadNotifications.map((n: any) => ({
+          notificationId: n.id,
+          userId: currentUserId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error markAllNotificationsAsRead:", error);
+    return { success: false, error: error.message || "Gagal menandai semua notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Membuat Pengumuman Resmi atau Peringatan Pelanggaran
+ */
+export async function createNotification(input: CreateNotificationInput) {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return { success: false, error: "Akses ditolak: Hanya Admin dan Super Admin yang dapat membuat notifikasi" };
+    }
+
+    if (!input.judul || input.judul.trim().length < 3) {
+      return { success: false, error: "Judul notifikasi minimal 3 karakter" };
+    }
+
+    if (!input.pesan || input.pesan.trim().length < 5) {
+      return { success: false, error: "Isi pesan notifikasi minimal 5 karakter" };
+    }
+
+    if (input.targetTipe === "USER_SPESIFIK" && !input.targetUserId) {
+      return { success: false, error: "Harap pilih pengguna/dosen penerima peringatan" };
+    }
+
+    if (input.targetTipe === "PRODI" && !input.targetProdiId) {
+      return { success: false, error: "Harap pilih Program Studi target pengumuman" };
+    }
+
+    const newNotif = await (prisma as any).notification.create({
+      data: {
+        tipe: input.tipe,
+        targetTipe: input.targetTipe,
+        targetUserId: input.targetUserId || null,
+        targetProdiId: input.targetProdiId || null,
+        targetKelasKode: input.targetKelasKode ? input.targetKelasKode.trim() : null,
+        judul: input.judul.trim(),
+        pesan: input.pesan.trim(),
+        urgensi: input.urgensi || "PENTING",
+        tautanUrl: input.tautanUrl ? input.tautanUrl.trim() : null,
+        dibuatOlehId: session?.user?.id!,
+      },
+    });
+
+    revalidatePath("/kelola-notifikasi");
+    return { success: true, data: newNotif };
+  } catch (error: any) {
+    console.error("Error createNotification:", error);
+    return { success: false, error: error.message || "Gagal membuat notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Mengambil riwayat seluruh notifikasi yang telah terbit
+ */
+export async function getNotificationManagementList(): Promise<{
+  success: boolean;
+  data?: ManagementNotificationItem[];
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return { success: false, error: "Akses ditolak" };
+    }
+
+    const notifications = await (prisma as any).notification.findMany({
+      include: {
+        dibuatOleh: {
+          select: { id: true, name: true, role: true },
+        },
+        targetUser: {
+          select: { id: true, name: true, email: true },
+        },
+        _count: {
+          select: { pembaca: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const data: ManagementNotificationItem[] = notifications.map((n: any) => ({
+      id: n.id,
+      tipe: n.tipe,
+      targetTipe: n.targetTipe,
+      targetUserId: n.targetUserId,
+      targetProdiId: n.targetProdiId,
+      targetKelasKode: n.targetKelasKode,
+      judul: n.judul,
+      pesan: n.pesan,
+      urgensi: n.urgensi,
+      tautanUrl: n.tautanUrl,
+      createdAt: n.createdAt,
+      readCount: n._count?.pembaca ?? 0,
+      dibuatOleh: n.dibuatOleh,
+      targetUser: n.targetUser,
+    }));
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error getNotificationManagementList:", error);
+    return { success: false, error: error.message || "Gagal memuat riwayat notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Menghapus notifikasi
+ */
+export async function deleteNotification(notificationId: string) {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return { success: false, error: "Akses ditolak" };
+    }
+
+    await (prisma as any).notification.delete({
+      where: { id: notificationId },
+    });
+
+    revalidatePath("/kelola-notifikasi");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleteNotification:", error);
+    return { success: false, error: error.message || "Gagal menghapus notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Mengambil opsi target (daftar Dosen/User, Prodi, dan Kelas) untuk form
+ */
+export async function getNotificationTargetOptions() {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return { success: false, error: "Akses ditolak" };
+    }
+
+    const [dosenUsers, prodis, activeClasses] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: "DOSEN" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          prodis: { select: { id: true, nama: true, kode: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      prisma.prodi.findMany({
+        select: { id: true, nama: true, kode: true },
+        orderBy: { nama: "asc" },
+      }),
+      prisma.kelas.findMany({
+        where: { semester: { aktif: true } },
+        select: {
+          id: true,
+          kodeKelas: true,
+          mataKuliah: { select: { nama: true } },
+          dosen: { select: { nama: true } },
+        },
+        orderBy: { kodeKelas: "asc" },
+        take: 100,
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        dosenUsers,
+        prodis,
+        activeClasses,
+      },
+    };
+  } catch (error: any) {
+    console.error("Error getNotificationTargetOptions:", error);
+    return { success: false, error: error.message || "Gagal memuat opsi target" };
+  }
+}

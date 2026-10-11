@@ -28,6 +28,9 @@ model User {
   monitoringUpdates MonitoringSesi[]
   laporanDibuat     LaporCdu[]       @relation("PelaporLaporCdu")
   laporanDiproses   LaporCdu[]       @relation("ProsesLaporCdu")
+  notifikasiDibuat   Notification[]   @relation("NotifikasiDibuat")
+  notifikasiDiterima Notification[]   @relation("NotifikasiTargetUser")
+  notifikasiDibaca   NotificationRead[]
 }
 
 enum Role {
@@ -275,3 +278,66 @@ enum KategoriLapor {
   DOSEN_PENGGANTI     // Diajar dosen pengganti belum disesuaikan
   LAINNYA             // Kendala teknis lainnya
 }
+
+// ─────────────────────────────────────────
+// NOTIFIKASI RESMI CDU (Pengumuman & Peringatan)
+// ─────────────────────────────────────────
+
+model Notification {
+  id              String              @id @default(cuid())
+  tipe            NotificationType    // PENGUMUMAN atau PERINGATAN
+  targetTipe      NotificationTarget  // SEMUA, ROLE_DOSEN, PRODI, USER_SPESIFIK
+  targetUserId    String?
+  targetProdiId   String?
+  targetKelasKode String?             // Opsional untuk Peringatan terkait kelas tertentu (misal: "TI23I")
+  
+  judul           String
+  pesan           String              @db.Text
+  urgensi         NotificationUrgency @default(PENTING)
+  tautanUrl       String?             // Link opsional (misal: "/monitoring", link panduan, dll)
+  
+  dibuatOlehId    String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  dibuatOleh      User                @relation("NotifikasiDibuat", fields: [dibuatOlehId], references: [id], onDelete: Cascade)
+  targetUser      User?               @relation("NotifikasiTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  pembaca         NotificationRead[]
+
+  @@index([targetTipe])
+  @@index([targetUserId])
+  @@index([targetProdiId])
+  @@index([createdAt])
+}
+
+model NotificationRead {
+  id             String       @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime     @default(now())
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+}
+
+enum NotificationType {
+  PENGUMUMAN
+  PERINGATAN
+}
+
+enum NotificationTarget {
+  SEMUA
+  ROLE_DOSEN
+  PRODI
+  USER_SPESIFIK
+}
+
+enum NotificationUrgency {
+  PENTING    // Info resmi umum
+  PERINGATAN // Perhatian/atensi khusus
+  BAHAYA     // Teguran pelanggaran mendesak
+}
+

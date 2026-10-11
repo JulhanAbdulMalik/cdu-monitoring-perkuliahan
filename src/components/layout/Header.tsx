@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { useSidebar } from "./SidebarContext";
 import { cn } from "@/lib/utils";
+import HeaderNotificationBell from "./HeaderNotificationBell";
 
 interface HeaderProps {
   initialProdis?: { id: string; nama: string; kode: string }[];
@@ -42,7 +43,6 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
   const { data: session } = useSession();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString("id-ID", {
@@ -54,6 +54,7 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
 
   const userRole = (session?.user as any)?.role;
   const isSuperAdmin = userRole === "SUPER_ADMIN";
+  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
 
   // Ambil prodi dari props (server component), session JWT, atau parsing nama akun
   const effectiveProdis =
@@ -144,61 +145,13 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
           <span>{dateStr}</span>
         </div>
 
-        {/* Notification Bell */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setShowNotificationMenu(!showNotificationMenu);
-              setShowProfileMenu(false);
-            }}
-            className="w-8 h-8 rounded-lg border border-slate-200/70 bg-slate-50 hover:bg-[#fdf2f8] hover:border-[#fbcfe8] hover:text-[#a80063] text-slate-500 flex items-center justify-center transition-all relative"
-            title="Notifikasi"
-          >
-            <Bell size={15} />
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
-              2
-            </span>
-          </button>
-
-          {showNotificationMenu && (
-            <div className="absolute top-10 right-0 w-72 bg-white rounded-xl border border-slate-200 shadow-lg p-3 z-50 animate-fade-in">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
-                  Notifikasi Sistem
-                </h4>
-                <span className="px-1.5 py-0.2 rounded-full bg-rose-50 text-rose-600 text-[9px] font-bold">
-                  2 Baru
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <p className="text-xs font-semibold text-slate-800">
-                    Import Excel Siap
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Modul parser Excel Edlink siap digunakan.
-                  </p>
-                </div>
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <p className="text-xs font-semibold text-slate-800">
-                    Semester Aktif
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Tahun Akademik {activeSemester ? `${activeSemester.tahunAkademik} ${activeSemester.periode.charAt(0).toUpperCase() + activeSemester.periode.slice(1).toLowerCase()}` : "2026/2027 Ganjil"} telah aktif.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Real-Time Official Notification Bell */}
+        <HeaderNotificationBell isAdminOrSuperAdmin={isAdminOrSuperAdmin} />
 
         {/* User Profile Chip */}
         <div className="relative">
           <button
-            onClick={() => {
-              setShowProfileMenu(!showProfileMenu);
-              setShowNotificationMenu(false);
-            }}
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2 p-1 pr-2.5 rounded-lg border border-slate-200/70 bg-white hover:bg-slate-50 transition-all cursor-pointer"
           >
             <div className="w-7 h-7 rounded-md bg-gradient-to-tr from-[#a80063] to-[#d946ef] text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
@@ -234,6 +187,19 @@ export default function Header({ initialProdis = [], activeSemester }: HeaderPro
                 </div>
               </div>
 
+              {/* Kelola Notifikasi (Khusus Admin & Super Admin) */}
+              {isAdminOrSuperAdmin && (
+                <Link
+                  href="/kelola-notifikasi"
+                  onClick={() => setShowProfileMenu(false)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-[#fdf2f8] hover:text-[#a80063] rounded-lg transition-all mb-0.5 cursor-pointer"
+                >
+                  <Bell size={14} className="text-[#a80063]" />
+                  <span>Kelola Notifikasi</span>
+                </Link>
+              )}
+
+              {/* Kelola Akun Pengguna (Khusus Super Admin) */}
               {isSuperAdmin && (
                 <Link
                   href="/kelola-akun"
