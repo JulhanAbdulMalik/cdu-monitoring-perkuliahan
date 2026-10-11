@@ -63,11 +63,10 @@ export default function NotificationManagerClient({
 
   const [notifications, setNotifications] = useState<ManagementNotificationItem[]>(initialNotifications);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | NotificationType>("ALL");
+  const [filterUrgensi, setFilterUrgensi] = useState<"ALL" | NotificationUrgency>("ALL");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formType, setFormType] = useState<NotificationType>("PENGUMUMAN");
   const [formTargetTipe, setFormTargetTipe] = useState<NotificationTarget>("SEMUA");
   const [formTargetUserId, setFormTargetUserId] = useState<string>("");
   const [formTargetProdiId, setFormTargetProdiId] = useState<string>("");
@@ -93,7 +92,7 @@ export default function NotificationManagerClient({
 
   // Filtered Notifications
   const filteredList = notifications.filter((item) => {
-    if (filterType !== "ALL" && item.tipe !== filterType) return false;
+    if (filterUrgensi !== "ALL" && item.urgensi !== filterUrgensi) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchJudul = item.judul.toLowerCase().includes(q);
@@ -105,18 +104,13 @@ export default function NotificationManagerClient({
     return true;
   });
 
-  const totalPengumuman = notifications.filter((n) => n.tipe === "PENGUMUMAN").length;
-  const totalPeringatan = notifications.filter((n) => n.tipe === "PERINGATAN").length;
+  const totalInfoResmi = notifications.filter((n) => n.urgensi === "PENTING").length;
+  const totalPeringatan = notifications.filter((n) => n.urgensi === "PERINGATAN").length;
+  const totalBahaya = notifications.filter((n) => n.urgensi === "BAHAYA").length;
 
-  const handleOpenCreateModal = (type: NotificationType = "PENGUMUMAN") => {
-    setFormType(type);
-    if (type === "PENGUMUMAN") {
-      setFormTargetTipe("SEMUA");
-      setFormUrgensi("PENTING");
-    } else {
-      setFormTargetTipe("USER_SPESIFIK");
-      setFormUrgensi("PERINGATAN");
-    }
+  const handleOpenCreateModal = () => {
+    setFormTargetTipe("SEMUA");
+    setFormUrgensi("PENTING");
     setFormTargetUserId(targetOptions.dosenUsers[0]?.id || "");
     setFormTargetProdiId(targetOptions.prodis[0]?.id || "");
     setFormTargetKelasKode("");
@@ -139,19 +133,19 @@ export default function NotificationManagerClient({
       setFormError("Isi pesan notifikasi tidak boleh kosong");
       return;
     }
-    if (formType === "PERINGATAN" && formTargetTipe === "USER_SPESIFIK" && !formTargetUserId) {
-      setFormError("Pilih dosen / pengguna yang akan diberikan peringatan");
+    if (formTargetTipe === "USER_SPESIFIK" && !formTargetUserId) {
+      setFormError("Pilih dosen / pengguna yang dituju");
       return;
     }
     if (formTargetTipe === "PRODI" && !formTargetProdiId) {
-      setFormError("Pilih Program Studi target pengumuman");
+      setFormError("Pilih Program Studi target notifikasi");
       return;
     }
 
     setIsSubmitting(true);
     try {
       const input: CreateNotificationInput = {
-        tipe: formType,
+        tipe: "PENGUMUMAN",
         targetTipe: formTargetTipe,
         targetUserId: formTargetTipe === "USER_SPESIFIK" ? formTargetUserId : null,
         targetProdiId: formTargetTipe === "PRODI" ? formTargetProdiId : null,
@@ -181,11 +175,7 @@ export default function NotificationManagerClient({
 
       setNotifications([newItem, ...notifications]);
       setIsModalOpen(false);
-      showSuccess(
-        formType === "PENGUMUMAN"
-          ? "Pengumuman penting berhasil dipublikasikan ke pengguna!"
-          : "Peringatan resmi berhasil dikirimkan ke dosen bersangkutan!"
-      );
+      showSuccess("Notifikasi berhasil dipublikasikan ke pengguna!");
 
       // Trigger sync channel so headers everywhere pick it up
       if (typeof BroadcastChannel !== "undefined") {
@@ -250,7 +240,7 @@ export default function NotificationManagerClient({
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => handleOpenCreateModal("PENGUMUMAN")}
+            onClick={handleOpenCreateModal}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#a80063] hover:bg-[#8f0054] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Plus size={14} />
@@ -278,24 +268,24 @@ export default function NotificationManagerClient({
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/70 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-[#a80063] uppercase tracking-wider">
-              Pengumuman Resmi
+              Info Resmi
             </p>
             <p className="text-xl font-extrabold text-slate-900 mt-0.5">
-              {totalPengumuman}
+              {totalInfoResmi}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] flex items-center justify-center">
-            <Megaphone size={18} />
+            <Bell size={18} />
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/70 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
-              Peringatan Pelanggaran
+              Peringatan & Urgent
             </p>
             <p className="text-xl font-extrabold text-slate-900 mt-0.5">
-              {totalPeringatan}
+              {totalPeringatan + totalBahaya}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
@@ -332,9 +322,9 @@ export default function NotificationManagerClient({
           <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70 text-[11px] font-bold">
             <button
               type="button"
-              onClick={() => setFilterType("ALL")}
+              onClick={() => setFilterUrgensi("ALL")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                filterType === "ALL"
+                filterUrgensi === "ALL"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -343,27 +333,36 @@ export default function NotificationManagerClient({
             </button>
             <button
               type="button"
-              onClick={() => setFilterType("PENGUMUMAN")}
+              onClick={() => setFilterUrgensi("PENTING")}
               className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
-                filterType === "PENGUMUMAN"
+                filterUrgensi === "PENTING"
                   ? "bg-white text-[#a80063] shadow-2xs font-extrabold"
                   : "text-slate-600 hover:text-[#a80063]"
               }`}
             >
-              <span>Pengumuman</span>
-              <span>({totalPengumuman})</span>
+              <span>Info Resmi ({totalInfoResmi})</span>
             </button>
             <button
               type="button"
-              onClick={() => setFilterType("PERINGATAN")}
+              onClick={() => setFilterUrgensi("PERINGATAN")}
               className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
-                filterType === "PERINGATAN"
-                  ? "bg-white text-amber-700 shadow-2xs font-extrabold"
-                  : "text-slate-600 hover:text-amber-700"
+                filterUrgensi === "PERINGATAN"
+                  ? "bg-white text-amber-800 shadow-2xs font-extrabold"
+                  : "text-slate-600 hover:text-amber-800"
               }`}
             >
-              <span>Peringatan</span>
-              <span>({totalPeringatan})</span>
+              <span>Peringatan ({totalPeringatan})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterUrgensi("BAHAYA")}
+              className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                filterUrgensi === "BAHAYA"
+                  ? "bg-white text-rose-700 shadow-2xs font-extrabold"
+                  : "text-slate-600 hover:text-rose-700"
+              }`}
+            >
+              <span>Urgent ({totalBahaya})</span>
             </button>
           </div>
         </div>
@@ -380,7 +379,7 @@ export default function NotificationManagerClient({
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                 <th className="py-3 px-3 text-center w-12">No</th>
-                <th className="py-3 px-3 w-36">Tipe & Urgensi</th>
+                <th className="py-3 px-3 w-36">Tingkat Urgensi</th>
                 <th className="py-3 px-3">Judul & Isi Pesan</th>
                 <th className="py-3 px-3 w-48">Sasaran Target</th>
                 <th className="py-3 px-3 w-32">Penerbit</th>
@@ -396,7 +395,7 @@ export default function NotificationManagerClient({
                       <Bell size={28} className="text-slate-300" />
                       <p className="font-bold text-slate-600">Belum ada notifikasi yang sesuai</p>
                       <p className="text-[11px]">
-                        Silakan buat pengumuman atau peringatan baru menggunakan tombol di atas.
+                        Silakan buat notifikasi baru menggunakan tombol di atas.
                       </p>
                     </div>
                   </td>
@@ -417,45 +416,34 @@ export default function NotificationManagerClient({
                         {idx + 1}
                       </td>
 
-                      {/* Tipe & Urgensi */}
+                      {/* Tingkat Urgensi */}
                       <td className="py-3 px-3">
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold w-fit border ${
-                              item.tipe === "PENGUMUMAN"
-                                ? "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
-                                : "bg-amber-50 text-amber-800 border-amber-300"
-                            }`}
-                          >
-                            {item.tipe === "PENGUMUMAN" ? (
-                              <>
-                                <Megaphone size={10} />
-                                <span>Pengumuman</span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertTriangle size={10} />
-                                <span>Peringatan</span>
-                              </>
-                            )}
-                          </span>
-
-                          <span
-                            className={`inline-flex items-center gap-0.5 text-[9px] font-extrabold px-1.5 py-0.2 rounded w-fit ${
-                              item.urgensi === "BAHAYA"
-                                ? "bg-rose-100 text-rose-700"
-                                : item.urgensi === "PERINGATAN"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-blue-100 text-blue-700"
-                            }`}
-                          >
-                            {item.urgensi === "BAHAYA"
-                              ? "Urgent / Keras"
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold border ${
+                            item.urgensi === "BAHAYA"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
                               : item.urgensi === "PERINGATAN"
-                              ? "Perhatian"
-                              : "Info Resmi"}
-                          </span>
-                        </div>
+                              ? "bg-amber-50 text-amber-800 border-amber-300"
+                              : "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
+                          }`}
+                        >
+                          {item.urgensi === "BAHAYA" ? (
+                            <>
+                              <AlertTriangle size={11} className="text-rose-600" />
+                              <span>Urgent / Bahaya</span>
+                            </>
+                          ) : item.urgensi === "PERINGATAN" ? (
+                            <>
+                              <AlertTriangle size={11} className="text-amber-600" />
+                              <span>Peringatan</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bell size={11} className="text-[#a80063]" />
+                              <span>Info Resmi</span>
+                            </>
+                          )}
+                        </span>
                       </td>
 
                       {/* Judul & Isi Pesan */}
@@ -599,17 +587,11 @@ export default function NotificationManagerClient({
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span
-                  className={`p-1.5 rounded-lg border ${
-                    formType === "PENGUMUMAN"
-                      ? "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
-                      : "bg-amber-50 text-amber-700 border-amber-200"
-                  }`}
-                >
-                  {formType === "PENGUMUMAN" ? <Megaphone size={16} /> : <AlertTriangle size={16} />}
+                <span className="p-1.5 rounded-lg border bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]">
+                  <Bell size={16} />
                 </span>
                 <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                  {formType === "PENGUMUMAN" ? "Publikasikan Pengumuman Baru" : "Kirim Peringatan Resmi"}
+                  Buat Notifikasi Baru
                 </h3>
               </div>
               <button
@@ -629,107 +611,67 @@ export default function NotificationManagerClient({
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-              {/* Tab Selector Jenis Notifikasi */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5">Jenis Notifikasi</label>
-                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 border border-slate-200/70">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormType("PENGUMUMAN");
-                      setFormTargetTipe("SEMUA");
-                      setFormUrgensi("PENTING");
-                    }}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      formType === "PENGUMUMAN"
-                        ? "bg-white text-[#a80063] shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <Megaphone size={13} />
-                    <span>Pengumuman</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormType("PERINGATAN");
-                      setFormTargetTipe("USER_SPESIFIK");
-                      setFormUrgensi("PERINGATAN");
-                    }}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      formType === "PERINGATAN"
-                        ? "bg-white text-amber-700 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <AlertTriangle size={13} />
-                    <span>Peringatan / Teguran</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Sasaran Penerima */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Sasaran Target Penerima</label>
-                {formType === "PENGUMUMAN" ? (
-                  <div className="space-y-2">
-                    <select
-                      value={formTargetTipe}
-                      onChange={(e) => setFormTargetTipe(e.target.value as NotificationTarget)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
-                    >
-                      <option value="SEMUA">Semua Pengguna (Dosen, Kaprodi, Admin)</option>
-                      <option value="ROLE_DOSEN">Semua Dosen & Kaprodi</option>
-                      <option value="PRODI">Khusus Program Studi Tertentu</option>
-                    </select>
+                <div className="space-y-2">
+                  <select
+                    value={formTargetTipe}
+                    onChange={(e) => setFormTargetTipe(e.target.value as NotificationTarget)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
+                  >
+                    <option value="SEMUA">Semua Pengguna (Dosen, Kaprodi, Admin)</option>
+                    <option value="ROLE_DOSEN">Semua Dosen & Kaprodi</option>
+                    <option value="PRODI">Khusus Program Studi Tertentu</option>
+                    <option value="USER_SPESIFIK">Khusus Dosen Tertentu (Spesifik)</option>
+                  </select>
 
-                    {formTargetTipe === "PRODI" && (
-                      <select
-                        value={formTargetProdiId}
-                        onChange={(e) => setFormTargetProdiId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
-                      >
-                        {targetOptions.prodis.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            Prodi {p.nama} ({p.kode})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+                  {formTargetTipe === "PRODI" && (
                     <select
-                      value={formTargetUserId}
-                      onChange={(e) => setFormTargetUserId(e.target.value)}
+                      value={formTargetProdiId}
+                      onChange={(e) => setFormTargetProdiId(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
                     >
-                      {targetOptions.dosenUsers.map((u) => {
-                        const prodiName = u.prodis[0]?.nama ? `(${u.prodis[0].nama})` : "";
-                        return (
-                          <option key={u.id} value={u.id}>
-                            {u.name} — {u.email} {prodiName}
-                          </option>
-                        );
-                      })}
+                      {targetOptions.prodis.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          Prodi {p.nama} ({p.kode})
+                        </option>
+                      ))}
                     </select>
+                  )}
 
-                    {/* Opsional: Tautkan Kelas Terkait */}
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-500 block mb-0.5">
-                        Tautkan Kode Kelas (Opsional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Contoh: TI23I atau MN24H"
-                        value={formTargetKelasKode}
-                        onChange={(e) => setFormTargetKelasKode(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs"
-                      />
+                  {formTargetTipe === "USER_SPESIFIK" && (
+                    <div className="space-y-2">
+                      <select
+                        value={formTargetUserId}
+                        onChange={(e) => setFormTargetUserId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-[#a80063] outline-none text-xs font-medium cursor-pointer"
+                      >
+                        {targetOptions.dosenUsers.map((u) => {
+                          const prodiName = u.prodis[0]?.nama ? `(${u.prodis[0].nama})` : "";
+                          return (
+                            <option key={u.id} value={u.id}>
+                              {u.name} — {u.email} {prodiName}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-500 block mb-0.5">
+                          Tautkan Kode Kelas (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: TI23I atau MN24H"
+                          value={formTargetKelasKode}
+                          onChange={(e) => setFormTargetKelasKode(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#a80063] outline-none text-xs"
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Tingkat Urgensi */}
@@ -797,11 +739,7 @@ export default function NotificationManagerClient({
                 <label className="font-bold text-slate-700 block mb-1">Judul Notifikasi</label>
                 <input
                   type="text"
-                  placeholder={
-                    formType === "PENGUMUMAN"
-                      ? "Contoh: Batas Akhir Kelengkapan Konten LMS Menjelang UTS"
-                      : "Contoh: Peringatan Kehadiran Dosen & Kelengkapan Modul Sesi 1-7"
-                  }
+                  placeholder="Contoh: Batas Akhir Pengisian BAP & Kelengkapan Konten LMS"
                   value={formJudul}
                   onChange={(e) => setFormJudul(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-[#a80063] outline-none text-xs font-semibold"
@@ -814,7 +752,7 @@ export default function NotificationManagerClient({
                 <label className="font-bold text-slate-700 block mb-1">Isi Pesan Resmi</label>
                 <textarea
                   rows={4}
-                  placeholder="Tuliskan isi instruksi, kebijakan, atau uraian peringatan secara jelas dan profesional..."
+                  placeholder="Tuliskan isi instruksi, kebijakan, atau uraian notifikasi secara jelas dan profesional..."
                   value={formPesan}
                   onChange={(e) => setFormPesan(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-[#a80063] outline-none text-xs leading-relaxed"
@@ -846,14 +784,10 @@ export default function NotificationManagerClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                    formType === "PENGUMUMAN"
-                      ? "bg-[#a80063] hover:bg-[#8f0054]"
-                      : "bg-amber-600 hover:bg-amber-700"
-                  }`}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#a80063] hover:bg-[#8f0054] transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-                  <span>{formType === "PENGUMUMAN" ? "Kirim Pengumuman" : "Kirim Peringatan"}</span>
+                  <span>Kirim Notifikasi</span>
                 </button>
               </div>
             </form>

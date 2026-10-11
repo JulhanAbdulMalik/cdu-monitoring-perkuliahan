@@ -200,8 +200,8 @@ export default function HeaderNotificationBell({
               </div>
             ) : (
               items.map((item) => {
-                const isPengumuman = item.tipe === "PENGUMUMAN";
                 const isBahaya = item.urgensi === "BAHAYA";
+                const isPeringatan = item.urgensi === "PERINGATAN";
 
                 return (
                   <div
@@ -222,17 +222,17 @@ export default function HeaderNotificationBell({
                       {/* Icon */}
                       <div
                         className={`w-7 h-7 rounded-lg shrink-0 flex items-center justify-center border mt-0.5 ${
-                          isPengumuman
-                            ? "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
-                            : isBahaya
+                          isBahaya
                             ? "bg-rose-50 text-rose-600 border-rose-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
+                            : isPeringatan
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-[#fdf2f8] text-[#a80063] border-[#fbcfe8]"
                         }`}
                       >
-                        {isPengumuman ? (
-                          <Megaphone size={13} />
-                        ) : (
+                        {isBahaya || isPeringatan ? (
                           <AlertTriangle size={13} />
+                        ) : (
+                          <Bell size={13} />
                         )}
                       </div>
 
@@ -241,14 +241,18 @@ export default function HeaderNotificationBell({
                         <div className="flex items-center justify-between gap-1 mb-0.5">
                           <span
                             className={`text-[9.5px] font-extrabold uppercase tracking-wider px-1.5 py-0.2 rounded ${
-                              isPengumuman
-                                ? "bg-[#fdf2f8] text-[#a80063]"
-                                : isBahaya
+                              isBahaya
                                 ? "bg-rose-100 text-rose-800"
-                                : "bg-amber-100 text-amber-800"
+                                : isPeringatan
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-[#fdf2f8] text-[#a80063]"
                             }`}
                           >
-                            {isPengumuman ? "Pengumuman Resmi" : "Peringatan CDU"}
+                            {isBahaya
+                              ? "Urgent / Mendesak"
+                              : isPeringatan
+                              ? "Peringatan"
+                              : "Info Resmi"}
                           </span>
 
                           <span className="text-[9.5px] text-slate-400 font-medium shrink-0">
