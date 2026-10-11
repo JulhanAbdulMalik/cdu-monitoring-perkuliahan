@@ -238,15 +238,12 @@ export default function NotificationManagerClient({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8]">
-              <Bell size={18} />
-            </span>
             <h1 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
               Pusat Kelola Notifikasi & Pengumuman CDU
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Publikasikan pengumuman penting resmi untuk seluruh dosen atau kirimkan peringatan khusus kepada dosen yang memerlukan atensi mendesak.
+            Publikasikan pengumuman penting resmi untuk seluruh dosen atau salah satu dosen.
           </p>
         </div>
 
@@ -254,19 +251,10 @@ export default function NotificationManagerClient({
           <button
             type="button"
             onClick={() => handleOpenCreateModal("PENGUMUMAN")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#a80063] hover:bg-[#8f0054] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#a80063] hover:bg-[#8f0054] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
-            <Megaphone size={14} />
-            <span>+ Buat Pengumuman</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleOpenCreateModal("PERINGATAN")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-          >
-            <AlertTriangle size={14} />
-            <span>+ Kirim Peringatan</span>
+            <Plus size={14} />
+            <span>+ Buat Notifikasi</span>
           </button>
         </div>
       </div>
@@ -659,7 +647,7 @@ export default function NotificationManagerClient({
                     }`}
                   >
                     <Megaphone size={13} />
-                    <span>📢 Pengumuman</span>
+                    <span>Pengumuman</span>
                   </button>
 
                   <button
@@ -676,7 +664,7 @@ export default function NotificationManagerClient({
                     }`}
                   >
                     <AlertTriangle size={13} />
-                    <span>⚠️ Peringatan / Teguran</span>
+                    <span>Peringatan / Teguran</span>
                   </button>
                 </div>
               </div>

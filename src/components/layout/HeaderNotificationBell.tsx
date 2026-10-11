@@ -3,16 +3,12 @@
 // Komponen Popover Lonceng Notifikasi Resmi CDU dengan Data Riil & Real-time Sync
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell,
   Megaphone,
   AlertTriangle,
   CheckCheck,
-  ExternalLink,
-  Calendar,
-  Settings,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -175,18 +171,10 @@ export default function HeaderNotificationBell({
       {isOpen && (
         <div className="absolute top-10 right-0 w-80 sm:w-96 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50 animate-fade-in">
           {/* Header Popover */}
-          <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded-md bg-[#fdf2f8] text-[#a80063]">
-                <Bell size={13} />
-              </span>
-              <div>
-                <h4 className="text-xs font-extrabold text-slate-900 tracking-tight">
-                  Notifikasi Resmi CDU
-                </h4>
-                <p className="text-[10px] text-slate-400">Pengumuman & Peringatan Penting</p>
-              </div>
-            </div>
+          <div className="px-4 py-3 bg-white border-b border-slate-100 flex items-center justify-between">
+            <h4 className="text-xs font-extrabold text-slate-900 tracking-tight">
+              Notifikasi Resmi CDU
+            </h4>
 
             {unreadCount > 0 && (
               <button
@@ -204,14 +192,11 @@ export default function HeaderNotificationBell({
           {/* List Notifikasi */}
           <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100 text-xs">
             {items.length === 0 ? (
-              <div className="py-10 text-center px-4 space-y-2">
+              <div className="py-10 text-center px-4 space-y-1.5">
                 <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                   <Bell size={18} />
                 </div>
                 <p className="font-bold text-xs text-slate-700">Tidak ada notifikasi aktif</p>
-                <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                  Semua pengumuman penting atau peringatan resmi dari CDU akan tampil di sini.
-                </p>
               </div>
             ) : (
               items.map((item) => {
@@ -307,21 +292,6 @@ export default function HeaderNotificationBell({
               })
             )}
           </div>
-
-          {/* Footer Popover (Khusus Admin / Super Admin) */}
-          {isAdminOrSuperAdmin && (
-            <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-[10px] text-slate-400 font-medium">Akses Pengelola CDU</span>
-              <Link
-                href="/kelola-notifikasi"
-                onClick={() => setIsOpen(false)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#a80063] hover:bg-[#fdf2f8] border border-transparent hover:border-[#fbcfe8] transition-all cursor-pointer"
-              >
-                <Settings size={12} />
-                <span>Pusat Kelola Notifikasi</span>
-              </Link>
-            </div>
-          )}
         </div>
       )}
     </div>
