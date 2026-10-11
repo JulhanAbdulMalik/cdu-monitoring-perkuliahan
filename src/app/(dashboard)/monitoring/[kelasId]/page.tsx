@@ -11,7 +11,7 @@ interface MonitoringDetailPageProps {
   searchParams?: Promise<{
     prodiId?: string;
     semesterId?: string;
-    tab?: "ALL" | "BELUM" | "SUDAH";
+    tab?: "ALL" | "BELUM" | "KONTEN" | "SELESAI" | "SUDAH";
     sesi?: string;
     mode?: string;
     hari?: string;

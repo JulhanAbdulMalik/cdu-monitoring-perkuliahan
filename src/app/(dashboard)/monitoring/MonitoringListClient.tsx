@@ -60,7 +60,7 @@ interface ProdiOption {
 export interface InitialUrlParams {
   prodiId?: string;
   semesterId?: string;
-  tab?: "ALL" | "BELUM" | "SUDAH";
+  tab?: "ALL" | "BELUM" | "KONTEN" | "SELESAI" | "SUDAH";
   sesi?: number;
   mode?: string;
   hari?: string;
@@ -120,8 +120,8 @@ export default function MonitoringListClient({
   const [filterHari, setFilterHari] = useState<string>(
     initialUrlParams?.hari || searchParams.get("hari") || "ALL"
   );
-  const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "SUDAH">(
-    initialUrlParams?.tab || (searchParams.get("tab") as "ALL" | "BELUM" | "SUDAH") || "ALL"
+  const [monitoringTab, setMonitoringTab] = useState<"ALL" | "BELUM" | "KONTEN" | "SELESAI" | "SUDAH">(
+    initialUrlParams?.tab || (searchParams.get("tab") as "ALL" | "BELUM" | "KONTEN" | "SELESAI" | "SUDAH") || "ALL"
   );
   const [sortBy, setSortBy] = useState<MonitoringSortKey>(
     initialUrlParams?.sortBy || (searchParams.get("sortBy") as MonitoringSortKey) || "TERBARU"
@@ -304,8 +304,9 @@ export default function MonitoringListClient({
   // Ekstrak data hasil query
   const paginatedList = data?.items || [];
   const totalInBase = data?.tabCounts.total ?? 0;
-  const belumDimonitorCount = data?.tabCounts.belum ?? 0;
-  const sudahDimonitorCount = data?.tabCounts.sudah ?? 0;
+  const belumPresensiCount = data?.tabCounts.belum ?? 0;
+  const perluCekKontenCount = data?.tabCounts.konten ?? 0;
+  const selesaiDimonitorCount = data?.tabCounts.selesai ?? (data?.tabCounts.sudah ?? 0);
   const totalFilteredCount = data?.totalCount ?? 0;
 
   // Helper untuk membuat link detail monitoring dengan mempertahankan konteks filter
@@ -557,7 +558,7 @@ export default function MonitoringListClient({
               )}
             </div>
 
-            {/* Segmented Filter Status Monitoring */}
+            {/* Segmented Filter Status Monitoring (Antrean Kerja / Workflow Pipeline) */}
             <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/70">
               <button
                 type="button"
@@ -593,32 +594,54 @@ export default function MonitoringListClient({
               >
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                  <span>Belum Dimonitor</span>
+                  <span>Belum Presensi</span>
                 </span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 font-extrabold">
-                  {belumDimonitorCount}
+                  {belumPresensiCount}
                 </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setMonitoringTab("SUDAH");
+                  setMonitoringTab("KONTEN");
                   setCurrentPage(1);
-                  updateUrlParams({ tab: "SUDAH", page: 1 });
+                  updateUrlParams({ tab: "KONTEN", page: 1 });
                 }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  monitoringTab === "SUDAH"
+                  monitoringTab === "KONTEN"
+                    ? "bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs font-extrabold"
+                    : "text-slate-600 hover:text-amber-700 hover:bg-amber-50/50"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Perlu Cek Konten</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-extrabold">
+                  {perluCekKontenCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMonitoringTab("SELESAI");
+                  setCurrentPage(1);
+                  updateUrlParams({ tab: "SELESAI", page: 1 });
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  monitoringTab === "SELESAI" || monitoringTab === "SUDAH"
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs"
                     : "text-slate-600 hover:text-emerald-600 hover:bg-emerald-50/50"
                 }`}
               >
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>Sudah Dimonitor</span>
+                  <span>Selesai Dimonitor</span>
                 </span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-extrabold">
-                  {sudahDimonitorCount}
+                  {selesaiDimonitorCount}
                 </span>
               </button>
             </div>
@@ -831,17 +854,25 @@ export default function MonitoringListClient({
                     {monitoringTab === "BELUM" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
                         <CheckCircle2 size={32} className="text-emerald-500" />
-                        <p className="font-bold text-sm">Semua kelas sudah selesai dimonitor!</p>
+                        <p className="font-bold text-sm">Semua kelas sudah dipresensi!</p>
                         <p className="text-xs text-slate-400">
-                          Tidak ada antrean kelas yang belum dicek pada kriteria filter ini.
+                          Tidak ada antrean kelas yang belum presensi pada kriteria filter ini.
                         </p>
                       </div>
-                    ) : monitoringTab === "SUDAH" ? (
+                    ) : monitoringTab === "KONTEN" ? (
+                      <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-emerald-600">
+                        <CheckCircle2 size={32} className="text-emerald-500" />
+                        <p className="font-bold text-sm">Semua konten kelas sudah diverifikasi!</p>
+                        <p className="text-xs text-slate-400">
+                          Tidak ada antrean kelas yang perlu dicek kontennya pada Sesi {selectedSesi}.
+                        </p>
+                      </div>
+                    ) : monitoringTab === "SELESAI" || monitoringTab === "SUDAH" ? (
                       <div className="flex flex-col items-center justify-center gap-1.5 py-4 text-slate-400">
                         <AlertCircle size={32} className="text-slate-300" />
                         <p className="font-bold text-sm">Belum ada kelas yang selesai dimonitor</p>
                         <p className="text-xs text-slate-400">
-                          Silakan lakukan pengecekan kelas pada tab &quot;Belum Dimonitor&quot;.
+                          Silakan lakukan presensi dan verifikasi materi konten LMS pada antrean kelas.
                         </p>
                       </div>
                     ) : (
@@ -1095,10 +1126,10 @@ export default function MonitoringListClient({
                             {/* Smart Warning: Presensi Hadir tapi Konten Sesi Kosong */}
                             {cls.targetSesiNeedsContentCheck && (
                               <span
-                                className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border border-amber-300 bg-amber-50 text-amber-800 mt-0.5"
-                                title={`Presensi Sesi ${selectedSesi} sudah diisi, namun konten 3 pilar pada sesi ini masih kosong (perlu diverifikasi di LMS)`}
+                                className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.2 rounded border border-amber-300 bg-amber-50 text-amber-800 mt-0.5 shadow-2xs"
+                                title={`Presensi Sesi ${selectedSesi} sudah Hadir, namun bukti konten 3 pilar pada sesi ini belum dicek/masih 0 (perlu diverifikasi di LMS)`}
                               >
-                                <span>⚠️ S{selectedSesi}: Kosong</span>
+                                <span>⚠️ S{selectedSesi}: Perlu Cek Konten</span>
                               </span>
                             )}
                           </div>

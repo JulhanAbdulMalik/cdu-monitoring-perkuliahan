@@ -15,7 +15,7 @@ interface MonitoringPageProps {
   searchParams: Promise<{
     prodiId?: string;
     semesterId?: string;
-    tab?: "ALL" | "BELUM" | "SUDAH";
+    tab?: "ALL" | "BELUM" | "KONTEN" | "SELESAI" | "SUDAH";
     sesi?: string;
     mode?: string;
     hari?: string;
@@ -83,7 +83,7 @@ export default async function MonitoringPage({ searchParams }: MonitoringPagePro
     : {
         items: [],
         totalCount: 0,
-        tabCounts: { total: 0, belum: 0, sudah: 0 },
+        tabCounts: { total: 0, belum: 0, konten: 0, selesai: 0, sudah: 0 },
         page: pageNum,
         pageSize: pageSizeNum,
         totalPages: 1,
