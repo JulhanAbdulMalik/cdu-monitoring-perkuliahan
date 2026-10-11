@@ -648,41 +648,28 @@ export default function NotificationManagerClient({
                 )}
               </div>
 
-              {/* Baris 2: Tingkat Urgensi (Identik dengan Kategori Kendala di Lapor CDU) */}
+              {/* Baris 2: Tingkat Urgensi */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Tingkat Urgensi <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {[
-                    {
-                      val: "PENTING",
-                      label: "Info Resmi",
-                      desc: "Pengumuman umum atau info perkuliahan resmi",
-                    },
-                    {
-                      val: "PERINGATAN",
-                      label: "Peringatan",
-                      desc: "Pemberitahuan perhatian dan tindak lanjut",
-                    },
-                    {
-                      val: "BAHAYA",
-                      label: "Urgent / Mendesak",
-                      desc: "Instruksi mendesak atau atensi kritis",
-                    },
+                    { val: "PENTING", label: "Info Resmi" },
+                    { val: "PERINGATAN", label: "Peringatan" },
+                    { val: "BAHAYA", label: "Urgent / Mendesak" },
                   ].map((k) => (
                     <button
                       key={k.val}
                       type="button"
                       onClick={() => setFormUrgensi(k.val as any)}
-                      className={`p-2.5 sm:p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                      className={`px-3.5 py-2.5 rounded-xl text-center border text-xs font-bold transition-all cursor-pointer ${
                         formUrgensi === k.val
                           ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
                           : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                       }`}
                     >
-                      <p className="text-xs font-bold leading-tight">{k.label}</p>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5 leading-snug">{k.desc}</p>
+                      {k.label}
                     </button>
                   ))}
                 </div>
