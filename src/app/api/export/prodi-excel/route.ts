@@ -300,7 +300,7 @@ export async function GET(request: NextRequest) {
           k.mataKuliahNama,
           k.kelasKode,
           `Sesi ${k.nomorSesi}`,
-          k.status === "ALPHA" ? "ALPHA / TIDAK HADIR" : k.status === "HTL" ? "HTL (KONTEN TIDAK LENGKAP)" : "BELUM DIISI",
+          k.status === "ALPHA" ? "ALPHA / TIDAK HADIR" : k.status === "HTL" ? "Hadir Tidak Lengkap" : "BELUM DIISI",
           k.catatan || "- (Belum ada catatan)",
         ]);
         kRow.height = 20;

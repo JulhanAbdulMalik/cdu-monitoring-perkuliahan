@@ -648,7 +648,14 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
       let processed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
 
       if (params.filterStatus && params.filterStatus !== "ALL") {
-        processed = processed.filter((c) => c.summary.statusEvaluasi === params.filterStatus);
+        processed = processed.filter((c) => {
+          const k = c.targetSesiData?.kehadiran;
+          if (params.filterStatus === "HADIR") return k === "HADIR";
+          if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
+          if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
+          if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
+          return true;
+        });
       }
 
       if (sort === "KEHADIRAN_DESC") {
@@ -972,9 +979,15 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
       let processed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
 
       if (params.filterStatus && params.filterStatus !== "ALL") {
-        processed = processed.filter(
-          (c) => c.summary.statusEvaluasi === params.filterStatus || c.id === params.currentKelasId
-        );
+        processed = processed.filter((c) => {
+          if (params.currentKelasId && c.id === params.currentKelasId) return true;
+          const k = c.targetSesiData?.kehadiran;
+          if (params.filterStatus === "HADIR") return k === "HADIR";
+          if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
+          if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
+          if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
+          return true;
+        });
       }
 
       if (sort === "KEHADIRAN_DESC") {

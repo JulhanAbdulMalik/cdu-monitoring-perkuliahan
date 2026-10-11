@@ -1433,7 +1433,7 @@ export default function LaporanProdiClient({
                                                 </span>
                                               ) : k.status === "HTL" ? (
                                                 <span className="inline-flex px-2 py-0.5 rounded font-bold text-[9.5px] bg-amber-50 text-amber-800 border border-amber-200">
-                                                  HTL (Konten Tidak Lengkap)
+                                                  Hadir Tidak Lengkap
                                                 </span>
                                               ) : (
                                                 <span className="inline-flex px-2 py-0.5 rounded font-semibold text-[9.5px] bg-slate-100 text-slate-600 border border-slate-200">

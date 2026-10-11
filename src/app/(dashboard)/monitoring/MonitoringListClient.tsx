@@ -721,25 +721,34 @@ export default function MonitoringListClient({
               <option value="BIMBINGAN">Bimbingan</option>
             </select>
 
-            {/* Status Evaluasi Filter */}
+            {/* Dropdown Filter Status Presensi Sesi */}
             <select
               value={filterStatus}
               onChange={(e) => {
                 const val = e.target.value;
                 setFilterStatus(val);
+                if (val !== "ALL") {
+                  setMonitoringTab("ALL");
+                }
                 setCurrentPage(1);
-                updateUrlParams({ status: val, page: 1 });
+                updateUrlParams({
+                  status: val,
+                  tab: val !== "ALL" ? "ALL" : monitoringTab,
+                  page: 1,
+                });
               }}
               className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all ${
                 filterStatus !== "ALL"
                   ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
                   : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
               }`}
-              title="Filter Status Evaluasi"
+              title={`Filter Status Presensi Sesi ${selectedSesi}`}
             >
-              <option value="ALL">Semua Status</option>
-              <option value="TERLAKSANA">Terlaksana</option>
-              <option value="PERHATIAN">Perhatian</option>
+              <option value="ALL">Semua Presensi</option>
+              <option value="HADIR">Hadir</option>
+              <option value="HTL">HTL</option>
+              <option value="ALPHA">Alpha</option>
+              <option value="BELUM_DIISI">Belum Diisi</option>
             </select>
 
             {/* Reset All Filters Button */}
