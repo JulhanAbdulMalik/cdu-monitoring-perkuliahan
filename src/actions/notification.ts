@@ -104,7 +104,13 @@ export async function getUserNotifications(): Promise<{
       });
     }
 
-    const rawNotifications = await (prisma as any).notification.findMany({
+    const db = prisma as any;
+    if (!db.notification) {
+      console.warn("prisma.notification belum siap di runtime. Silakan restart next dev.");
+      return { success: true, data: { items: [], unreadCount: 0 } };
+    }
+
+    const rawNotifications = await db.notification.findMany({
       where: {
         OR: targetConditions,
       },
@@ -215,8 +221,13 @@ export async function markAllNotificationsAsRead() {
       });
     }
 
+    const db = prisma as any;
+    if (!db.notification || !db.notificationRead) {
+      return { success: true };
+    }
+
     // Ambil semua notifikasi aktif yang belum dibaca oleh user
-    const unreadNotifications = await (prisma as any).notification.findMany({
+    const unreadNotifications = await db.notification.findMany({
       where: {
         OR: targetConditions,
         pembaca: {
@@ -270,7 +281,12 @@ export async function createNotification(input: CreateNotificationInput) {
       return { success: false, error: "Harap pilih Program Studi target pengumuman" };
     }
 
-    const newNotif = await (prisma as any).notification.create({
+    const db = prisma as any;
+    if (!db.notification) {
+      return { success: false, error: "Database notifikasi sedang sinkronisasi. Silakan refresh halaman atau restart npm run dev." };
+    }
+
+    const newNotif = await db.notification.create({
       data: {
         tipe: input.tipe,
         targetTipe: input.targetTipe,
@@ -308,7 +324,13 @@ export async function getNotificationManagementList(): Promise<{
       return { success: false, error: "Akses ditolak" };
     }
 
-    const notifications = await (prisma as any).notification.findMany({
+    const db = prisma as any;
+    if (!db.notification) {
+      console.warn("prisma.notification belum siap di runtime. Silakan restart next dev.");
+      return { success: true, data: [] };
+    }
+
+    const notifications = await db.notification.findMany({
       include: {
         dibuatOleh: {
           select: { id: true, name: true, role: true },
@@ -358,7 +380,12 @@ export async function deleteNotification(notificationId: string) {
       return { success: false, error: "Akses ditolak" };
     }
 
-    await (prisma as any).notification.delete({
+    const db = prisma as any;
+    if (!db.notification) {
+      return { success: false, error: "Model notifikasi belum siap" };
+    }
+
+    await db.notification.delete({
       where: { id: notificationId },
     });
 
