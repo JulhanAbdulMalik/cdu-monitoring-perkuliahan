@@ -16,6 +16,7 @@ export interface CreateNotificationInput {
   targetUserId?: string | null;
   targetProdiId?: string | null;
   targetKelasKode?: string | null;
+  isPopupLogin?: boolean;
   judul: string;
   pesan: string;
   urgensi: NotificationUrgency;
@@ -27,6 +28,7 @@ export interface UserNotificationItem {
   tipe: NotificationType;
   targetTipe: NotificationTarget;
   targetKelasKode?: string | null;
+  isPopupLogin?: boolean;
   judul: string;
   pesan: string;
   urgensi: NotificationUrgency;
@@ -47,6 +49,7 @@ export interface ManagementNotificationItem {
   targetUserId?: string | null;
   targetProdiId?: string | null;
   targetKelasKode?: string | null;
+  isPopupLogin?: boolean;
   judul: string;
   pesan: string;
   urgensi: NotificationUrgency;
@@ -137,6 +140,7 @@ export async function getUserNotifications(): Promise<{
         tipe: n.tipe,
         targetTipe: n.targetTipe,
         targetKelasKode: n.targetKelasKode,
+        isPopupLogin: n.targetKelasKode === "POPUP_LOGIN",
         judul: n.judul,
         pesan: n.pesan,
         urgensi: n.urgensi,
@@ -286,13 +290,19 @@ export async function createNotification(input: CreateNotificationInput) {
       return { success: false, error: "Database notifikasi sedang sinkronisasi. Silakan refresh halaman atau restart npm run dev." };
     }
 
+    const targetKelas = input.isPopupLogin
+      ? "POPUP_LOGIN"
+      : input.targetKelasKode
+      ? input.targetKelasKode.trim()
+      : null;
+
     const newNotif = await db.notification.create({
       data: {
         tipe: input.tipe,
         targetTipe: input.targetTipe,
         targetUserId: input.targetUserId || null,
         targetProdiId: input.targetProdiId || null,
-        targetKelasKode: input.targetKelasKode ? input.targetKelasKode.trim() : null,
+        targetKelasKode: targetKelas,
         judul: input.judul.trim(),
         pesan: input.pesan.trim(),
         urgensi: input.urgensi || "PENTING",
@@ -352,6 +362,7 @@ export async function getNotificationManagementList(): Promise<{
       targetUserId: n.targetUserId,
       targetProdiId: n.targetProdiId,
       targetKelasKode: n.targetKelasKode,
+      isPopupLogin: n.targetKelasKode === "POPUP_LOGIN",
       judul: n.judul,
       pesan: n.pesan,
       urgensi: n.urgensi,

@@ -4,6 +4,7 @@
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
+import LoginAnnouncementModal from "@/components/notification/LoginAnnouncementModal";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -65,6 +66,7 @@ export default async function DashboardLayout({
           </main>
         </div>
       </div>
+      <LoginAnnouncementModal />
     </SidebarProvider>
   );
 }

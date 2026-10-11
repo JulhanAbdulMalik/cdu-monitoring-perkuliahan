@@ -34,6 +34,10 @@ import {
   deleteNotification,
 } from "@/actions/notification";
 import SearchableSelect from "@/components/common/SearchableSelect";
+import NotificationDetailModal, {
+  formatPublisherName,
+  formatPublisherRole,
+} from "@/components/notification/NotificationDetailModal";
 
 interface NotificationManagerClientProps {
   initialNotifications: ManagementNotificationItem[];
@@ -75,8 +79,12 @@ export default function NotificationManagerClient({
   const [formPesan, setFormPesan] = useState("");
   const [formUrgensi, setFormUrgensi] = useState<NotificationUrgency>("PENTING");
   const [formTautanUrl, setFormTautanUrl] = useState("");
+  const [formIsPopupLogin, setFormIsPopupLogin] = useState(false);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Detail Modal State
+  const [selectedDetailItem, setSelectedDetailItem] = useState<ManagementNotificationItem | null>(null);
 
   // Delete Confirm State
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -115,6 +123,7 @@ export default function NotificationManagerClient({
     setFormJudul("");
     setFormPesan("");
     setFormTautanUrl("");
+    setFormIsPopupLogin(false);
     setFormError("");
     setIsModalOpen(true);
   };
@@ -144,6 +153,7 @@ export default function NotificationManagerClient({
         targetUserId: null,
         targetProdiId: formTargetTipe === "PRODI" ? formTargetProdiId : null,
         targetKelasKode: null,
+        isPopupLogin: formIsPopupLogin,
         judul: formJudul.trim(),
         pesan: formPesan.trim(),
         urgensi: formUrgensi,
@@ -161,6 +171,7 @@ export default function NotificationManagerClient({
       const newItem: ManagementNotificationItem = {
         ...res.data,
         readCount: 0,
+        isPopupLogin: formIsPopupLogin,
         dibuatOleh: { id: "", name: "Anda", role: currentUserRole },
         targetUser: null,
       };
@@ -444,17 +455,30 @@ export default function NotificationManagerClient({
                         <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
                           {item.pesan}
                         </p>
-                        {item.tautanUrl && (
-                          <a
-                            href={item.tautanUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#a80063] hover:underline mt-1"
+                        
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDetailItem(item)}
+                            className="text-[10px] font-bold text-[#a80063] hover:underline inline-flex items-center gap-0.5 cursor-pointer"
                           >
-                            <span>Lihat Tautan Terkait</span>
-                            <ExternalLink size={9} />
-                          </a>
-                        )}
+                            <span>Lihat Detail Lengkap</span>
+                            <ChevronRight size={10} />
+                          </button>
+
+                          {item.tautanUrl && (
+                            <a
+                              href={item.tautanUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 hover:text-[#a80063] hover:underline"
+                            >
+                              <span>Tautan URL</span>
+                              <ExternalLink size={9} />
+                            </a>
+                          )}
+                        </div>
+
                         <p className="text-[9.5px] text-slate-400 mt-1 flex items-center gap-1">
                           <Calendar size={10} />
                           <span>{dateFormatted}</span>
@@ -492,21 +516,27 @@ export default function NotificationManagerClient({
                             </div>
                           )}
 
-                          {item.targetKelasKode && (
+                          {/* Badge Pop-up Login atau Kode Kelas */}
+                          {(item.isPopupLogin || item.targetKelasKode === "POPUP_LOGIN") ? (
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 w-fit mt-1">
+                              <Megaphone size={10} className="text-purple-600" />
+                              <span>Pop-up Login</span>
+                            </span>
+                          ) : item.targetKelasKode ? (
                             <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold text-[#a80063] bg-[#fdf2f8] px-1.5 py-0.2 rounded border border-[#fbcfe8] w-fit mt-1">
                               Kelas: {item.targetKelasKode}
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </td>
 
                       {/* Penerbit */}
                       <td className="py-3 px-3">
-                        <p className="font-medium text-slate-800 text-[11px] leading-tight">
-                          {item.dibuatOleh?.name || "Admin CDU"}
+                        <p className="font-bold text-slate-800 text-[11px] leading-tight">
+                          {formatPublisherName(item.dibuatOleh?.name, item.dibuatOleh?.role)}
                         </p>
-                        <span className="text-[9.5px] text-slate-400 leading-tight">
-                          {item.dibuatOleh?.role || "Admin"}
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/80 mt-0.5">
+                          {formatPublisherRole(item.dibuatOleh?.role)}
                         </span>
                       </td>
 
@@ -518,16 +548,26 @@ export default function NotificationManagerClient({
                         </span>
                       </td>
 
-                      {/* Aksi Hapus */}
+                      {/* Aksi */}
                       <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTargetId(item.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                          title="Hapus Notifikasi"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDetailItem(item)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-[#a80063] hover:bg-[#fdf2f8] transition-all cursor-pointer"
+                            title="Lihat Detail Notifikasi"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTargetId(item.id)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                            title="Hapus Notifikasi"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -720,6 +760,28 @@ export default function NotificationManagerClient({
                 />
               </div>
 
+              {/* Baris 6: Opsi Pop-up saat Login */}
+              <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Megaphone size={13} className="text-[#a80063]" />
+                    <span>Tampilkan Pop-up saat Pengguna Login</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Notifikasi akan otomatis muncul sebagai jendela pop-up di layar saat pengguna masuk ke sistem.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={formIsPopupLogin}
+                    onChange={(e) => setFormIsPopupLogin(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#a80063]"></div>
+                </label>
+              </div>
+
               {/* Footer Actions (Identik dengan Modal Lapor CDU) */}
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-4">
                 <button
@@ -747,6 +809,13 @@ export default function NotificationManagerClient({
           </div>
         </div>
       )}
+
+      {/* Modal Detail Notifikasi Lengkap */}
+      <NotificationDetailModal
+        isOpen={!!selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        notification={selectedDetailItem}
+      />
     </div>
   );
 }

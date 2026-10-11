@@ -17,6 +17,7 @@ import {
   markAllNotificationsAsRead,
   UserNotificationItem,
 } from "@/actions/notification";
+import NotificationDetailModal from "@/components/notification/NotificationDetailModal";
 
 interface HeaderNotificationBellProps {
   isAdminOrSuperAdmin: boolean;
@@ -44,6 +45,7 @@ export default function HeaderNotificationBell({
   const [items, setItems] = useState<UserNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<UserNotificationItem | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = useCallback(async () => {
@@ -121,14 +123,8 @@ export default function HeaderNotificationBell({
       }
     }
 
-    if (notif.tautanUrl) {
-      setIsOpen(false);
-      if (notif.tautanUrl.startsWith("http")) {
-        window.open(notif.tautanUrl, "_blank", "noopener,noreferrer");
-      } else {
-        router.push(notif.tautanUrl);
-      }
-    }
+    setIsOpen(false);
+    setSelectedDetailItem(notif);
   };
 
   const handleMarkAllRead = async () => {
@@ -274,20 +270,20 @@ export default function HeaderNotificationBell({
                           {item.pesan}
                         </p>
 
-                        {/* Optional Meta Tags */}
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {item.targetKelasKode && (
+                        {/* Meta Tags & Action */}
+                        <div className="flex items-center justify-between gap-2 mt-1.5 pt-0.5">
+                          {item.targetKelasKode ? (
                             <span className="text-[9px] font-bold text-[#a80063] bg-[#fdf2f8] px-1.5 py-0.2 rounded border border-[#fbcfe8]">
-                              Kelas: {item.targetKelasKode}
+                              {item.targetKelasKode === "POPUP_LOGIN" ? "Pop-up Login" : `Kelas: ${item.targetKelasKode}`}
                             </span>
+                          ) : (
+                            <span />
                           )}
 
-                          {item.tautanUrl && (
-                            <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-[#a80063] group-hover:underline">
-                              <span>Lihat Detail</span>
-                              <ChevronRight size={10} />
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#a80063] group-hover:underline">
+                            <span>Lihat Detail</span>
+                            <ChevronRight size={10} />
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -298,6 +294,13 @@ export default function HeaderNotificationBell({
           </div>
         </div>
       )}
+
+      {/* Modal Detail Notifikasi Lengkap */}
+      <NotificationDetailModal
+        isOpen={!!selectedDetailItem}
+        onClose={() => setSelectedDetailItem(null)}
+        notification={selectedDetailItem}
+      />
     </div>
   );
 }
