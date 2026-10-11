@@ -296,6 +296,9 @@ model Notification {
   urgensi         NotificationUrgency @default(PENTING)
   tautanUrl       String?             // Link opsional (misal: "/monitoring", link panduan, dll)
   
+  isSelesai       Boolean             @default(false)
+  kadaluarsaPada  DateTime?           // Batas waktu tanggal & jam otomatis selesai
+
   dibuatOlehId    String
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -308,6 +311,7 @@ model Notification {
   @@index([targetUserId])
   @@index([targetProdiId])
   @@index([createdAt])
+  @@index([isSelesai])
 }
 
 model NotificationRead {

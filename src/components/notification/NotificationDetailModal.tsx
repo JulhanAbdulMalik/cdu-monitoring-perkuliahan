@@ -11,7 +11,10 @@ import {
   ExternalLink,
   User,
   Megaphone,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
+import { formatExternalUrl } from "@/lib/utils";
 
 export interface DetailNotificationData {
   id: string;
@@ -24,6 +27,8 @@ export interface DetailNotificationData {
   isPopupLogin?: boolean;
   tautanUrl?: string | null;
   createdAt: Date | string;
+  isSelesai?: boolean;
+  kadaluarsaPada?: Date | string | null;
   dibuatOleh?: {
     name?: string;
     role?: string;
@@ -195,6 +200,13 @@ export default function NotificationDetailModal({
                   <span>Pop-up Login</span>
                 </span>
               )}
+
+              {notification.isSelesai && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 size={12} className="text-emerald-600" />
+                  <span>Selesai / Nonaktif</span>
+                </span>
+              )}
             </div>
 
             {/* Tombol Tutup */}
@@ -234,6 +246,23 @@ export default function NotificationDetailModal({
               <Calendar size={13} className="text-slate-400 shrink-0" />
               <span>{dateFormatted}</span>
             </div>
+
+            {notification.kadaluarsaPada && (
+              <>
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <div className="flex items-center gap-1 text-amber-700 font-medium">
+                  <Clock size={13} className="text-amber-500 shrink-0" />
+                  <span>
+                    Batas Tayang:{" "}
+                    {new Date(notification.kadaluarsaPada).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -244,19 +273,19 @@ export default function NotificationDetailModal({
           </div>
 
           {/* Tautan URL Terkait jika ada */}
-          {notification.tautanUrl && (
+          {Boolean(notification.tautanUrl && formatExternalUrl(notification.tautanUrl)) && (
             <div className="mt-6 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-800">
-                  Tautan Lampiran / Halaman Terkait
+                  Tautan Lampiran
                 </p>
                 <p className="text-[11px] text-[#a80063] font-medium truncate mt-0.5">
-                  {notification.tautanUrl}
+                  {formatExternalUrl(notification.tautanUrl)}
                 </p>
               </div>
 
               <a
-                href={notification.tautanUrl}
+                href={formatExternalUrl(notification.tautanUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#a80063] hover:bg-[#8f0054] shadow-xs transition-all shrink-0 cursor-pointer"

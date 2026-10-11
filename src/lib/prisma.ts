@@ -9,7 +9,8 @@ const globalForPrisma = globalThis as unknown as {
 
 function getPrismaInstance(): PrismaClient {
   const current = globalForPrisma.prisma;
-  if (current && (current as any).notification) {
+  const hasIsSelesai = Boolean(current && (current as any).notification?.fields?.isSelesai);
+  if (current && (current as any).notification && hasIsSelesai) {
     return current;
   }
 
@@ -41,7 +42,7 @@ function getPrismaInstance(): PrismaClient {
   }
 
   const fallbackClient =
-    current ??
+    (hasIsSelesai ? current : null) ??
     new PrismaClient({
       log:
         process.env.NODE_ENV === "development"

@@ -306,3 +306,21 @@ export function formatSesiRange(sesiList: number[]): string {
   ranges.push(start === end ? `S${start}` : `S${start}–${end}`);
   return ranges.join(", ");
 }
+
+/**
+ * Memastikan tautan eksternal (misal: Google Drive, file online, link dokumen)
+ * selalu memiliki skema protokol valid (https://) dan tidak pernah dianggap
+ * sebagai rute relatif oleh browser (sehingga tidak diarahkan ke localhost/domain aplikasi).
+ */
+export function formatExternalUrl(url?: string | null): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  // Jika sudah memiliki protokol lengkap (http://, https://, mailto:, //)
+  if (/^(https?:\/\/|mailto:|\/\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+  // Bersihkan slash di awal jika ada, lalu jadikan https://
+  const cleanUrl = trimmed.replace(/^\/+/, "");
+  return `https://${cleanUrl}`;
+}

@@ -534,25 +534,29 @@ export default function LaporCduClient({
       </div>
 
       {/* ── Summary Stats Cards (Urutan: Menunggu Review, Disetujui CDU, Ditolak, Total Laporan) ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* 1. Menunggu Review (Default Focus) */}
         <div
           onClick={() => {
             setSelectedStatus("PENDING");
             reloadData(selectedSemester, selectedProdi, "PENDING", searchQuery);
           }}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+          className={`bg-white p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
             selectedStatus === "PENDING"
-              ? "bg-amber-50 border-amber-400 shadow-xs"
-              : "bg-white border-amber-200/70 hover:bg-amber-50/30"
-          } flex items-center gap-3`}
+              ? "border-slate-300 bg-slate-50/50 shadow-xs"
+              : "border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/20"
+          }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
-            <Clock size={18} />
-          </div>
           <div>
-            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Menunggu Review</p>
-            <p className="text-base font-extrabold text-amber-700 leading-tight">{stats.totalPending}</p>
+            <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">
+              Menunggu Review
+            </p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
+              {stats.totalPending}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/70 flex items-center justify-center shrink-0">
+            <Clock size={18} />
           </div>
         </div>
 
@@ -562,18 +566,22 @@ export default function LaporCduClient({
             setSelectedStatus("DISETUJUI");
             reloadData(selectedSemester, selectedProdi, "DISETUJUI", searchQuery);
           }}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+          className={`bg-white p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
             selectedStatus === "DISETUJUI"
-              ? "bg-emerald-50 border-emerald-400 shadow-xs"
-              : "bg-white border-emerald-200/70 hover:bg-emerald-50/30"
-          } flex items-center gap-3`}
+              ? "border-slate-300 bg-slate-50/50 shadow-xs"
+              : "border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/20"
+          }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={18} />
-          </div>
           <div>
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Disetujui CDU</p>
-            <p className="text-base font-extrabold text-emerald-700 leading-tight">{stats.totalDisetujui}</p>
+            <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
+              Disetujui CDU
+            </p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
+              {stats.totalDisetujui}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/70 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} />
           </div>
         </div>
 
@@ -583,18 +591,22 @@ export default function LaporCduClient({
             setSelectedStatus("DITOLAK");
             reloadData(selectedSemester, selectedProdi, "DITOLAK", searchQuery);
           }}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+          className={`bg-white p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
             selectedStatus === "DITOLAK"
-              ? "bg-rose-50 border-rose-400 shadow-xs"
-              : "bg-white border-rose-200/70 hover:bg-rose-50/30"
-          } flex items-center gap-3`}
+              ? "border-slate-300 bg-slate-50/50 shadow-xs"
+              : "border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/20"
+          }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
-            <XCircle size={18} />
-          </div>
           <div>
-            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Ditolak</p>
-            <p className="text-base font-extrabold text-rose-700 leading-tight">{stats.totalDitolak}</p>
+            <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">
+              Ditolak
+            </p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
+              {stats.totalDitolak}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/70 flex items-center justify-center shrink-0">
+            <XCircle size={18} />
           </div>
         </div>
 
@@ -604,18 +616,22 @@ export default function LaporCduClient({
             setSelectedStatus("ALL");
             reloadData(selectedSemester, selectedProdi, "ALL", searchQuery);
           }}
-          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+          className={`bg-white p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
             selectedStatus === "ALL"
-              ? "bg-slate-50 border-slate-400 shadow-xs"
-              : "bg-white border-slate-200/70 hover:bg-slate-50/50"
-          } flex items-center gap-3`}
+              ? "border-slate-300 bg-slate-50/50 shadow-xs"
+              : "border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/20"
+          }`}
         >
-          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-            <FileText size={18} />
-          </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Laporan</p>
-            <p className="text-base font-extrabold text-slate-900 leading-tight">{stats.totalAll}</p>
+            <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              Total Laporan
+            </p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
+              {stats.totalAll}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 border border-slate-200/70 flex items-center justify-center shrink-0">
+            <FileText size={18} />
           </div>
         </div>
       </div>

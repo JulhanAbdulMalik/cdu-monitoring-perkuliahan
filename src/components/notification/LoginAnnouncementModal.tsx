@@ -23,8 +23,10 @@ import {
   formatPublisherRole,
   renderFormattedContent,
 } from "./NotificationDetailModal";
+import { formatExternalUrl } from "@/lib/utils";
 
 const STORAGE_KEY = "cdu_dismissed_announcements";
+const LOGIN_TRIGGER_KEY = "cdu_just_logged_in";
 
 export default function LoginAnnouncementModal() {
   const [activeQueue, setActiveQueue] = useState<UserNotificationItem[]>([]);
@@ -36,6 +38,22 @@ export default function LoginAnnouncementModal() {
     let isMounted = true;
 
     async function checkAnnouncements() {
+      // Pastikan modal HANYA muncul saat sesi login baru saja berhasil
+      // Jika user sedang berpindah halaman biasa atau melakukan refresh F5, JANGAN munculkan!
+      let justLoggedIn = false;
+      try {
+        justLoggedIn = sessionStorage.getItem(LOGIN_TRIGGER_KEY) === "true";
+      } catch {
+        justLoggedIn = false;
+      }
+
+      if (!justLoggedIn) return;
+
+      // Hapus flag segera agar refresh berikutnya atau navigasi ke halaman lain tidak lagi memunculkan modal
+      try {
+        sessionStorage.removeItem(LOGIN_TRIGGER_KEY);
+      } catch {}
+
       try {
         const res = await getUserNotifications();
         if (!isMounted || !res.success || !res.data) return;
@@ -138,7 +156,7 @@ export default function LoginAnnouncementModal() {
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
                 <Megaphone size={13} className="text-[#a80063]" />
-                <span>Pengumuman</span>
+                <span>Notifikasi</span>
               </span>
 
               <span
@@ -219,19 +237,19 @@ export default function LoginAnnouncementModal() {
             {renderFormattedContent(currentItem.pesan)}
           </div>
 
-          {currentItem.tautanUrl && (
+          {Boolean(currentItem.tautanUrl && formatExternalUrl(currentItem.tautanUrl)) && (
             <div className="mt-6 p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-800">
-                  Tautan Lampiran / Halaman Terkait
+                  Tautan Lampiran
                 </p>
                 <p className="text-[11px] text-[#a80063] font-medium truncate mt-0.5">
-                  {currentItem.tautanUrl}
+                  {formatExternalUrl(currentItem.tautanUrl)}
                 </p>
               </div>
 
               <a
-                href={currentItem.tautanUrl}
+                href={formatExternalUrl(currentItem.tautanUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#a80063] hover:bg-[#8f0054] shadow-xs transition-all shrink-0 cursor-pointer"

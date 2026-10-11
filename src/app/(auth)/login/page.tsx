@@ -108,6 +108,11 @@ function LoginForm() {
         }
       } else {
         toast.success("Berhasil masuk! Mengalihkan ke dashboard...");
+        try {
+          sessionStorage.setItem("cdu_just_logged_in", "true");
+        } catch (e) {
+          console.warn("Storage error:", e);
+        }
         window.location.replace(callbackUrl);
       }
     } catch (err: any) {

@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { formatExternalUrl } from "@/lib/utils";
 
 export type NotificationType = "PENGUMUMAN" | "PERINGATAN";
 export type NotificationTarget = "SEMUA" | "ROLE_DOSEN" | "PRODI" | "USER_SPESIFIK";
@@ -21,6 +22,8 @@ export interface CreateNotificationInput {
   pesan: string;
   urgensi: NotificationUrgency;
   tautanUrl?: string | null;
+  isSelesai?: boolean;
+  kadaluarsaPada?: string | Date | null;
 }
 
 export interface UserNotificationItem {
@@ -35,6 +38,8 @@ export interface UserNotificationItem {
   tautanUrl?: string | null;
   isRead: boolean;
   createdAt: Date | string;
+  isSelesai?: boolean;
+  kadaluarsaPada?: Date | string | null;
   dibuatOleh: {
     id: string;
     name: string;
@@ -54,6 +59,8 @@ export interface ManagementNotificationItem {
   pesan: string;
   urgensi: NotificationUrgency;
   tautanUrl?: string | null;
+  isSelesai: boolean;
+  kadaluarsaPada?: Date | string | null;
   createdAt: Date | string;
   readCount: number;
   dibuatOleh: {
@@ -113,9 +120,17 @@ export async function getUserNotifications(): Promise<{
       return { success: true, data: { items: [], unreadCount: 0 } };
     }
 
+    const now = new Date();
     const rawNotifications = await db.notification.findMany({
       where: {
-        OR: targetConditions,
+        isSelesai: false,
+        OR: [
+          { kadaluarsaPada: null },
+          { kadaluarsaPada: { gt: now } },
+        ],
+        AND: [
+          { OR: targetConditions },
+        ],
       },
       include: {
         dibuatOleh: {
@@ -231,9 +246,17 @@ export async function markAllNotificationsAsRead() {
     }
 
     // Ambil semua notifikasi aktif yang belum dibaca oleh user
+    const now = new Date();
     const unreadNotifications = await db.notification.findMany({
       where: {
-        OR: targetConditions,
+        isSelesai: false,
+        OR: [
+          { kadaluarsaPada: null },
+          { kadaluarsaPada: { gt: now } },
+        ],
+        AND: [
+          { OR: targetConditions },
+        ],
         pembaca: {
           none: { userId: currentUserId },
         },
@@ -296,19 +319,38 @@ export async function createNotification(input: CreateNotificationInput) {
       ? input.targetKelasKode.trim()
       : null;
 
+    let kadaluarsaDate: Date | null = null;
+    if (input.kadaluarsaPada) {
+      if (typeof input.kadaluarsaPada === "string" && input.kadaluarsaPada.length === 10) {
+        kadaluarsaDate = new Date(`${input.kadaluarsaPada}T23:59:59.999+07:00`);
+      } else {
+        const parsed = new Date(input.kadaluarsaPada);
+        if (!isNaN(parsed.getTime())) {
+          kadaluarsaDate = parsed;
+        }
+      }
+    }
+
+    const createData: any = {
+      tipe: input.tipe,
+      targetTipe: input.targetTipe,
+      targetProdiId: input.targetTipe === "PRODI" ? (input.targetProdiId || null) : null,
+      targetKelasKode: targetKelas,
+      judul: input.judul.trim(),
+      pesan: input.pesan.trim(),
+      urgensi: input.urgensi || "PENTING",
+      tautanUrl: input.tautanUrl && input.tautanUrl.trim() ? formatExternalUrl(input.tautanUrl.trim()) : null,
+      isSelesai: Boolean(input.isSelesai),
+      kadaluarsaPada: kadaluarsaDate,
+      dibuatOlehId: session?.user?.id!,
+    };
+
+    if (input.targetUserId) {
+      createData.targetUser = { connect: { id: input.targetUserId } };
+    }
+
     const newNotif = await db.notification.create({
-      data: {
-        tipe: input.tipe,
-        targetTipe: input.targetTipe,
-        targetUserId: input.targetUserId || null,
-        targetProdiId: input.targetProdiId || null,
-        targetKelasKode: targetKelas,
-        judul: input.judul.trim(),
-        pesan: input.pesan.trim(),
-        urgensi: input.urgensi || "PENTING",
-        tautanUrl: input.tautanUrl ? input.tautanUrl.trim() : null,
-        dibuatOlehId: session?.user?.id!,
-      },
+      data: createData,
     });
 
     revalidatePath("/kelola-notifikasi");
@@ -316,6 +358,98 @@ export async function createNotification(input: CreateNotificationInput) {
   } catch (error: any) {
     console.error("Error createNotification:", error);
     return { success: false, error: error.message || "Gagal membuat notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Memperbarui Notifikasi yang sudah ada
+ */
+export async function updateNotification(
+  id: string,
+  input: CreateNotificationInput
+) {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        error: "Akses ditolak: Hanya Admin dan Super Admin yang dapat mengubah notifikasi",
+      };
+    }
+
+    if (!input.judul || input.judul.trim().length < 3) {
+      return { success: false, error: "Judul notifikasi minimal 3 karakter" };
+    }
+
+    if (!input.pesan || input.pesan.trim().length < 5) {
+      return { success: false, error: "Isi pesan notifikasi minimal 5 karakter" };
+    }
+
+    if (input.targetTipe === "USER_SPESIFIK" && !input.targetUserId) {
+      return { success: false, error: "Harap pilih pengguna/dosen penerima peringatan" };
+    }
+
+    if (input.targetTipe === "PRODI" && !input.targetProdiId) {
+      return { success: false, error: "Harap pilih Program Studi target pengumuman" };
+    }
+
+    const db = prisma as any;
+    if (!db.notification) {
+      return {
+        success: false,
+        error: "Database notifikasi sedang sinkronisasi. Silakan refresh halaman.",
+      };
+    }
+
+    const targetKelas = input.isPopupLogin
+      ? "POPUP_LOGIN"
+      : input.targetKelasKode
+      ? input.targetKelasKode.trim()
+      : null;
+
+    let kadaluarsaDate: Date | null = null;
+    if (input.kadaluarsaPada) {
+      if (typeof input.kadaluarsaPada === "string" && input.kadaluarsaPada.length === 10) {
+        kadaluarsaDate = new Date(`${input.kadaluarsaPada}T23:59:59.999+07:00`);
+      } else {
+        const parsed = new Date(input.kadaluarsaPada);
+        if (!isNaN(parsed.getTime())) {
+          kadaluarsaDate = parsed;
+        }
+      }
+    }
+
+    const updateData: any = {
+      tipe: input.tipe,
+      targetTipe: input.targetTipe,
+      targetProdiId: input.targetTipe === "PRODI" ? (input.targetProdiId || null) : null,
+      targetKelasKode: targetKelas,
+      judul: input.judul.trim(),
+      pesan: input.pesan.trim(),
+      urgensi: input.urgensi || "PENTING",
+      tautanUrl: input.tautanUrl && input.tautanUrl.trim() ? formatExternalUrl(input.tautanUrl.trim()) : null,
+      isSelesai: typeof input.isSelesai === "boolean" ? input.isSelesai : false,
+      kadaluarsaPada: kadaluarsaDate,
+    };
+
+    if (input.targetUserId) {
+      updateData.targetUser = { connect: { id: input.targetUserId } };
+    } else {
+      updateData.targetUser = { disconnect: true };
+    }
+
+    const updated = await db.notification.update({
+      where: { id },
+      data: updateData,
+    });
+
+    revalidatePath("/kelola-notifikasi");
+    return { success: true, data: updated };
+  } catch (error: any) {
+    console.error("Error updateNotification:", error);
+    return { success: false, error: error.message || "Gagal memperbarui notifikasi" };
   }
 }
 
@@ -355,23 +489,30 @@ export async function getNotificationManagementList(): Promise<{
       orderBy: { createdAt: "desc" },
     });
 
-    const data: ManagementNotificationItem[] = notifications.map((n: any) => ({
-      id: n.id,
-      tipe: n.tipe,
-      targetTipe: n.targetTipe,
-      targetUserId: n.targetUserId,
-      targetProdiId: n.targetProdiId,
-      targetKelasKode: n.targetKelasKode,
-      isPopupLogin: n.targetKelasKode === "POPUP_LOGIN",
-      judul: n.judul,
-      pesan: n.pesan,
-      urgensi: n.urgensi,
-      tautanUrl: n.tautanUrl,
-      createdAt: n.createdAt,
-      readCount: n._count?.pembaca ?? 0,
-      dibuatOleh: n.dibuatOleh,
-      targetUser: n.targetUser,
-    }));
+    const data: ManagementNotificationItem[] = notifications.map((n: any) => {
+      const isExpired = n.kadaluarsaPada && new Date(n.kadaluarsaPada).getTime() <= Date.now();
+      const isSelesai = Boolean(n.isSelesai || isExpired);
+
+      return {
+        id: n.id,
+        tipe: n.tipe,
+        targetTipe: n.targetTipe,
+        targetUserId: n.targetUserId,
+        targetProdiId: n.targetProdiId,
+        targetKelasKode: n.targetKelasKode,
+        isPopupLogin: n.targetKelasKode === "POPUP_LOGIN",
+        judul: n.judul,
+        pesan: n.pesan,
+        urgensi: n.urgensi,
+        tautanUrl: n.tautanUrl,
+        isSelesai,
+        kadaluarsaPada: n.kadaluarsaPada ? n.kadaluarsaPada.toISOString() : null,
+        createdAt: n.createdAt,
+        readCount: n._count?.pembaca ?? 0,
+        dibuatOleh: n.dibuatOleh,
+        targetUser: n.targetUser,
+      };
+    });
 
     return { success: true, data };
   } catch (error: any) {
@@ -405,6 +546,35 @@ export async function deleteNotification(notificationId: string) {
   } catch (error: any) {
     console.error("Error deleteNotification:", error);
     return { success: false, error: error.message || "Gagal menghapus notifikasi" };
+  }
+}
+
+/**
+ * Khusus Admin & Super Admin: Mengubah status Selesai / Aktif notifikasi
+ */
+export async function toggleNotificationStatus(notificationId: string, isSelesai: boolean) {
+  try {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return { success: false, error: "Akses ditolak" };
+    }
+
+    const db = prisma as any;
+    if (!db.notification) {
+      return { success: false, error: "Model notifikasi belum siap" };
+    }
+
+    const updated = await db.notification.update({
+      where: { id: notificationId },
+      data: { isSelesai },
+    });
+
+    revalidatePath("/kelola-notifikasi");
+    return { success: true, data: updated };
+  } catch (error: any) {
+    console.error("Error toggleNotificationStatus:", error);
+    return { success: false, error: error.message || "Gagal memperbarui status notifikasi" };
   }
 }
 
