@@ -53,6 +53,7 @@ import { calculateClassSummary } from "@/lib/score-calculator";
 import ImportEdlinkModal from "@/components/monitoring/ImportEdlinkModal";
 import GantiDosenModal, { DosenItemOption } from "@/components/monitoring/GantiDosenModal";
 import CekEdlinkButton, { SesiEdlinkTerbaru } from "@/components/monitoring/CekEdlinkButton";
+import BukaEdlinkButton from "@/components/monitoring/BukaEdlinkButton";
 import { ParsedSesiData } from "@/lib/excel-parser";
 import {
   getEstimatedSessionDate,
@@ -975,6 +976,14 @@ export default function MonitoringGridClient({
               edlinkSyncedAt={currentKelas.edlinkSyncedAt}
               disabled={hasUnsavedChanges || saving}
               onSelesai={handleCekEdlinkSelesai}
+            />
+          )}
+
+          {/* Buka halaman kelas di Edlink (tab baru) untuk pengecekan langsung */}
+          {currentKelas && (
+            <BukaEdlinkButton
+              kodeKelas={currentKelas.kodeKelas}
+              edlinkGroupId={currentKelas.edlinkGroupId}
             />
           )}
 
