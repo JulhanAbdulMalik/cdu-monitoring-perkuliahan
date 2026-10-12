@@ -1,5 +1,5 @@
 // src/components/monitoring/BukaEdlinkButton.tsx
-// Tombol "Buka di Edlink": membuka halaman kelas di Edlink (tab baru) untuk
+// Tombol "Buka di Edlink": membuka daftar sesi kelas di Edlink (/sections, tab baru) untuk
 // membandingkan langsung dengan data monitoring. Tidak menyimpan/mengubah apa pun.
 
 import { ExternalLink } from "lucide-react";
@@ -31,7 +31,7 @@ export default function BukaEdlinkButton({ kodeKelas, edlinkGroupId }: BukaEdlin
 
   return (
     <a
-      href={`${EDLINK_KELAS_URL}${edlinkGroupId}`}
+      href={`${EDLINK_KELAS_URL}${edlinkGroupId}/sections`}
       target="_blank"
       rel="noopener noreferrer"
       className={`${kelas} hover:bg-indigo-100 cursor-pointer active:scale-95`}
