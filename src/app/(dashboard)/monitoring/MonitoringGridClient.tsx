@@ -52,6 +52,7 @@ import {
 import { calculateClassSummary } from "@/lib/score-calculator";
 import ImportEdlinkModal from "@/components/monitoring/ImportEdlinkModal";
 import GantiDosenModal, { DosenItemOption } from "@/components/monitoring/GantiDosenModal";
+import CekEdlinkButton, { SesiEdlinkTerbaru } from "@/components/monitoring/CekEdlinkButton";
 import { ParsedSesiData } from "@/lib/excel-parser";
 import {
   getEstimatedSessionDate,
@@ -102,6 +103,8 @@ interface KelasDetailData {
   jadwalJam: string;
   ruangan?: string | null;
   modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
+  edlinkGroupId?: number | null;
+  edlinkSyncedAt?: Date | string | null;
   semester: {
     id: string;
     tahunAkademik: string;
@@ -329,6 +332,39 @@ export default function MonitoringGridClient({
       })
     );
     setHasUnsavedChanges(true);
+  }
+
+  // Handler setelah tombol "Cek Edlink" selesai: data sudah tersimpan di server oleh
+  // worker, jadi grid cukup diselaraskan (tanpa menandai ada perubahan belum disimpan).
+  function handleCekEdlinkSelesai(sesiTerbaru: SesiEdlinkTerbaru[]) {
+    setSesiList((prev) =>
+      prev.map((s) => {
+        const t = sesiTerbaru.find((x) => x.id === s.id);
+        if (!t) return s;
+        return {
+          ...s,
+          tanggal: t.tanggal ?? s.tanggal,
+          kehadiran: t.kehadiran as MonitoringSesiData["kehadiran"],
+          lectureNote: t.lectureNote,
+          slide: t.slide,
+          video: t.video,
+          conference: t.conference,
+          tugas: t.tugas,
+          kuis: t.kuis,
+        };
+      })
+    );
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cdu_monitoring_last_sync", Date.now().toString());
+        if (typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("cdu_monitoring_sync");
+          channel.postMessage({ type: "MONITORING_UPDATED", kelasId: currentKelas?.id });
+          channel.close();
+        }
+      }
+    } catch {}
+    router.refresh();
   }
 
   // Prompt warning if user tries to close/navigate away with unsaved changes
@@ -929,6 +965,18 @@ export default function MonitoringGridClient({
             <FileSpreadsheet size={13} />
             <span>Import Edlink</span>
           </button>
+
+          {/* Cek langsung dari Edlink (via worker edlink-sync) */}
+          {currentKelas && (
+            <CekEdlinkButton
+              kelasId={currentKelas.id}
+              kodeKelas={currentKelas.kodeKelas}
+              terpetakan={!!currentKelas.edlinkGroupId}
+              edlinkSyncedAt={currentKelas.edlinkSyncedAt}
+              disabled={hasUnsavedChanges || saving}
+              onSelesai={handleCekEdlinkSelesai}
+            />
+          )}
 
           {/* Manual Save Button & Status Indicator */}
           <button
