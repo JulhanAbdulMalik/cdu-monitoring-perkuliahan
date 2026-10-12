@@ -76,3 +76,24 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
 - Route `/api/integrasi/*` dikecualikan dari middleware login, tetapi **setiap** handler
   memanggil `checkIntegrasiAuth()` (perbandingan key konstan-waktu).
 - Disarankan membatasi akses jaringan (internal/Tailscale) di reverse proxy.
+
+## Tombol "Cek Edlink" (per kelas)
+
+Di halaman monitoring kelas (`/monitoring/{kelasId}`) ada tombol **Cek Edlink** (khusus
+SUPER_ADMIN/ADMIN) yang menarik data 16 sesi kelas tersebut langsung dari Edlink.
+
+Alur:
+
+1. Klik tombol → server action `mintaCekEdlink` membuat baris `EdlinkCekRequest` (PENDING).
+   Klik ganda dalam 3 menit memakai permintaan yang sama.
+2. Worker `edlink-sync` mengklaim antrian via `POST /api/integrasi/cek/ambil`
+   (atomik, `FOR UPDATE SKIP LOCKED`), mengambil sesi dari Edlink, lalu mengirim ke
+   `POST /api/integrasi/sesi` (mode merge: hanya menambah centang).
+3. Worker melapor ke `POST /api/integrasi/cek/{id}/selesai` (`SELESAI`/`GAGAL` + ringkasan).
+4. Tombol memantau status tiap 2,5 detik, lalu memperbarui grid dan menampilkan ringkasan
+   (contoh: "2 sesi diperbarui — S2: LN, Slide, Tugas, Kuis").
+
+Tombol dinonaktifkan bila kelas belum punya `edlinkGroupId` atau ada perubahan yang belum disimpan.
+Permintaan PROSES yang macet > 10 menit dikembalikan ke antrian; PENDING > 30 menit ditandai GAGAL.
+
+Skema baru: model `EdlinkCekRequest` + enum `StatusEdlinkCek` (terapkan dengan `npx prisma db push`).

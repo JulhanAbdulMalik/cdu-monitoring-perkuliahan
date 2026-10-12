@@ -1231,6 +1231,8 @@ export async function getMonitoringKelasDetail(kelasId: string) {
           jadwalJam: true,
           ruangan: true,
           modePembelajaran: true,
+          edlinkGroupId: true,
+          edlinkSyncedAt: true,
           updatedAt: true,
           semester: {
             select: {
