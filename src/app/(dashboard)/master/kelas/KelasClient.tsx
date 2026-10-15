@@ -6,14 +6,12 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import Link from "next/link";
 import {
   School,
   Plus,
   Edit2,
   Trash2,
   Search,
-  ArrowUpRight,
   Clock,
   Laptop,
   Building,
@@ -866,13 +864,6 @@ export default function KelasClient({
                       {/* Aksi */}
                       <td className="py-2.5 px-3 text-center">
                         <div className="inline-flex items-center justify-center gap-1.5">
-                          <Link
-                            href="/monitoring"
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all"
-                            title="Buka Lembar Monitoring"
-                          >
-                            <ArrowUpRight size={13} />
-                          </Link>
                           <button
                             onClick={() => openEditModal(k)}
                             className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
