@@ -3,6 +3,7 @@
 // UI Client untuk Pengelolaan Pengumuman & Peringatan Resmi CDU
 
 import { useState, useTransition, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -73,6 +74,11 @@ export default function NotificationManagerClient({
 }: NotificationManagerClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [notifications, setNotifications] = useState<ManagementNotificationItem[]>(initialNotifications);
 
@@ -726,7 +732,13 @@ export default function NotificationManagerClient({
 
                       {/* Judul & Isi Pesan */}
                       <td className="py-3 px-4 max-w-md">
-                        <p className="font-bold text-slate-900 leading-snug">{item.judul}</p>
+                        <p
+                          onClick={() => setSelectedDetailItem(item)}
+                          className="font-bold text-slate-900 leading-snug cursor-pointer hover:text-[#a80063] transition-colors"
+                          title="Klik untuk melihat detail notifikasi"
+                        >
+                          {item.judul}
+                        </p>
                         <p className="text-[11px] text-slate-600 mt-1 line-clamp-2 leading-relaxed">
                           {item.pesan}
                         </p>
@@ -909,8 +921,8 @@ export default function NotificationManagerClient({
       </div>
 
       {/* Modal Konfirmasi Hapus */}
-      {deleteTargetId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-2xs animate-fade-in">
+      {deleteTargetId && mounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
               <Trash2 size={24} />
@@ -940,16 +952,17 @@ export default function NotificationManagerClient({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Form Buat & Edit Notifikasi (Identik dengan Modal Lapor CDU) */}
-      {isModalOpen && (
+      {isModalOpen && mounted && createPortal(
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsModalOpen(false);
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
           <div className="w-full max-w-4xl bg-white rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
             {/* Header Modal & Navigasi */}
@@ -1173,7 +1186,8 @@ export default function NotificationManagerClient({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Detail Notifikasi Lengkap */}

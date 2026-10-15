@@ -3,6 +3,7 @@
 // Popup Pengumuman / Iklan Notifikasi saat Pengguna Login dengan opsi "Tidak ingin melihat lagi"
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Bell,
@@ -33,8 +34,10 @@ export default function LoginAnnouncementModal() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     let isMounted = true;
 
     async function checkAnnouncements() {
@@ -142,12 +145,14 @@ export default function LoginAnnouncementModal() {
     }
   };
 
-  return (
+  if (!isOpen || activeQueue.length === 0 || !mounted) return null;
+
+  return createPortal(
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget) handleDismiss();
       }}
-      className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 sm:p-6 animate-fade-in"
+      className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-6 animate-fade-in"
     >
       <div className="w-full max-w-2xl sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
         {/* Banner Header Pop-up Iklan/Pengumuman */}
@@ -286,6 +291,7 @@ export default function LoginAnnouncementModal() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

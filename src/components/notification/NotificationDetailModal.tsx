@@ -2,7 +2,8 @@
 // src/components/notification/NotificationDetailModal.tsx
 // Modal Detail Notifikasi Resmi CDU - Modern, Simple, dan Lebih Lebar
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Bell,
@@ -140,7 +141,13 @@ export default function NotificationDetailModal({
   onClose,
   notification,
 }: NotificationDetailModalProps) {
-  if (!isOpen || !notification) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !notification || !mounted) return null;
 
   const isBahaya = notification.urgensi === "BAHAYA";
   const isPeringatan = notification.urgensi === "PERINGATAN";
@@ -154,12 +161,12 @@ export default function NotificationDetailModal({
     minute: "2-digit",
   });
 
-  return (
+  return createPortal(
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 sm:p-6 animate-fade-in"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-6 animate-fade-in"
     >
       <div className="w-full max-w-2xl sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
         {/* Header Modal - Modern, Clean & Spacious */}
@@ -308,6 +315,7 @@ export default function NotificationDetailModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
