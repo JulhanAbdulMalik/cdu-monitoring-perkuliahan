@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         { nama: { contains: search.trim(), mode: "insensitive" } },
         { nidn: { contains: search.trim() } },
         { nuptk: { contains: search.trim() } },
+        { email: { contains: search.trim(), mode: "insensitive" } },
       ];
     }
 
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
     };
 
     // ── 1. TITLE HEADER (Row 1) ─────────────────────────────────────────────
-    worksheet.mergeCells("A1:F1");
+    worksheet.mergeCells("A1:G1");
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Rockwell", size: 14, bold: true, color: { argb: BRAND_MAGENTA } };
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(1).height = 26;
 
     // ── 2. SUBTITLE (Row 2) ─────────────────────────────────────────────────
-    worksheet.mergeCells("A2:F2");
+    worksheet.mergeCells("A2:G2");
     const subtitleCell = worksheet.getCell("A2");
     subtitleCell.value =
       selectedProdiKode === "SEMUA"
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(2).height = 20;
 
     // ── 3. DATE & FILTER INFO (Row 3) ───────────────────────────────────────
-    worksheet.mergeCells("A3:F3");
+    worksheet.mergeCells("A3:G3");
     const todayStr = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
@@ -127,10 +128,10 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(3).height = 18;
 
     // ── 4. PETUNJUK BAR (Row 4) ─────────────────────────────────────────────
-    worksheet.mergeCells("A4:F4");
+    worksheet.mergeCells("A4:G4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
-      "PETUNJUK: Kolom 'Nama Lengkap & Gelar', 'NIDN', 'NUPTK', dan 'Kode Prodi' dapat diedit dan diunggah kembali melalui fitur Import Excel Dosen.";
+      "PETUNJUK: Kolom 'Nama Lengkap & Gelar', 'NIDN', 'NUPTK', 'Email', dan 'Kode Prodi' dapat diedit dan diunggah kembali melalui fitur Import Excel Dosen.";
     legendCell.font = { name: "Rockwell", size: 8.5, color: { argb: "FF475569" } };
     legendCell.alignment = { horizontal: "center", vertical: "middle" };
     legendCell.fill = {
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
       "Nama Lengkap & Gelar",
       "NIDN",
       "NUPTK",
+      "Email",
       "Kode Prodi",
       "Homebase Program Studi",
     ];
@@ -181,6 +183,7 @@ export async function GET(request: NextRequest) {
         d.nama,
         d.nidn || "",
         d.nuptk || "",
+        d.email || "",
         d.prodi.kode,
         d.prodi.nama,
       ];
@@ -220,11 +223,15 @@ export async function GET(request: NextRequest) {
           cell.numFmt = "@";
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
         } else if (colNumber === 5) {
+          // Email
+          cell.alignment = { horizontal: "left", vertical: "middle" };
+          cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
+        } else if (colNumber === 6) {
           // Kode Prodi (Bold Magenta Brand)
           cell.alignment = { horizontal: "center", vertical: "middle" };
           cell.numFmt = "@";
           cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: BRAND_MAGENTA } };
-        } else if (colNumber === 6) {
+        } else if (colNumber === 7) {
           // Homebase Program Studi
           cell.alignment = { horizontal: "left", vertical: "middle" };
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
@@ -235,11 +242,12 @@ export async function GET(request: NextRequest) {
     // ── 7. COLUMN WIDTHS ────────────────────────────────────────────────────
     worksheet.columns = [
       { width: 6 },  // A: No
-      { width: 46 }, // B: Nama Lengkap & Gelar
+      { width: 40 }, // B: Nama Lengkap & Gelar
       { width: 18 }, // C: NIDN
       { width: 20 }, // D: NUPTK
-      { width: 14 }, // E: Kode Prodi
-      { width: 36 }, // F: Homebase Program Studi
+      { width: 28 }, // E: Email
+      { width: 14 }, // F: Kode Prodi
+      { width: 34 }, // G: Homebase Program Studi
     ];
 
     // Buat Buffer & Kirim Response

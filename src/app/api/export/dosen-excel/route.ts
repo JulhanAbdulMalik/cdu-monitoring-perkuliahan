@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const semesterId = searchParams.get("semesterId") || undefined;
     const prodiId = searchParams.get("prodiId") || undefined;
+    const searchQuery = searchParams.get("search")?.trim() || "";
+    const statusFilter = searchParams.get("status") || "ALL";
+    const sortBy = searchParams.get("sortBy") || "DOSEN_ASC";
 
     let targetProdiId = prodiId;
     let allowedProdiIds: string[] | undefined = undefined;
@@ -51,6 +54,91 @@ export async function GET(request: NextRequest) {
         ? prodiList.find((p) => p.id === targetProdiId)
         : undefined;
 
+    // Filter dosen list matching active search & status filters
+    const filteredList = dosenReportList.filter((d) => {
+      const matchSearch =
+        !searchQuery ||
+        d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (d.nidn && d.nidn.includes(searchQuery));
+      const matchStatus = statusFilter === "ALL" || d.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+
+    // Sort filtered list matching active sorting
+    filteredList.sort((a, b) => {
+      switch (sortBy) {
+        case "DOSEN_ASC":
+          return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+        case "DOSEN_DESC":
+          return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+        case "PRODI_ASC": {
+          const pDiff = a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
+          if (pDiff !== 0) return pDiff;
+          return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+        }
+        case "PRODI_DESC": {
+          const pDiff = b.prodi.nama.localeCompare(a.prodi.nama, "id", { sensitivity: "base" });
+          if (pDiff !== 0) return pDiff;
+          return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+        }
+        case "KELAS_DESC":
+          return b.totalKelas - a.totalKelas;
+        case "KELAS_ASC":
+          return a.totalKelas - b.totalKelas;
+        case "SKS_DESC": {
+          const aSks = a.totalSks ?? a.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+          const bSks = b.totalSks ?? b.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+          return bSks - aSks;
+        }
+        case "SKS_ASC": {
+          const aSks = a.totalSks ?? a.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+          const bSks = b.totalSks ?? b.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+          return aSks - bSks;
+        }
+        case "KEHADIRAN_DESC":
+          return b.avgKehadiran - a.avgKehadiran;
+        case "KEHADIRAN_ASC":
+          return a.avgKehadiran - b.avgKehadiran;
+        case "KONTEN_DESC": {
+          const aK = a.avgKonten ?? -1;
+          const bK = b.avgKonten ?? -1;
+          return bK - aK;
+        }
+        case "KONTEN_ASC": {
+          const aK = a.avgKonten ?? -1;
+          const bK = b.avgKonten ?? -1;
+          return aK - bK;
+        }
+        case "STATUS_ASC": {
+          const rank: Record<string, number> = {
+            PERLU_PEMBINAAN: 1,
+            BAIK: 2,
+            SANGAT_BAIK: 3,
+          };
+          return (rank[a.status] || 0) - (rank[b.status] || 0);
+        }
+        case "STATUS_DESC": {
+          const rank: Record<string, number> = {
+            PERLU_PEMBINAAN: 1,
+            BAIK: 2,
+            SANGAT_BAIK: 3,
+          };
+          return (rank[b.status] || 0) - (rank[a.status] || 0);
+        }
+        default:
+          return 0;
+      }
+    });
+
+    const filterInfoParts: string[] = [];
+    if (selectedProdiObj) filterInfoParts.push(`Prodi: ${selectedProdiObj.nama}`);
+    if (statusFilter !== "ALL") {
+      filterInfoParts.push(`Kinerja: ${statusFilter === "SANGAT_BAIK" ? "Sangat Baik" : "Perlu Perbaikan"}`);
+    }
+    if (searchQuery) {
+      filterInfoParts.push(`Pencarian: "${searchQuery}"`);
+    }
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "CDU Nusa Putra University";
     workbook.created = new Date();
@@ -63,14 +151,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Title Header
-    worksheet.mergeCells("A1:K1");
+    worksheet.mergeCells("A1:L1");
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Rockwell", size: 13, bold: true, color: { argb: "FFA80063" } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(1).height = 25;
 
-    worksheet.mergeCells("A2:K2");
+    worksheet.mergeCells("A2:L2");
     const subtitleCell = worksheet.getCell("A2");
     subtitleCell.value = `LAPORAN EVALUASI KINERJA DOSEN${
       selectedProdiObj ? ` - PRODI ${selectedProdiObj.nama.toUpperCase()}` : ""
@@ -81,19 +169,21 @@ export async function GET(request: NextRequest) {
     subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(2).height = 20;
 
-    worksheet.mergeCells("A3:K3");
+    worksheet.mergeCells("A3:L3");
     const dateCell = worksheet.getCell("A3");
     dateCell.value = `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
       year: "numeric",
-    })} | Total Dosen: ${dosenReportList.length}`;
+    })} | Total Dosen: ${filteredList.length}${
+      filterInfoParts.length > 0 ? ` | Filter: ${filterInfoParts.join(" • ")}` : ""
+    }`;
     dateCell.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     dateCell.alignment = { horizontal: "center", vertical: "middle" };
     worksheet.getRow(3).height = 18;
 
     // Legenda Bar (Row 4)
-    worksheet.mergeCells("A4:K4");
+    worksheet.mergeCells("A4:L4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
       "STANDAR KINERJA CDU: Sangat Baik (≥90% Kehadiran & Konten)  •  Baik (75%–89%)  •  Perlu Perbaikan (<75% Kehadiran atau <60% Konten atau ≥4 Alpha)  |  *Kelas Bimbingan Bebas Kewajiban Konten 3 Pilar";
@@ -121,6 +211,7 @@ export async function GET(request: NextRequest) {
       "Nama Dosen",
       "Program Studi",
       "Total Kelas",
+      "Total SKS",
       "Beban Sesi",
       "Total Hadir",
       "Total Alpha",
@@ -149,7 +240,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Data Rows
-    dosenReportList.forEach((d, idx) => {
+    filteredList.forEach((d, idx) => {
       const isBebas = d.avgKonten === null;
       const statusLabel =
         d.status === "SANGAT_BAIK"
@@ -162,6 +253,7 @@ export async function GET(request: NextRequest) {
         d.nama,
         `${d.prodi.kode} - ${d.prodi.nama}`,
         d.totalKelas,
+        d.totalSks ?? d.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0),
         d.totalSesiBebanSemua,
         d.totalHadirSemua,
         d.totalAlphaSemua,
@@ -183,19 +275,19 @@ export async function GET(request: NextRequest) {
         };
 
         // Alignments
-        if (colNumber === 1 || colNumber === 2 || (colNumber >= 5 && colNumber <= 11)) {
+        if (colNumber === 1 || colNumber === 2 || (colNumber >= 5 && colNumber <= 12)) {
           cell.alignment = { horizontal: "center", vertical: "middle" };
         } else {
           cell.alignment = { horizontal: "left", vertical: "middle" };
         }
 
-        // Rata-rata Kehadiran (Col 9)
-        if (colNumber === 9) {
+        // Rata-rata Kehadiran (Col 10)
+        if (colNumber === 10) {
           cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: "FF047857" } };
         }
 
-        // Rata-rata Konten (Col 10)
-        if (colNumber === 10) {
+        // Rata-rata Konten (Col 11)
+        if (colNumber === 11) {
           if (isBebas) {
             cell.fill = {
               type: "pattern",
@@ -208,8 +300,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Status Evaluasi (Col 11)
-        if (colNumber === 11) {
+        // Status Evaluasi (Col 12)
+        if (colNumber === 12) {
           if (d.status === "SANGAT_BAIK") {
             cell.fill = {
               type: "pattern",
@@ -235,12 +327,13 @@ export async function GET(request: NextRequest) {
     worksheet.getColumn(3).width = 30; // Nama Dosen
     worksheet.getColumn(4).width = 24; // Program Studi
     worksheet.getColumn(5).width = 12; // Total Kelas
-    worksheet.getColumn(6).width = 12; // Beban Sesi
-    worksheet.getColumn(7).width = 12; // Hadir
-    worksheet.getColumn(8).width = 12; // Alpha
-    worksheet.getColumn(9).width = 20; // Rata Kehadiran
-    worksheet.getColumn(10).width = 18; // Rata Konten
-    worksheet.getColumn(11).width = 18; // Status Evaluasi
+    worksheet.getColumn(6).width = 12; // Total SKS
+    worksheet.getColumn(7).width = 12; // Beban Sesi
+    worksheet.getColumn(8).width = 12; // Hadir
+    worksheet.getColumn(9).width = 12; // Alpha
+    worksheet.getColumn(10).width = 20; // Rata Kehadiran
+    worksheet.getColumn(11).width = 18; // Rata Konten
+    worksheet.getColumn(12).width = 18; // Status Evaluasi
 
     // ═════════════════════════════════════════════════════════════════════════
     // SHEET 2: RINCIAN KELAS PER DOSEN
@@ -273,7 +366,9 @@ export async function GET(request: NextRequest) {
       day: "numeric",
       month: "long",
       year: "numeric",
-    })}`;
+    })} | Total Dosen: ${filteredList.length}${
+      filterInfoParts.length > 0 ? ` | Filter: ${filterInfoParts.join(" • ")}` : ""
+    }`;
     detailDate.font = { name: "Rockwell", size: 9, italic: true, color: { argb: "FF64748B" } };
     detailDate.alignment = { horizontal: "center", vertical: "middle" };
     detailSheet.getRow(3).height = 18;
@@ -316,7 +411,7 @@ export async function GET(request: NextRequest) {
     });
 
     let detailCounter = 1;
-    dosenReportList.forEach((d) => {
+    filteredList.forEach((d) => {
       d.kelasList.forEach((cls) => {
         const isBimbingan = cls.modePembelajaran === "BIMBINGAN";
         const modeLabel = isBimbingan ? "Bimbingan" : cls.modePembelajaran === "LURING" ? "Offline" : "Online";

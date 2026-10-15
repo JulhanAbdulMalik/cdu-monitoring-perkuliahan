@@ -43,7 +43,8 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
     rawRows.forEach((row, idx) => {
       const nama = String(row["Nama Lengkap & Gelar"] || row["Nama"] || row["nama"] || "").trim();
       const nidn = String(row["NIDN"] || row["nidn"] || "").trim();
-      const nuptk = String(row["NUPTK"] || row["nuptk"] || row["Email"] || row["email"] || "").trim();
+      const nuptk = String(row["NUPTK"] || row["nuptk"] || "").trim();
+      const email = String(row["Email"] || row["email"] || "").trim();
       const kodeProdi = String(row["Kode Prodi"] || row["Prodi"] || row["prodi"] || "").trim().toUpperCase();
 
       const errors: string[] = [];
@@ -65,6 +66,7 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
           nama,
           nidn: nidn || null,
           nuptk: nuptk || null,
+          email: email || null,
           kodeProdi,
           prodiId: matchedProdi?.id || null,
           prodiNama: matchedProdi?.nama || "-",
@@ -97,6 +99,7 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
       const cleanNama = String(r.nama).trim();
       const cleanNidn = r.nidn ? String(r.nidn).trim() : null;
       const cleanNuptk = r.nuptk ? String(r.nuptk).trim() : null;
+      const cleanEmail = r.email ? String(r.email).trim() : null;
 
       // 1. Cari dosen yang sudah ada (Anti-Duplikasi):
       //    a. Berdasarkan NIDN (jika NIDN diisi)
@@ -130,13 +133,14 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
       }
 
       if (existingDosen) {
-        // UPDATE Dosen yang sudah ada (sinkronisasi homebase prodi, NIDN, NUPTK)
+        // UPDATE Dosen yang sudah ada (sinkronisasi homebase prodi, NIDN, NUPTK, Email)
         await prisma.dosen.update({
           where: { id: existingDosen.id },
           data: {
             nama: cleanNama,
             nidn: cleanNidn || existingDosen.nidn,
             nuptk: cleanNuptk || existingDosen.nuptk,
+            email: cleanEmail || existingDosen.email,
             prodiId: r.prodiId || existingDosen.prodiId,
           },
         });
@@ -147,6 +151,7 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
             nama: cleanNama,
             nidn: cleanNidn,
             nuptk: cleanNuptk,
+            email: cleanEmail,
             prodiId: r.prodiId,
           },
         });

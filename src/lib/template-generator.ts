@@ -8,13 +8,13 @@ export function generateTemplate(type: "dosen" | "mata-kuliah" | "kelas" | "prod
 
   if (type === "dosen") {
     const data = [
-      ["Nama Lengkap & Gelar", "NIDN", "NUPTK", "Kode Prodi"],
-      ["Dr. Fajar Nugraha, S.T., M.Kom.", "0412345601", "1234567890123456", "55202"],
-      ["Siti Rahmawati, M.M.", "0412345602", "1234567890123457", "61201"],
-      ["Budi Santoso, S.Kom., M.T.", "0412345603", "1234567890123458", "59201"],
+      ["Nama Lengkap & Gelar", "NIDN", "NUPTK", "Email", "Kode Prodi"],
+      ["Dr. Fajar Nugraha, S.T., M.Kom.", "0412345601", "1234567890123456", "fajar@cdu.ac.id", "55202"],
+      ["Siti Rahmawati, M.M.", "0412345602", "1234567890123457", "siti@cdu.ac.id", "61201"],
+      ["Budi Santoso, S.Kom., M.T.", "0412345603", "1234567890123458", "budi@cdu.ac.id", "59201"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [{ wch: 32 }, { wch: 15 }, { wch: 20 }, { wch: 12 }];
+    ws["!cols"] = [{ wch: 32 }, { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, "Template_Dosen");
   } else if (type === "mata-kuliah") {
     const data = [

@@ -13,6 +13,7 @@ import {
   Download,
   School,
   IdCard,
+  Mail,
   Loader2,
   X,
   FileSpreadsheet,
@@ -32,6 +33,7 @@ interface DosenItem {
   nama: string;
   nidn: string | null;
   nuptk: string | null;
+  email?: string | null;
   prodiId: string;
   prodi: {
     id: string;
@@ -85,6 +87,7 @@ export default function DosenClient({
   const [nama, setNama] = useState("");
   const [nidn, setNidn] = useState("");
   const [nuptk, setNuptk] = useState("");
+  const [email, setEmail] = useState("");
   const [prodiId, setProdiId] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -95,6 +98,7 @@ export default function DosenClient({
     setNama("");
     setNidn("");
     setNuptk("");
+    setEmail("");
     setProdiId(prodiList[0]?.id || "");
     setIsModalOpen(true);
   }
@@ -104,6 +108,7 @@ export default function DosenClient({
     setNama(dosen.nama);
     setNidn(dosen.nidn || "");
     setNuptk(dosen.nuptk || "");
+    setEmail(dosen.email || "");
     setProdiId(dosen.prodiId);
     setIsModalOpen(true);
   }
@@ -130,6 +135,7 @@ export default function DosenClient({
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
           nuptk: nuptk.trim() ? nuptk.trim() : undefined,
+          email: email.trim() ? email.trim() : undefined,
           prodiId,
         });
 
@@ -147,6 +153,7 @@ export default function DosenClient({
                     nama,
                     nidn: nidn.trim() || null,
                     nuptk: nuptk.trim() || null,
+                    email: email.trim() || null,
                     prodiId,
                     prodi: targetProdi ? { id: targetProdi.id, nama: targetProdi.nama, kode: targetProdi.kode } : d.prodi,
                   }
@@ -159,6 +166,7 @@ export default function DosenClient({
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
           nuptk: nuptk.trim() ? nuptk.trim() : undefined,
+          email: email.trim() ? email.trim() : undefined,
           prodiId,
         });
 
@@ -170,6 +178,7 @@ export default function DosenClient({
           const targetProdi = prodiList.find((p) => p.id === prodiId);
           const newDosenItem: DosenItem = {
             ...res.data!,
+            email: email.trim() || null,
             prodi: targetProdi ? { id: targetProdi.id, nama: targetProdi.nama, kode: targetProdi.kode } : (res.data as any).prodi,
             _count: { kelas: 0 },
           };
@@ -234,13 +243,14 @@ export default function DosenClient({
     const matchSearch =
       d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.nidn && d.nidn.includes(searchQuery)) ||
-      (d.nuptk && d.nuptk.includes(searchQuery));
+      (d.nuptk && d.nuptk.includes(searchQuery)) ||
+      (d.email && d.email.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchProdi = filterProdi === "ALL" || d.prodiId === filterProdi;
     return matchSearch && matchProdi;
   });
 
   // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
-  type DosenSortColumn = "NAMA" | "NIDN" | "NUPTK" | "PRODI" | "KELAS";
+  type DosenSortColumn = "NAMA" | "NIDN" | "NUPTK" | "EMAIL" | "PRODI" | "KELAS";
   type DosenSortKey =
     | "NAMA_ASC"
     | "NAMA_DESC"
@@ -248,6 +258,8 @@ export default function DosenClient({
     | "NIDN_DESC"
     | "NUPTK_ASC"
     | "NUPTK_DESC"
+    | "EMAIL_ASC"
+    | "EMAIL_DESC"
     | "PRODI_ASC"
     | "PRODI_DESC"
     | "KELAS_DESC"
@@ -269,6 +281,10 @@ export default function DosenClient({
         return (a.nuptk || "").localeCompare(b.nuptk || "", "id");
       case "NUPTK_DESC":
         return (b.nuptk || "").localeCompare(a.nuptk || "", "id");
+      case "EMAIL_ASC":
+        return (a.email || "").localeCompare(b.email || "", "id");
+      case "EMAIL_DESC":
+        return (b.email || "").localeCompare(a.email || "", "id");
       case "PRODI_ASC":
         return a.prodi.nama.localeCompare(b.prodi.nama, "id", { sensitivity: "base" });
       case "PRODI_DESC":
@@ -305,6 +321,9 @@ export default function DosenClient({
       case "NUPTK":
         setSortBy(sortBy === "NUPTK_ASC" ? "NUPTK_DESC" : "NUPTK_ASC");
         break;
+      case "EMAIL":
+        setSortBy(sortBy === "EMAIL_ASC" ? "EMAIL_DESC" : "EMAIL_ASC");
+        break;
       case "PRODI":
         setSortBy(sortBy === "PRODI_ASC" ? "PRODI_DESC" : "PRODI_ASC");
         break;
@@ -324,6 +343,7 @@ export default function DosenClient({
       (columnKey === "NAMA" && (sortBy === "NAMA_ASC" || sortBy === "NAMA_DESC")) ||
       (columnKey === "NIDN" && (sortBy === "NIDN_ASC" || sortBy === "NIDN_DESC")) ||
       (columnKey === "NUPTK" && (sortBy === "NUPTK_ASC" || sortBy === "NUPTK_DESC")) ||
+      (columnKey === "EMAIL" && (sortBy === "EMAIL_ASC" || sortBy === "EMAIL_DESC")) ||
       (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
       (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC"));
 
@@ -331,6 +351,7 @@ export default function DosenClient({
       sortBy === "NAMA_ASC" ||
       sortBy === "NIDN_ASC" ||
       sortBy === "NUPTK_ASC" ||
+      sortBy === "EMAIL_ASC" ||
       sortBy === "PRODI_ASC" ||
       sortBy === "KELAS_ASC";
 
@@ -437,7 +458,7 @@ export default function DosenClient({
               />
               <input
                 type="text"
-                placeholder="Cari nama, NIDN, atau NUPTK..."
+                placeholder="Cari nama, NIDN, NUPTK, email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full pl-7 pr-7 py-1 text-xs rounded-lg border outline-none transition-all ${
@@ -506,18 +527,19 @@ export default function DosenClient({
             <thead>
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
-                {renderSortHeader("Nama Dosen", "NAMA", "left", "min-w-[200px]")}
-                {renderSortHeader("NIDN", "NIDN", "left", "w-36 min-w-[120px]")}
-                {renderSortHeader("NUPTK", "NUPTK", "left", "w-36 min-w-[120px]")}
-                {renderSortHeader("Homebase Prodi", "PRODI", "left", "min-w-[180px]")}
-                {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-36")}
+                {renderSortHeader("Nama Dosen", "NAMA", "left", "min-w-[190px]")}
+                {renderSortHeader("NIDN", "NIDN", "left", "w-32 min-w-[110px]")}
+                {renderSortHeader("NUPTK", "NUPTK", "left", "w-32 min-w-[110px]")}
+                {renderSortHeader("Email", "EMAIL", "left", "w-44 min-w-[150px]")}
+                {renderSortHeader("Homebase Prodi", "PRODI", "left", "min-w-[170px]")}
+                {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-32")}
                 <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedDosen.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-xs text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
                     Tidak ada data dosen yang sesuai dengan kriteria pencarian.
                   </td>
                 </tr>
@@ -567,6 +589,22 @@ export default function DosenClient({
                             <IdCard size={11} className="text-slate-400" />
                             <span>{d.nuptk}</span>
                           </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">-</span>
+                        )}
+                      </td>
+
+                      {/* Email */}
+                      <td className="py-2.5 px-3">
+                        {d.email ? (
+                          <a
+                            href={`mailto:${d.email}`}
+                            className="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#a80063] transition-colors text-[11px] font-medium"
+                            title={`Kirim email ke ${d.email}`}
+                          >
+                            <Mail size={12} className="text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[200px]">{d.email}</span>
+                          </a>
                         ) : (
                           <span className="text-slate-400 text-[11px]">-</span>
                         )}
@@ -687,6 +725,19 @@ export default function DosenClient({
                   value={nuptk}
                   onChange={(e) => setNuptk(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Email Dosen
+                </label>
+                <input
+                  type="email"
+                  placeholder="Contoh: dosen@nusaputra.ac.id (opsional)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none"
                 />
               </div>
 

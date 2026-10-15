@@ -52,6 +52,7 @@ interface DosenReportItem {
     statusEvaluasi: string;
   }>;
   totalKelas: number;
+  totalSks?: number;
   avgKehadiran: number;
   avgKonten: number | null;
   status: "SANGAT_BAIK" | "PERLU_PEMBINAAN";
@@ -86,6 +87,8 @@ export type DosenSortKey =
   | "PRODI_DESC"
   | "KELAS_DESC"
   | "KELAS_ASC"
+  | "SKS_DESC"
+  | "SKS_ASC"
   | "KEHADIRAN_DESC"
   | "KEHADIRAN_ASC"
   | "KONTEN_DESC"
@@ -97,6 +100,7 @@ export type DosenSortColumn =
   | "DOSEN"
   | "PRODI"
   | "KELAS"
+  | "SKS"
   | "KEHADIRAN"
   | "KONTEN"
   | "STATUS";
@@ -156,6 +160,16 @@ export default function LaporanDosenClient({
         return b.totalKelas - a.totalKelas;
       case "KELAS_ASC":
         return a.totalKelas - b.totalKelas;
+      case "SKS_DESC": {
+        const aSks = a.totalSks ?? a.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+        const bSks = b.totalSks ?? b.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+        return bSks - aSks;
+      }
+      case "SKS_ASC": {
+        const aSks = a.totalSks ?? a.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+        const bSks = b.totalSks ?? b.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
+        return aSks - bSks;
+      }
       case "KEHADIRAN_DESC":
         return b.avgKehadiran - a.avgKehadiran;
       case "KEHADIRAN_ASC":
@@ -208,6 +222,9 @@ export default function LaporanDosenClient({
       case "KELAS":
         setSortBy(sortBy === "KELAS_DESC" ? "KELAS_ASC" : "KELAS_DESC");
         break;
+      case "SKS":
+        setSortBy(sortBy === "SKS_DESC" ? "SKS_ASC" : "SKS_DESC");
+        break;
       case "KEHADIRAN":
         setSortBy(sortBy === "KEHADIRAN_DESC" ? "KEHADIRAN_ASC" : "KEHADIRAN_DESC");
         break;
@@ -231,6 +248,7 @@ export default function LaporanDosenClient({
       (columnKey === "DOSEN" && (sortBy === "DOSEN_ASC" || sortBy === "DOSEN_DESC")) ||
       (columnKey === "PRODI" && (sortBy === "PRODI_ASC" || sortBy === "PRODI_DESC")) ||
       (columnKey === "KELAS" && (sortBy === "KELAS_DESC" || sortBy === "KELAS_ASC")) ||
+      (columnKey === "SKS" && (sortBy === "SKS_DESC" || sortBy === "SKS_ASC")) ||
       (columnKey === "KEHADIRAN" && (sortBy === "KEHADIRAN_DESC" || sortBy === "KEHADIRAN_ASC")) ||
       (columnKey === "KONTEN" && (sortBy === "KONTEN_DESC" || sortBy === "KONTEN_ASC")) ||
       (columnKey === "STATUS" && (sortBy === "STATUS_ASC" || sortBy === "STATUS_DESC"));
@@ -239,6 +257,7 @@ export default function LaporanDosenClient({
       sortBy === "DOSEN_ASC" ||
       sortBy === "PRODI_ASC" ||
       sortBy === "KELAS_ASC" ||
+      sortBy === "SKS_ASC" ||
       sortBy === "KEHADIRAN_ASC" ||
       sortBy === "KONTEN_ASC" ||
       sortBy === "STATUS_ASC";
@@ -271,6 +290,22 @@ export default function LaporanDosenClient({
     );
   }
 
+  // Construct dynamic export URL with all active filters
+  const exportParams = new URLSearchParams({
+    semesterId: selectedSemester,
+    prodiId: filterProdi,
+  });
+  if (searchQuery.trim()) {
+    exportParams.set("search", searchQuery.trim());
+  }
+  if (filterStatus !== "ALL") {
+    exportParams.set("status", filterStatus);
+  }
+  if (sortBy) {
+    exportParams.set("sortBy", sortBy);
+  }
+  const exportUrl = `/api/export/dosen-excel?${exportParams.toString()}`;
+
   return (
     <div className="space-y-4">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -287,7 +322,7 @@ export default function LaporanDosenClient({
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Link
-            href={`/api/export/dosen-excel?semesterId=${selectedSemester}&prodiId=${filterProdi}`}
+            href={exportUrl}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer shadow-sm"
             target="_blank"
             download
@@ -413,7 +448,8 @@ export default function LaporanDosenClient({
                 <th className="py-2.5 px-2.5 text-center w-10 text-slate-700 font-bold">No</th>
                 {renderSortHeader("Nama Dosen", "DOSEN", "left", "min-w-[220px]")}
                 {renderSortHeader("Program Studi", "PRODI", "left", "min-w-[150px]")}
-                {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-32")}
+                {renderSortHeader("Kelas Diampu", "KELAS", "center", "w-28")}
+                {renderSortHeader("Total SKS", "SKS", "center", "w-24")}
                 {renderSortHeader("Rata-rata Kehadiran", "KEHADIRAN", "center", "min-w-[140px]")}
                 {renderSortHeader("Rata-rata Konten", "KONTEN", "center", "min-w-[140px]")}
                 {renderSortHeader("Status Evaluasi", "STATUS", "center", "min-w-[130px]")}
@@ -423,7 +459,7 @@ export default function LaporanDosenClient({
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedDosen.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400">
                     Tidak ada data dosen yang sesuai dengan kriteria filter.
                   </td>
                 </tr>
@@ -474,6 +510,13 @@ export default function LaporanDosenClient({
                         <td className="py-3 px-2.5 text-center">
                           <span className="font-semibold text-slate-800 text-xs">
                             {d.totalKelas} Kelas
+                          </span>
+                        </td>
+
+                        {/* Total SKS */}
+                        <td className="py-3 px-2.5 text-center">
+                          <span className="font-semibold text-slate-800 text-xs">
+                            {d.totalSks ?? d.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0)} SKS
                           </span>
                         </td>
 
@@ -550,7 +593,7 @@ export default function LaporanDosenClient({
                       {/* Expanded Sub-table for Classes of this Lecturer */}
                       {isExpanded && (
                         <tr className="bg-slate-50/90 animate-fade-in border-b border-slate-200/80">
-                          <td colSpan={8} className="p-3 sm:p-4">
+                          <td colSpan={9} className="p-3 sm:p-4">
                             <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
                               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                                 Rincian Kelas yang Diampu ({d.kelasList.length} Kelas):

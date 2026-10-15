@@ -10,6 +10,7 @@ const dosenSchema = z.object({
   nama: z.string().min(1, "Nama dosen wajib diisi"),
   nidn: z.string().optional().nullable(),
   nuptk: z.string().optional().nullable().or(z.literal("")),
+  email: z.string().optional().nullable().or(z.literal("")),
   prodiId: z.string().min(1, "Program studi wajib dipilih"),
 });
 
@@ -42,6 +43,7 @@ export async function createDosen(formData: {
   nama: string;
   nidn?: string;
   nuptk?: string;
+  email?: string;
   prodiId: string;
 }) {
   try {
@@ -57,12 +59,14 @@ export async function createDosen(formData: {
     }
 
     const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
+    const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
 
     const data = await prisma.dosen.create({
       data: {
         nama: parsed.nama.trim(),
         nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
         nuptk: cleanNuptk,
+        email: cleanEmail,
         prodiId: parsed.prodiId,
       },
       include: {
@@ -87,6 +91,7 @@ export async function updateDosen(
     nama: string;
     nidn?: string;
     nuptk?: string;
+    email?: string;
     prodiId: string;
   }
 ) {
@@ -103,6 +108,7 @@ export async function updateDosen(
     }
 
     const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
+    const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
 
     const data = await prisma.dosen.update({
       where: { id },
@@ -110,6 +116,7 @@ export async function updateDosen(
         nama: parsed.nama.trim(),
         nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
         nuptk: cleanNuptk,
+        email: cleanEmail,
         prodiId: parsed.prodiId,
       },
       include: {

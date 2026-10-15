@@ -445,6 +445,7 @@ export interface DosenReportItem {
     statusEvaluasi: string;
   }>;
   totalKelas: number;
+  totalSks: number;
   totalSesiBebanSemua: number;
   totalHadirSemua: number;
   totalAlphaSemua: number;
@@ -522,6 +523,7 @@ export async function getLaporanDosen(
           statusEvaluasi: string;
         }>;
         totalKelas: number;
+        totalSks: number;
         totalSesiBebanSemua: number;
         totalHadirSemua: number;
         totalAlphaSemua: number;
@@ -670,6 +672,7 @@ export async function getLaporanDosen(
             prodi: data.dosenObj.prodi,
             kelasList: [],
             totalKelas: 0,
+            totalSks: 0,
             totalSesiBebanSemua: 0,
             totalHadirSemua: 0,
             totalAlphaSemua: 0,
@@ -700,6 +703,7 @@ export async function getLaporanDosen(
         });
 
         entry.totalKelas = entry.kelasList.length;
+        entry.totalSks = entry.kelasList.reduce((sum, c) => sum + (c.mataKuliah?.sks || 0), 0);
         entry.totalSesiBebanSemua += totalSesiBeban;
         entry.totalHadirSemua += hadirCount;
         entry.totalAlphaSemua += alphaCount;
@@ -738,6 +742,7 @@ export async function getLaporanDosen(
 
       return {
         ...d,
+        totalSks: d.totalSks,
         avgKehadiran,
         avgKonten,
         status,

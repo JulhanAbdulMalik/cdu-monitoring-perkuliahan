@@ -481,7 +481,7 @@ export default function MataKuliahClient({
                 {renderSortHeader("Bobot SKS", "SKS", "center", "w-28")}
                 {renderSortHeader("Program Studi", "PRODI", "left", "w-52")}
                 {renderSortHeader("Total Kelas Terbuka", "KELAS", "center", "w-40")}
-                <th className="py-2.5 px-3 text-right font-bold w-20">Aksi</th>
+                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -540,8 +540,8 @@ export default function MataKuliahClient({
                     </td>
 
                     {/* Aksi */}
-                    <td className="py-3 text-right">
-                      <div className="inline-flex items-center gap-1.5">
+                    <td className="py-2.5 px-3 text-center">
+                      <div className="inline-flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => openEditModal(m)}
                           className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
