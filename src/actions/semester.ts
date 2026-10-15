@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 const semesterSchema = z.object({
   tahunAkademik: z
@@ -110,8 +111,11 @@ export async function createSemester(formData: {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/monitoring");
     revalidatePath("/", "layout");
     revalidatePath("/");
@@ -171,8 +175,11 @@ export async function updateSemester(
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/monitoring");
     revalidatePath("/", "layout");
     revalidatePath("/");
@@ -198,7 +205,12 @@ export async function toggleSemesterAktif(id: string) {
       data: { aktif: true },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/monitoring");
     revalidatePath("/", "layout");
     revalidatePath("/");
     return { success: true, data: semester };
@@ -241,7 +253,11 @@ export async function deleteSemester(id: string) {
       where: { id },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {
@@ -288,9 +304,12 @@ export async function createLiburSemester(data: {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
     revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true, data: libur };
   } catch (error: any) {
@@ -328,9 +347,12 @@ export async function updateLiburSemester(
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
     revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true, data: updated };
   } catch (error: any) {
@@ -344,9 +366,12 @@ export async function deleteLiburSemester(id: string) {
       where: { id },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
     revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {

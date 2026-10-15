@@ -6,6 +6,9 @@ import { auth } from "@/lib/auth";
 import { getRekapLaporan } from "@/actions/laporan";
 import RekapClient from "./RekapClient";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Rekapitulasi Monitoring Sesi",
 };

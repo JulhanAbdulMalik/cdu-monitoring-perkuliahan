@@ -159,7 +159,11 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
       count++;
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/dosen");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, count };
   } catch (error: any) {
@@ -263,7 +267,11 @@ export async function commitMataKuliahImport(rows: any[]): Promise<{ success: bo
       count++;
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, count };
   } catch (error: any) {
@@ -999,7 +1007,11 @@ export async function commitProdiImport(rows: any[]): Promise<{ success: boolean
       count++;
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true, count };
   } catch (error: any) {
@@ -1091,7 +1103,11 @@ export async function commitSemesterImport(rows: any[]): Promise<{ success: bool
       }
     }
 
+    await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/");
     return { success: true, count };
   } catch (error: any) {

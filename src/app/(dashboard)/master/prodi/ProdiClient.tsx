@@ -3,6 +3,7 @@
 // Compact & Clean Fakultas & Program Studi UI (Plus Jakarta Sans & #a80063 Theme)
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Layers,
@@ -76,6 +77,7 @@ export default function ProdiClient({
   const [fakultasPage, setFakultasPage] = useState(1);
   const [fakultasPageSize, setFakultasPageSize] = useState(20);
 
+  const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<"ALL" | "AKTIF" | "NONAKTIF">("ALL");
 
   useEffect(() => {
@@ -124,6 +126,7 @@ export default function ProdiClient({
           : `Program Studi "${prodiToToggle.nama}" dinonaktifkan dari laporan`
       );
       setProdiToToggle(null);
+      router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Terjadi kesalahan sistem");
     } finally {

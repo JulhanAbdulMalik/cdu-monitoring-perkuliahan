@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 const fakultasSchema = z.object({
   nama: z.string().min(1, "Nama fakultas wajib diisi"),
@@ -158,7 +159,14 @@ export async function createProdi(formData: {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -196,7 +204,14 @@ export async function updateProdi(
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -227,7 +242,14 @@ export async function deleteProdi(id: string) {
     }
 
     await prisma.prodi.delete({ where: { id } });
+    await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal menghapus program studi" };
@@ -241,10 +263,14 @@ export async function toggleProdiStatus(id: string, isActive: boolean) {
       data: { isActive },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/prodi");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
+    revalidatePath("/laporan/dosen");
     revalidatePath("/monitoring");
+    revalidatePath("/", "layout");
+    revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal mengubah status program studi" };

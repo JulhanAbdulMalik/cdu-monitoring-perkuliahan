@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 const dosenSchema = z.object({
   nama: z.string().min(1, "Nama dosen wajib diisi"),
@@ -74,7 +75,11 @@ export async function createDosen(formData: {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/dosen");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
@@ -124,7 +129,11 @@ export async function updateDosen(
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/dosen");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
@@ -155,7 +164,11 @@ export async function deleteDosen(id: string) {
     }
 
     await prisma.dosen.delete({ where: { id } });
+    await invalidateLaporanCache();
     revalidatePath("/master/dosen");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {
@@ -271,8 +284,12 @@ export async function resetDosenData(options: {
       where: { id: { in: targetIds } },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/dosen");
     revalidatePath("/master/kelas");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
 
     return {

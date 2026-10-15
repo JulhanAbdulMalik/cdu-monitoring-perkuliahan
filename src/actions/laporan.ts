@@ -19,7 +19,7 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
-const LAPORAN_CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
+const LAPORAN_CACHE_TTL_MS = 30 * 1000; // 30 detik (sebelumnya 10 menit) agar sinkronisasi master data responsif
 const laporanCacheStore = new Map<string, CacheEntry<any>>();
 
 export async function invalidateLaporanCache(): Promise<void> {
@@ -158,15 +158,6 @@ export async function getRekapLaporan(
   allowedProdiIds?: string[]
 ): Promise<{ success: boolean; data?: RekapLaporanResultData; error?: string }> {
   try {
-    const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
-    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `rekap_${semesterId || "ACTIVE"}_${prodiId || "ALL"}_${sortedAllowed}`;
-
-    const cached = getLaporanFromCache<RekapLaporanResultData>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
-
     // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
     const [allSemesters, rawAllProdi] = await Promise.all([
       prisma.semester.findMany({
@@ -178,12 +169,21 @@ export async function getRekapLaporan(
       }),
     ]);
 
+    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
+    const targetSemesterId = semesterId || activeSemester?.id || "NONE";
+
+    const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
+    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
+    const cacheKey = `rekap_${targetSemesterId}_${prodiId || "ALL"}_${sortedAllowed}`;
+
+    const cached = getLaporanFromCache<RekapLaporanResultData>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
     const allProdi = isRestricted
       ? rawAllProdi.filter((p) => allowedProdiIds!.includes(p.id))
       : rawAllProdi;
-
-    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
-    const targetSemesterId = semesterId || activeSemester?.id;
 
     let prodiWhere: any = {};
     if (isRestricted) {
@@ -483,8 +483,14 @@ export async function getLaporanDosen(
   allowedProdiIds?: string[]
 ): Promise<{ success: boolean; data?: LaporanDosenResultData; error?: string }> {
   try {
+    let targetSemId = semesterId;
+    if (!targetSemId) {
+      const activeSem = await prisma.semester.findFirst({ where: { aktif: true }, select: { id: true } });
+      targetSemId = activeSem?.id || "NONE";
+    }
+
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `dosen_${semesterId || "ACTIVE"}_${prodiId || "ALL"}_${sortedAllowed}`;
+    const cacheKey = `dosen_${targetSemId}_${prodiId || "ALL"}_${sortedAllowed}`;
 
     const cached = getLaporanFromCache<LaporanDosenResultData>(cacheKey);
     if (cached) {
@@ -878,22 +884,6 @@ export async function getLaporanProdi(
           : null
         : null;
 
-    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `prodi_${semesterId || "ACTIVE"}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
-
-    const cached = getLaporanFromCache<any>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
-
-    let startDateTime: Date | null = null;
-    let endDateTime: Date | null = null;
-
-    if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
-      startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
-      endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
-    }
-
     const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
 
     // Optimasi Waterfall: Ambil allSemesters & allProdi secara paralel
@@ -916,7 +906,23 @@ export async function getLaporanProdi(
       : rawAllProdi;
 
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
-    const targetSemesterId = semesterId || activeSemester?.id;
+    const targetSemesterId = semesterId || activeSemester?.id || "NONE";
+
+    const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
+    const cacheKey = `prodi_${targetSemesterId}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
+
+    const cached = getLaporanFromCache<any>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
+    let startDateTime: Date | null = null;
+    let endDateTime: Date | null = null;
+
+    if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
+      startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
+      endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
+    }
 
     // Pruned Lean Query: Memangkas relasi nested yang tidak dipakai
     const rawClasses = await prisma.kelas.findMany({

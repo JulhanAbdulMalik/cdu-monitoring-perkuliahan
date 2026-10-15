@@ -6,6 +6,9 @@ import { auth } from "@/lib/auth";
 import { getLaporanDosen } from "@/actions/laporan";
 import LaporanDosenClient from "./LaporanDosenClient";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Laporan Kinerja Dosen",
 };

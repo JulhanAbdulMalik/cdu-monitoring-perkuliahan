@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { invalidateLaporanCache } from "@/actions/laporan";
 
 const mataKuliahSchema = z.object({
   kode: z.string().min(1, "Kode mata kuliah wajib diisi").toUpperCase(),
@@ -75,7 +76,11 @@ export async function createMataKuliah(formData: {
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
@@ -126,7 +131,11 @@ export async function updateMataKuliah(
       },
     });
 
+    await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true, data };
   } catch (error: any) {
@@ -156,7 +165,11 @@ export async function deleteMataKuliah(id: string) {
     }
 
     await prisma.mataKuliah.delete({ where: { id } });
+    await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/rekap");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {
