@@ -233,3 +233,21 @@ export async function deleteProdi(id: string) {
     return { success: false, error: error.message || "Gagal menghapus program studi" };
   }
 }
+
+export async function toggleProdiStatus(id: string, isActive: boolean) {
+  try {
+    const data = await prisma.prodi.update({
+      where: { id },
+      data: { isActive },
+    });
+
+    revalidatePath("/master/prodi");
+    revalidatePath("/laporan/prodi");
+    revalidatePath("/laporan/rekap");
+    revalidatePath("/monitoring");
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal mengubah status program studi" };
+  }
+}
+

@@ -32,6 +32,7 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
       prisma.prodi.findMany({
+        where: { isActive: true },
         orderBy: { nama: "asc" },
       }),
     ]);
@@ -221,7 +222,10 @@ export async function getMonitoringFilterOptions(allowedProdiIds?: string[]) {
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
       prisma.prodi.findMany({
-        where: effectiveAllowedProdiIds && effectiveAllowedProdiIds.length > 0 ? { id: { in: effectiveAllowedProdiIds } } : {},
+        where: {
+          isActive: true,
+          ...(effectiveAllowedProdiIds && effectiveAllowedProdiIds.length > 0 ? { id: { in: effectiveAllowedProdiIds } } : {}),
+        },
         orderBy: { nama: "asc" },
       }),
     ]);

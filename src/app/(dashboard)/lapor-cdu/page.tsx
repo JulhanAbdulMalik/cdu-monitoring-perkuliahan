@@ -39,7 +39,10 @@ export default async function LaporCduPage({ searchParams }: LaporCduPageProps) 
       orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
     }),
     prisma.prodi.findMany({
-      where: userRole === "DOSEN" ? { id: { in: userProdiIds } } : undefined,
+      where: {
+        isActive: true,
+        ...(userRole === "DOSEN" ? { id: { in: userProdiIds } } : {}),
+      },
       select: { id: true, nama: true, kode: true },
       orderBy: { nama: "asc" },
     }),

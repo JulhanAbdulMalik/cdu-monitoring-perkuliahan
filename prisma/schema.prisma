@@ -89,6 +89,7 @@ model Prodi {
   nama       String
   kode       String   @unique
   fakultasId String
+  isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
   fakultas   Fakultas     @relation(fields: [fakultasId], references: [id])
@@ -96,6 +97,8 @@ model Prodi {
   mataKuliah MataKuliah[]
   users      User[]       @relation("UserProdis")
   laporanCdu LaporCdu[]
+
+  @@index([isActive])
 }
 
 model Dosen {

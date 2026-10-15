@@ -77,7 +77,7 @@ export default async function DashboardPage() {
       isDosen
         ? prisma.dosen.count({ where: { prodiId: { in: userProdiIds } } })
         : prisma.dosen.count(),
-      isDosen ? Promise.resolve(userProdiIds.length) : prisma.prodi.count(),
+      isDosen ? Promise.resolve(userProdiIds.length) : prisma.prodi.count({ where: { isActive: true } }),
     ]);
 
     activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0] || null;

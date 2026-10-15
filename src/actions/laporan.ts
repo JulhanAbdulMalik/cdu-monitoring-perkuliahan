@@ -173,6 +173,7 @@ export async function getRekapLaporan(
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
       prisma.prodi.findMany({
+        where: { isActive: true },
         orderBy: { nama: "asc" },
       }),
     ]);
@@ -189,11 +190,13 @@ export async function getRekapLaporan(
       if (prodiId && prodiId !== "ALL" && allowedProdiIds!.includes(prodiId)) {
         prodiWhere = { prodiId };
       } else {
-        prodiWhere = { prodiId: { in: allowedProdiIds! } };
+        prodiWhere = { prodiId: { in: allowedProdiIds! }, prodi: { isActive: true } };
       }
     } else {
       if (prodiId && prodiId !== "ALL") {
         prodiWhere = { prodiId };
+      } else {
+        prodiWhere = { prodi: { isActive: true } };
       }
     }
 
@@ -894,6 +897,7 @@ export async function getLaporanProdi(
         orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
       }),
       prisma.prodi.findMany({
+        where: { isActive: true },
         include: {
           fakultas: true,
           dosen: true,

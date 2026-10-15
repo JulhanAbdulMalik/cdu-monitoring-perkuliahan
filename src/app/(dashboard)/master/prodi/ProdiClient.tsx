@@ -20,6 +20,7 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
+  Power,
 } from "lucide-react";
 import {
   createFakultas,
@@ -28,6 +29,7 @@ import {
   createProdi,
   updateProdi,
   deleteProdi,
+  toggleProdiStatus,
   getFakultasAndProdi,
 } from "@/actions/prodi";
 import MasterImportModal from "@/components/master/MasterImportModal";
@@ -46,6 +48,7 @@ interface ProdiData {
   nama: string;
   kode: string;
   fakultasId: string;
+  isActive?: boolean;
   fakultas?: { id: string; nama: string };
   _count?: { dosen: number; mataKuliah: number };
 }
@@ -73,9 +76,11 @@ export default function ProdiClient({
   const [fakultasPage, setFakultasPage] = useState(1);
   const [fakultasPageSize, setFakultasPageSize] = useState(20);
 
+  const [filterStatus, setFilterStatus] = useState<"ALL" | "AKTIF" | "NONAKTIF">("ALL");
+
   useEffect(() => {
     setProdiPage(1);
-  }, [searchQuery, filterFakultas]);
+  }, [searchQuery, filterFakultas, filterStatus]);
 
   // Modal states
   const [isProdiModalOpen, setIsProdiModalOpen] = useState(false);
@@ -90,6 +95,41 @@ export default function ProdiClient({
   const [fakultasNama, setFakultasNama] = useState("");
 
   const [loading, setLoading] = useState(false);
+
+  // Toggle Status states
+  const [prodiToToggle, setProdiToToggle] = useState<ProdiData | null>(null);
+  const [toggleLoading, setToggleLoading] = useState(false);
+
+  async function confirmToggleStatus() {
+    if (!prodiToToggle) return;
+    setToggleLoading(true);
+
+    const nextActive = prodiToToggle.isActive === false;
+    try {
+      const res = await toggleProdiStatus(prodiToToggle.id, nextActive);
+      if (!res.success) {
+        toast.error(res.error || "Gagal mengubah status program studi");
+        setToggleLoading(false);
+        return;
+      }
+
+      setProdiList((prev) =>
+        prev.map((p) =>
+          p.id === prodiToToggle.id ? { ...p, isActive: nextActive } : p
+        )
+      );
+      toast.success(
+        nextActive
+          ? `Program Studi "${prodiToToggle.nama}" berhasil diaktifkan kembali`
+          : `Program Studi "${prodiToToggle.nama}" dinonaktifkan dari laporan`
+      );
+      setProdiToToggle(null);
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan sistem");
+    } finally {
+      setToggleLoading(false);
+    }
+  }
 
   // ── Prodi Modal Handlers ──────────────────────────────────────────────────
   function openCreateProdi() {
@@ -251,11 +291,14 @@ export default function ProdiClient({
       p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.kode.toLowerCase().includes(searchQuery.toLowerCase());
     const matchFak = filterFakultas === "ALL" || p.fakultasId === filterFakultas;
-    return matchSearch && matchFak;
+    const matchStatus =
+      filterStatus === "ALL" ||
+      (filterStatus === "AKTIF" ? p.isActive !== false : p.isActive === false);
+    return matchSearch && matchFak && matchStatus;
   });
 
   // ── Sorting Logic: Program Studi ──────────────────────────────────────────
-  type ProdiSortColumn = "KODE" | "NAMA" | "FAKULTAS" | "DOSEN" | "MK";
+  type ProdiSortColumn = "KODE" | "NAMA" | "FAKULTAS" | "DOSEN" | "MK" | "STATUS";
   type ProdiSortKey =
     | "KODE_ASC"
     | "KODE_DESC"
@@ -266,7 +309,9 @@ export default function ProdiClient({
     | "DOSEN_DESC"
     | "DOSEN_ASC"
     | "MK_DESC"
-    | "MK_ASC";
+    | "MK_ASC"
+    | "STATUS_ASC"
+    | "STATUS_DESC";
 
   const [prodiSortBy, setProdiSortBy] = useState<ProdiSortKey>("NAMA_ASC");
 
@@ -292,6 +337,10 @@ export default function ProdiClient({
         return (b._count?.mataKuliah ?? 0) - (a._count?.mataKuliah ?? 0);
       case "MK_ASC":
         return (a._count?.mataKuliah ?? 0) - (b._count?.mataKuliah ?? 0);
+      case "STATUS_ASC":
+        return (a.isActive === false ? 1 : 0) - (b.isActive === false ? 1 : 0);
+      case "STATUS_DESC":
+        return (b.isActive === false ? 1 : 0) - (a.isActive === false ? 1 : 0);
       default:
         return 0;
     }
@@ -320,6 +369,9 @@ export default function ProdiClient({
       case "MK":
         setProdiSortBy(prodiSortBy === "MK_DESC" ? "MK_ASC" : "MK_DESC");
         break;
+      case "STATUS":
+        setProdiSortBy(prodiSortBy === "STATUS_ASC" ? "STATUS_DESC" : "STATUS_ASC");
+        break;
     }
   }
 
@@ -334,14 +386,16 @@ export default function ProdiClient({
       (columnKey === "NAMA" && (prodiSortBy === "NAMA_ASC" || prodiSortBy === "NAMA_DESC")) ||
       (columnKey === "FAKULTAS" && (prodiSortBy === "FAKULTAS_ASC" || prodiSortBy === "FAKULTAS_DESC")) ||
       (columnKey === "DOSEN" && (prodiSortBy === "DOSEN_DESC" || prodiSortBy === "DOSEN_ASC")) ||
-      (columnKey === "MK" && (prodiSortBy === "MK_DESC" || prodiSortBy === "MK_ASC"));
+      (columnKey === "MK" && (prodiSortBy === "MK_DESC" || prodiSortBy === "MK_ASC")) ||
+      (columnKey === "STATUS" && (prodiSortBy === "STATUS_ASC" || prodiSortBy === "STATUS_DESC"));
 
     const isAsc =
       prodiSortBy === "KODE_ASC" ||
       prodiSortBy === "NAMA_ASC" ||
       prodiSortBy === "FAKULTAS_ASC" ||
       prodiSortBy === "DOSEN_ASC" ||
-      prodiSortBy === "MK_ASC";
+      prodiSortBy === "MK_ASC" ||
+      prodiSortBy === "STATUS_ASC";
 
     return (
       <th
@@ -569,12 +623,28 @@ export default function ProdiClient({
                 ))}
               </select>
 
-              {(searchQuery || filterFakultas !== "ALL") && (
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
+                  filterStatus !== "ALL"
+                    ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Filter Status Program Studi"
+              >
+                <option value="ALL">Semua Status ({prodiList.length})</option>
+                <option value="AKTIF">Aktif ({prodiList.filter((p) => p.isActive !== false).length})</option>
+                <option value="NONAKTIF">Nonaktif ({prodiList.filter((p) => p.isActive === false).length})</option>
+              </select>
+
+              {(searchQuery || filterFakultas !== "ALL" || filterStatus !== "ALL") && (
                 <button
                   type="button"
                   onClick={() => {
                     setSearchQuery("");
                     setFilterFakultas("ALL");
+                    setFilterStatus("ALL");
                   }}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#a80063] bg-[#fdf2f8] border border-[#fbcfe8] hover:bg-[#fce7f3] transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                   title="Reset semua filter ke default"
@@ -601,13 +671,14 @@ export default function ProdiClient({
                   {renderSortHeaderProdi("Fakultas", "FAKULTAS", "left", "min-w-[180px]")}
                   {renderSortHeaderProdi("Total Dosen", "DOSEN", "center", "w-32")}
                   {renderSortHeaderProdi("Total Mata Kuliah", "MK", "center", "w-36")}
-                  <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-24">Aksi</th>
+                  {renderSortHeaderProdi("Status", "STATUS", "center", "w-28 min-w-[95px]")}
+                  <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-28">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80 text-xs">
                 {sortedProdi.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-xs text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
                       Tidak ada data program studi yang sesuai.
                     </td>
                   </tr>
@@ -662,9 +733,40 @@ export default function ProdiClient({
                           </div>
                         </td>
 
+                        {/* Status */}
+                        <td className="py-2.5 px-3 text-center">
+                          {p.isActive !== false ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Aktif
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              Nonaktif
+                            </span>
+                          )}
+                        </td>
+
                         {/* Aksi */}
                         <td className="py-2.5 px-3 text-center">
                           <div className="inline-flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setProdiToToggle(p)}
+                              className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+                                p.isActive !== false
+                                  ? "bg-slate-50 hover:bg-amber-50 hover:text-amber-600 border-slate-200/80 text-slate-400 hover:border-amber-200"
+                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border-emerald-200 hover:border-emerald-300"
+                              }`}
+                              title={
+                                p.isActive !== false
+                                  ? "Nonaktifkan Program Studi (Keluarkan dari Laporan)"
+                                  : "Aktifkan Kembali Program Studi"
+                              }
+                            >
+                              <Power size={12} />
+                            </button>
                             <button
                               onClick={() => openEditProdi(p)}
                               className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
@@ -929,6 +1031,98 @@ export default function ProdiClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Konfirmasi Toggle Status Prodi ─────────────────────────────── */}
+      {prodiToToggle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl border border-slate-200 relative animate-scale-up">
+            <button
+              onClick={() => !toggleLoading && setProdiToToggle(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-50"
+              disabled={toggleLoading}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-start gap-3.5 mb-4">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  prodiToToggle.isActive !== false
+                    ? "bg-amber-50 text-amber-600 border border-amber-200"
+                    : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                }`}
+              >
+                <Power size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {prodiToToggle.isActive !== false
+                    ? "Nonaktifkan Program Studi?"
+                    : "Aktifkan Kembali Program Studi?"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  {prodiToToggle.isActive !== false ? (
+                    <>
+                      Program Studi <span className="font-semibold text-slate-800">"{prodiToToggle.nama}"</span> akan dinonaktifkan dan <span className="font-semibold text-rose-600">tidak akan dimasukkan</span> ke dalam Laporan Prodi, Rekap, Monitoring, maupun opsi pilihan form.
+                    </>
+                  ) : (
+                    <>
+                      Program Studi <span className="font-semibold text-slate-800">"{prodiToToggle.nama}"</span> akan diaktifkan kembali dan dapat muncul di Laporan Prodi, Rekap, serta Monitoring perkuliahan.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-3 bg-slate-50 border border-slate-200/80 mb-5 text-[11px] text-slate-600 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Kode Prodi:</span>
+                <span className="font-bold text-slate-700">{prodiToToggle.kode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Fakultas:</span>
+                <span className="font-medium text-slate-700">{prodiToToggle.fakultas?.nama || "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Total Dosen:</span>
+                <span className="font-medium text-slate-700">{prodiToToggle._count?.dosen ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Total Mata Kuliah:</span>
+                <span className="font-medium text-slate-700">{prodiToToggle._count?.mataKuliah ?? 0}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setProdiToToggle(null)}
+                disabled={toggleLoading}
+                className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmToggleStatus}
+                disabled={toggleLoading}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg shadow-xs cursor-pointer transition-colors ${
+                  prodiToToggle.isActive !== false
+                    ? "bg-amber-600 hover:bg-amber-700 text-white"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                }`}
+              >
+                {toggleLoading && <Loader2 size={12} className="animate-spin" />}
+                <span>
+                  {prodiToToggle.isActive !== false
+                    ? "Ya, Nonaktifkan"
+                    : "Ya, Aktifkan Kembali"}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

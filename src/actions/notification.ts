@@ -601,6 +601,7 @@ export async function getNotificationTargetOptions() {
         orderBy: { name: "asc" },
       }),
       prisma.prodi.findMany({
+        where: { isActive: true },
         select: { id: true, nama: true, kode: true },
         orderBy: { nama: "asc" },
       }),
