@@ -228,10 +228,18 @@ export default function MonitoringGridClient({
     return `/monitoring/${targetId}${search}`;
   }
 
+  // Baseline data yang tersimpan di server untuk deteksi perubahan presisi (Dirty Checking)
+  const savedBaselineRef = useRef<Record<string, MonitoringSesiData>>({});
+
   // Sync sesiList ONLY when switching to a different class ID
   useEffect(() => {
     if (currentKelas?.monitoringSesi) {
       setSesiList(currentKelas.monitoringSesi);
+      const initialMap: Record<string, MonitoringSesiData> = {};
+      currentKelas.monitoringSesi.forEach((s) => {
+        initialMap[s.id] = { ...s };
+      });
+      savedBaselineRef.current = initialMap;
       setHasUnsavedChanges(false);
     }
   }, [currentKelas?.id]);
@@ -445,7 +453,7 @@ export default function MonitoringGridClient({
     setSesiList((prev) =>
       prev.map((s) => {
         if (s.nomorSesi >= result.nomorSesiMulai && s.nomorSesi <= result.nomorSesiSampai) {
-          return {
+          const updated = {
             ...s,
             dosenPengajarId: result.dosenPengajarId,
             dosenPengajar: result.dosenPengajarObj
@@ -458,6 +466,10 @@ export default function MonitoringGridClient({
             statusPengajar: result.statusPengajar,
             catatanGantiDosen: result.catatanGantiDosen,
           };
+          if (savedBaselineRef.current[s.id]) {
+            savedBaselineRef.current[s.id] = { ...updated };
+          }
+          return updated;
         }
         return s;
       })
@@ -668,6 +680,38 @@ export default function MonitoringGridClient({
   // ── Core Simpan Data ke Server ─────────────────────────────────────────────
   async function saveDataInternal(): Promise<boolean> {
     if (!currentKelas) return false;
+
+    // Dirty Checking: Cari hanya sesi yang nilainya berbeda dari baseline tersimpan
+    const dirtySesi = sesiList.filter((s) => {
+      const base = savedBaselineRef.current[s.id];
+      if (!base) return true;
+      const baseCatatan = (base.catatanCdu ?? base.catatan ?? "").trim();
+      const currentCatatan = (s.catatanCdu ?? s.catatan ?? "").trim();
+      const baseDate = base.tanggal ? new Date(base.tanggal).toISOString().split("T")[0] : "";
+      const currentDate = s.tanggal ? new Date(s.tanggal).toISOString().split("T")[0] : "";
+
+      return (
+        base.kehadiran !== s.kehadiran ||
+        base.lectureNote !== s.lectureNote ||
+        base.slide !== s.slide ||
+        base.video !== s.video ||
+        base.conference !== s.conference ||
+        base.tugas !== s.tugas ||
+        base.kuis !== s.kuis ||
+        baseCatatan !== currentCatatan ||
+        base.dosenPengajarId !== s.dosenPengajarId ||
+        base.statusPengajar !== s.statusPengajar ||
+        (base.catatanGantiDosen ?? "") !== (s.catatanGantiDosen ?? "") ||
+        baseDate !== currentDate
+      );
+    });
+
+    // Jika tidak ada perubahan sama sekali, tandai bersih dan return true seketika (0 ms)
+    if (dirtySesi.length === 0) {
+      setHasUnsavedChanges(false);
+      return true;
+    }
+
     setSaving(true);
 
     try {
@@ -675,7 +719,7 @@ export default function MonitoringGridClient({
         ? new Date(currentKelas.semester.tanggalMulai).toISOString().split("T")[0]
         : DEFAULT_SEMESTER_START_DATE;
 
-      const payload = sesiList.map((s) => {
+      const payload = dirtySesi.map((s) => {
         const defDate = getEstimatedSessionDate(
           s.nomorSesi,
           currentKelas.jadwalHari,
@@ -707,6 +751,12 @@ export default function MonitoringGridClient({
 
       const res = await updateBatchMonitoringSesi(currentKelas.id, payload);
       if (res.success) {
+        // Sinkronkan baseline dengan data terbaru yang sudah berhasil disimpan
+        const newBaselineMap: Record<string, MonitoringSesiData> = {};
+        sesiList.forEach((s) => {
+          newBaselineMap[s.id] = { ...s };
+        });
+        savedBaselineRef.current = newBaselineMap;
         setHasUnsavedChanges(false);
 
         // Notifikasi cross-tab real-time ke halaman /monitoring

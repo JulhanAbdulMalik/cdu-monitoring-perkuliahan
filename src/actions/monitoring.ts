@@ -1386,7 +1386,6 @@ export async function updateSingleMonitoringSesi(
       select: { id: true, kelasId: true },
     });
 
-    revalidatePath(`/monitoring/${updated.kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -1418,6 +1417,10 @@ export async function updateBatchMonitoringSesi(
   }>
 ) {
   try {
+    if (!sesiList || sesiList.length === 0) {
+      return { success: true };
+    }
+
     await prisma.$transaction(
       sesiList.map((sesi) => {
         const updateData: any = {
@@ -1449,7 +1452,6 @@ export async function updateBatchMonitoringSesi(
       })
     );
 
-    revalidatePath(`/monitoring/${kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -1489,7 +1491,6 @@ export async function gantiDosenSesiAction(params: GantiDosenParams) {
       },
     });
 
-    revalidatePath(`/monitoring/${kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -1578,7 +1579,6 @@ export async function applyExcelImportToKelas(
       }
     });
 
-    revalidatePath(`/monitoring/${kelasId}`);
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
     revalidatePath("/master/kelas");
