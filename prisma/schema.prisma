@@ -69,6 +69,8 @@ model LiburSemester {
   updatedAt      DateTime @updatedAt
 
   semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@index([semesterId])
 }
 
 enum Periode {
@@ -156,6 +158,9 @@ model Kelas {
   edlinkCek      EdlinkCekRequest[]
 
   @@unique([kodeKelas, semesterId, mataKuliahId])
+  @@index([semesterId])
+  @@index([mataKuliahId])
+  @@index([dosenId])
 }
 
 enum ModePembelajaran {
@@ -210,6 +215,7 @@ model MonitoringSesi {
   inputOleh User? @relation(fields: [inputOlehId], references: [id])
 
   @@unique([kelasId, nomorSesi])
+  @@index([nomorSesi, kehadiran])
 }
 
 enum JenisSesi {

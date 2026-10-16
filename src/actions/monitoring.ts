@@ -196,6 +196,13 @@ export interface MonitoringFilterOptions {
   activeSemesterId: string;
 }
 
+const filterOptionsCacheStore = new Map<string, { data: any; timestamp: number }>();
+const FILTER_OPTIONS_CACHE_TTL_MS = 2 * 60 * 1000; // 2 menit
+
+export function invalidateMonitoringFilterOptionsCache() {
+  filterOptionsCacheStore.clear();
+}
+
 export async function getMonitoringFilterOptions(allowedProdiIds?: string[]) {
   try {
     let effectiveAllowedProdiIds = allowedProdiIds;
@@ -210,6 +217,12 @@ export async function getMonitoringFilterOptions(allowedProdiIds?: string[]) {
       } catch {
         // non-blocking
       }
+    }
+
+    const cacheKey = effectiveAllowedProdiIds ? effectiveAllowedProdiIds.slice().sort().join(",") : "ALL";
+    const cached = filterOptionsCacheStore.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < FILTER_OPTIONS_CACHE_TTL_MS) {
+      return { success: true, data: cached.data };
     }
 
     const [allSemesters, allProdi] = await Promise.all([
@@ -232,13 +245,17 @@ export async function getMonitoringFilterOptions(allowedProdiIds?: string[]) {
 
     const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
 
+    const resultData = {
+      semesters: allSemesters,
+      prodiList: allProdi,
+      activeSemesterId: activeSemester?.id || allSemesters[0]?.id || "",
+    };
+
+    filterOptionsCacheStore.set(cacheKey, { data: resultData, timestamp: Date.now() });
+
     return {
       success: true,
-      data: {
-        semesters: allSemesters,
-        prodiList: allProdi,
-        activeSemesterId: activeSemester?.id || allSemesters[0]?.id || "",
-      },
+      data: resultData,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memuat filter options" };
@@ -874,6 +891,14 @@ export interface SequentialKelasFilterParams {
   currentKelasId?: string;
 }
 
+// In-memory cache untuk antrean sequential kelas agar transisi "Simpan & Lanjut" instan (0.1 ms)
+const sequentialListCacheStore = new Map<string, { data: any[]; timestamp: number }>();
+const SEQUENTIAL_CACHE_TTL_MS = 60 * 1000; // 60 detik
+
+export function invalidateSequentialListCache() {
+  sequentialListCacheStore.clear();
+}
+
 export async function getFilteredSequentialKelasList(params: SequentialKelasFilterParams = {}) {
   try {
     let effectiveAllowedProdiIds = params.allowedProdiIds;
@@ -887,6 +912,27 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         }
       } catch {
         // non-blocking
+      }
+    }
+
+    const cacheKey = [
+      params.semesterId || "def",
+      params.prodiId || "ALL",
+      params.filterMode || "ALL",
+      params.filterHari || "ALL",
+      params.filterStatus || "ALL",
+      params.monitoringTab || "ALL",
+      params.selectedSesi || 0,
+      params.searchQuery || "",
+      params.sortBy || "TERBARU",
+      effectiveAllowedProdiIds ? effectiveAllowedProdiIds.slice().sort().join(",") : "ALL",
+    ].join("::");
+
+    const cached = sequentialListCacheStore.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < SEQUENTIAL_CACHE_TTL_MS) {
+      const list = cached.data;
+      if (!params.currentKelasId || list.some((k) => k.id === params.currentKelasId)) {
+        return { success: true, data: list };
       }
     }
 
@@ -1205,6 +1251,8 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
       }
     }
 
+    sequentialListCacheStore.set(cacheKey, { data: resultList, timestamp: Date.now() });
+
     return {
       success: true,
       data: resultList,
@@ -1218,9 +1266,37 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
   }
 }
 
+let cachedDosenList: any[] | null = null;
+let cachedDosenTimestamp = 0;
+const DOSEN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
+
+async function getCachedDosenList() {
+  if (cachedDosenList && Date.now() - cachedDosenTimestamp < DOSEN_CACHE_TTL_MS) {
+    return cachedDosenList;
+  }
+  const allDosen = await prisma.dosen.findMany({
+    select: {
+      id: true,
+      nama: true,
+      nidn: true,
+      prodi: {
+        select: {
+          id: true,
+          nama: true,
+          kode: true,
+        },
+      },
+    },
+    orderBy: { nama: "asc" },
+  });
+  cachedDosenList = allDosen;
+  cachedDosenTimestamp = Date.now();
+  return allDosen;
+}
+
 export async function getMonitoringKelasDetail(kelasId: string) {
   try {
-    // Optimasi Waterfall: Jalankan query detail kelas dan daftar seluruh dosen secara paralel
+    // Optimasi: Jalankan query detail kelas dan ambil daftar seluruh dosen dari in-memory cache
     const [kelas, allDosen] = await Promise.all([
       prisma.kelas.findUnique({
         where: { id: kelasId },
@@ -1294,21 +1370,7 @@ export async function getMonitoringKelasDetail(kelasId: string) {
           },
         },
       }),
-      prisma.dosen.findMany({
-        select: {
-          id: true,
-          nama: true,
-          nidn: true,
-          prodi: {
-            select: {
-              id: true,
-              nama: true,
-              kode: true,
-            },
-          },
-        },
-        orderBy: { nama: "asc" },
-      }),
+      getCachedDosenList(),
     ]);
 
     if (!kelas) {

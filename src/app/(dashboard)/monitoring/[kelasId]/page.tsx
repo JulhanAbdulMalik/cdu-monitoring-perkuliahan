@@ -4,6 +4,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getMonitoringKelasDetail, getFilteredSequentialKelasList } from "@/actions/monitoring";
+import { prisma } from "@/lib/prisma";
 import MonitoringGridClient from "../MonitoringGridClient";
 
 interface MonitoringDetailPageProps {
@@ -25,8 +26,13 @@ export async function generateMetadata({
   params,
 }: MonitoringDetailPageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const detailRes = await getMonitoringKelasDetail(resolvedParams.kelasId);
-  const kelas = detailRes.data;
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: resolvedParams.kelasId },
+    select: {
+      kodeKelas: true,
+      mataKuliah: { select: { nama: true } },
+    },
+  });
 
   return {
     title: kelas
@@ -43,27 +49,30 @@ export default async function MonitoringDetailPage({
     params,
     searchParams ? searchParams : Promise.resolve({} as any),
   ]);
-  const detailRes = await getMonitoringKelasDetail(resolvedParams.kelasId);
-
-  if (!detailRes.success || !detailRes.data) {
-    notFound();
-  }
 
   const effectiveProdiId = resolvedSearchParams?.prodiId;
   const sesiNum = resolvedSearchParams?.sesi ? parseInt(resolvedSearchParams.sesi, 10) : undefined;
 
-  const listRes = await getFilteredSequentialKelasList({
-    semesterId: resolvedSearchParams?.semesterId || detailRes.data.semesterId,
-    prodiId: effectiveProdiId,
-    filterMode: resolvedSearchParams?.mode,
-    filterHari: resolvedSearchParams?.hari,
-    filterStatus: resolvedSearchParams?.status,
-    monitoringTab: resolvedSearchParams?.tab,
-    selectedSesi: sesiNum,
-    searchQuery: resolvedSearchParams?.q,
-    sortBy: resolvedSearchParams?.sortBy as any,
-    currentKelasId: resolvedParams.kelasId,
-  });
+  // Jalankan query detail kelas dan antrean sekuensial secara paralel (Promise.all)
+  const [detailRes, listRes] = await Promise.all([
+    getMonitoringKelasDetail(resolvedParams.kelasId),
+    getFilteredSequentialKelasList({
+      semesterId: resolvedSearchParams?.semesterId,
+      prodiId: effectiveProdiId,
+      filterMode: resolvedSearchParams?.mode,
+      filterHari: resolvedSearchParams?.hari,
+      filterStatus: resolvedSearchParams?.status,
+      monitoringTab: resolvedSearchParams?.tab,
+      selectedSesi: sesiNum,
+      searchQuery: resolvedSearchParams?.q,
+      sortBy: resolvedSearchParams?.sortBy as any,
+      currentKelasId: resolvedParams.kelasId,
+    }),
+  ]);
+
+  if (!detailRes.success || !detailRes.data) {
+    notFound();
+  }
 
   const simpleKelasList = listRes.success && listRes.data ? listRes.data : [];
 

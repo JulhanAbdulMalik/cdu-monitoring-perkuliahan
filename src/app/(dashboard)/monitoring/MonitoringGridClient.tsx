@@ -228,6 +228,16 @@ export default function MonitoringGridClient({
     return `/monitoring/${targetId}${search}`;
   }
 
+  // Prefetch halaman kelas berikutnya & sebelumnya di latar belakang agar transisi navigasi instan
+  useEffect(() => {
+    if (nextKelas?.id) {
+      router.prefetch(getKelasUrl(nextKelas.id));
+    }
+    if (prevKelas?.id) {
+      router.prefetch(getKelasUrl(prevKelas.id));
+    }
+  }, [nextKelas?.id, prevKelas?.id]);
+
   // Baseline data yang tersimpan di server untuk deteksi perubahan presisi (Dirty Checking)
   const savedBaselineRef = useRef<Record<string, MonitoringSesiData>>({});
 
