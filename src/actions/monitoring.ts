@@ -199,7 +199,7 @@ export interface MonitoringFilterOptions {
 const filterOptionsCacheStore = new Map<string, { data: any; timestamp: number }>();
 const FILTER_OPTIONS_CACHE_TTL_MS = 2 * 60 * 1000; // 2 menit
 
-export function invalidateMonitoringFilterOptionsCache() {
+export async function invalidateMonitoringFilterOptionsCache() {
   filterOptionsCacheStore.clear();
 }
 
@@ -895,7 +895,7 @@ export interface SequentialKelasFilterParams {
 const sequentialListCacheStore = new Map<string, { data: any[]; timestamp: number }>();
 const SEQUENTIAL_CACHE_TTL_MS = 60 * 1000; // 60 detik
 
-export function invalidateSequentialListCache() {
+export async function invalidateSequentialListCache() {
   sequentialListCacheStore.clear();
 }
 
