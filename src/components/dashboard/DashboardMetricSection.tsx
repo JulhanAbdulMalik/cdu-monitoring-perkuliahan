@@ -1,6 +1,6 @@
 "use client";
 // src/components/dashboard/DashboardMetricSection.tsx
-// Interactive Dashboard Header & 5 Stat Cards with "Sesi Berjalan" & "16 Sesi" Modes
+// Interactive Dashboard Header & 4 Stat Cards with "Sesi Berjalan" & "16 Sesi" Modes
 
 import { useState } from "react";
 import SparklineCard from "@/components/dashboard/SparklineCard";
@@ -19,7 +19,7 @@ export interface DashboardMetricSectionProps {
   kelasOnline: number;
   kelasBimbingan: number;
 
-  // Card 5: Kelas Perlu Perhatian
+  // Card 4: Kelas Perlu Perhatian
   kelasPerluPerhatianCount: number;
   totalAlpha: number;
 
@@ -28,10 +28,10 @@ export interface DashboardMetricSectionProps {
     avgKehadiran: number;
     totalHadir: number;
     totalSesiTerlaksana: number;
-    targetSesiBerjalan: number;
+    targetSesiBerjalan?: number;
     avgKonten: number;
-    persenProgresMonitoring: number;
-    belumDimonitorSesiBerjalan: number;
+    persenProgresMonitoring?: number;
+    belumDimonitorSesiBerjalan?: number;
   };
 
   // Mode: 16 Sesi (Semester Penuh)
@@ -41,8 +41,8 @@ export interface DashboardMetricSectionProps {
     totalJadwalSesi: number;
     avgKonten: number;
     totalKelasNonBimbingan: number;
-    persenProgresMonitoring: number;
-    belumDimonitorSemester: number;
+    persenProgresMonitoring?: number;
+    belumDimonitorSemester?: number;
   };
 }
 
@@ -129,8 +129,8 @@ export default function DashboardMetricSection({
         </div>
       </div>
 
-      {/* ── 2. Top 5 Metric Cards with Dynamic Modes ───────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+      {/* ── 2. Top 4 Metric Cards with Dynamic Modes ───────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Card 1: Total Kelas Aktif */}
         <SparklineCard
           title="Total Kelas Aktif"
@@ -214,58 +214,7 @@ export default function DashboardMetricSection({
           ]}
         />
 
-        {/* Card 4: Progres Monitoring */}
-        <SparklineCard
-          title={
-            isBerjalan
-              ? `Progres Monitoring (S1–S${currentActiveSesi})`
-              : "Progres Monitoring (16 Sesi)"
-          }
-          value={formatPct(
-            isBerjalan
-              ? berjalan.persenProgresMonitoring
-              : full.persenProgresMonitoring
-          )}
-          valueColor="emerald"
-          subtitle={
-            isBerjalan
-              ? `${berjalan.totalSesiTerlaksana}/${berjalan.targetSesiBerjalan} sesi (S1–S${currentActiveSesi}) telah dicek`
-              : `${berjalan.totalSesiTerlaksana}/${full.totalJadwalSesi} sesi semester telah dicek`
-          }
-          trendText={isBerjalan ? `S1 - S${currentActiveSesi}` : "1 Semester"}
-          isPositive={
-            isBerjalan
-              ? berjalan.persenProgresMonitoring >= 80
-              : full.persenProgresMonitoring >= 80
-          }
-          progress={
-            isBerjalan
-              ? berjalan.persenProgresMonitoring
-              : full.persenProgresMonitoring
-          }
-          progressColor="emerald"
-          details={[
-            {
-              label: "Selesai",
-              value: berjalan.totalSesiTerlaksana,
-              color: "emerald",
-            },
-            {
-              label: "Belum",
-              value: isBerjalan
-                ? berjalan.belumDimonitorSesiBerjalan
-                : full.belumDimonitorSemester,
-              color: "rose",
-            },
-            {
-              label: isBerjalan ? "Sesi Aktif" : "Target",
-              value: isBerjalan ? `S${currentActiveSesi}` : "100%",
-              color: "slate",
-            },
-          ]}
-        />
-
-        {/* Card 5: Kelas Perlu Perhatian */}
+        {/* Card 4: Kelas Perlu Perhatian */}
         <SparklineCard
           title="Kelas Perlu Perhatian"
           value={`${kelasPerluPerhatianCount} Kelas`}

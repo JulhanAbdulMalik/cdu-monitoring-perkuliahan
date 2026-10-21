@@ -531,7 +531,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* ── 1. Top Greeting, Mode Toggle & 5 Stat Cards ─────────────────────── */}
+      {/* ── 1. Top Greeting, Mode Toggle & 4 Stat Cards ─────────────────────── */}
       <DashboardMetricSection
         userName={userName}
         semesterText={
