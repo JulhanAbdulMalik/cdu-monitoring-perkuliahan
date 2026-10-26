@@ -42,11 +42,17 @@ export async function mintaCekEdlink(kelasId: string) {
 
     const kelas = await prisma.kelas.findUnique({
       where: { id: kelasId },
-      select: { id: true, edlinkGroupId: true },
+      select: { id: true, edlinkGroupId: true, sumberLms: true, externalId: true },
     });
     if (!kelas) return { success: false, error: "Kelas tidak ditemukan" };
-    if (!kelas.edlinkGroupId) {
-      return { success: false, error: "Kelas ini belum dipetakan ke kelas Edlink" };
+    const terpetakan = kelas.sumberLms === "NUSAPUTRA_APP" ? !!kelas.externalId : !!kelas.edlinkGroupId;
+    if (!terpetakan) {
+      return {
+        success: false,
+        error: kelas.sumberLms === "NUSAPUTRA_APP"
+          ? "Kelas ini belum terhubung ke nusaputra.app"
+          : "Kelas ini belum dipetakan ke kelas Edlink",
+      };
     }
 
     const berjalan = await prisma.edlinkCekRequest.findFirst({
@@ -95,6 +101,8 @@ export async function getStatusCekEdlink(requestId: string) {
           where: { id: req.kelasId },
           select: {
             edlinkSyncedAt: true,
+            externalSyncedAt: true,
+            sumberLms: true,
             monitoringSesi: {
               select: {
                 id: true,
@@ -121,7 +129,8 @@ export async function getStatusCekEdlink(requestId: string) {
         status: req.status as StatusCekEdlink,
         hasil: (req.hasil ?? null) as HasilCekEdlink | null,
         error: req.error,
-        edlinkSyncedAt: kelas?.edlinkSyncedAt ?? null,
+        edlinkSyncedAt:
+          (kelas?.sumberLms === "NUSAPUTRA_APP" ? kelas?.externalSyncedAt : kelas?.edlinkSyncedAt) ?? null,
         sesi: kelas?.monitoringSesi ?? null,
       },
     };

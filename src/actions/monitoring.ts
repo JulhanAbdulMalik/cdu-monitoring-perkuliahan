@@ -1313,6 +1313,9 @@ export async function getMonitoringKelasDetail(kelasId: string) {
           modePembelajaran: true,
           edlinkGroupId: true,
           edlinkSyncedAt: true,
+          sumberLms: true,
+          externalUrl: true,
+          externalSyncedAt: true,
           updatedAt: true,
           semester: {
             select: {
