@@ -146,6 +146,12 @@ model Kelas {
   modePembelajaran ModePembelajaran @default(DARING)
   edlinkGroupId    Int?             @unique // ID kelas (group) di Edlink, contoh: 2126659 → https://edlink.id/classes/2126659
   edlinkSyncedAt   DateTime? // Terakhir disinkronkan oleh worker integrasi Edlink
+  // Sumber konten LMS kelas. EDLINK = dipantau via edlinkGroupId; NUSAPUTRA_APP = LMS nusaputra.app
+  // (prodi non-Edlink, mis. D3 Keperawatan) yang diimpor worker lewat /api/integrasi/kelas/eksternal.
+  sumberLms        SumberLms        @default(EDLINK)
+  externalId       String?          @unique // UUID course_class di nusaputra.app
+  externalUrl      String? // Halaman sesi kelas di LMS nusaputra.app (tombol "Buka di nusaputra.app")
+  externalSyncedAt DateTime? // Terakhir disinkronkan dari nusaputra.app
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -161,6 +167,7 @@ model Kelas {
   @@index([semesterId])
   @@index([mataKuliahId])
   @@index([dosenId])
+  @@index([sumberLms])
 }
 
 enum ModePembelajaran {
@@ -235,6 +242,7 @@ enum SumberData {
   MANUAL // Diisi manual oleh CDU
   IMPORT_EXCEL // Dari import file Edlink
   EDLINK_API // Dari worker integrasi Edlink (otomatis, via /api/integrasi)
+  NUSAPUTRA_APP // Dari worker integrasi LMS nusaputra.app (otomatis, via /api/integrasi)
 }
 
 enum StatusPengajar {
@@ -387,4 +395,9 @@ enum StatusEdlinkCek {
   PROSES
   SELESAI
   GAGAL
+}
+
+enum SumberLms {
+  EDLINK // Konten dipantau dari Edlink
+  NUSAPUTRA_APP // Konten dipantau dari LMS nusaputra.app
 }

@@ -3,7 +3,7 @@
 // Worker edlink-sync mengambil (claim) antrian "Cek dari Edlink" secara atomik.
 //
 // Body (opsional): { "maks": 5 }
-// Respons: { items: [{ id, kelasId, kodeKelas, edlinkGroupId }] }
+// Respons: { items: [{ id, kelasId, kodeKelas, edlinkGroupId, sumberLms, externalId }] }
 //
 // Permintaan PROSES yang macet > 10 menit (worker mati di tengah jalan) dikembalikan
 // ke antrian; PENDING > 30 menit ditandai GAGAL agar UI tidak menunggu selamanya.
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
   const kelas = await prisma.kelas.findMany({
     where: { id: { in: diambil.map((d) => d.kelasId) } },
-    select: { id: true, kodeKelas: true, edlinkGroupId: true },
+    select: { id: true, kodeKelas: true, edlinkGroupId: true, sumberLms: true, externalId: true },
   });
   const byId = new Map(kelas.map((k) => [k.id, k]));
 
@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
       kelasId: d.kelasId,
       kodeKelas: byId.get(d.kelasId)?.kodeKelas ?? null,
       edlinkGroupId: byId.get(d.kelasId)?.edlinkGroupId ?? null,
+      sumberLms: byId.get(d.kelasId)?.sumberLms ?? "EDLINK",
+      externalId: byId.get(d.kelasId)?.externalId ?? null,
     })),
   });
 }

@@ -3,8 +3,8 @@
 // Ringkasan kepatuhan untuk notifikasi (bot Telegram / asisten):
 //   - sesiHariIni     : sesi bertanggal hari itu yang 3 pilarnya belum lengkap
 //   - sesiLewatKosong : sesi lampau (≤ tanggal) tanpa konten sama sekali
-//   - belumTerpetakan : kelas aktif tanpa edlinkGroupId
-//   - belumSinkron    : kelas terpetakan yang belum disinkronkan > 24 jam
+//   - belumTerpetakan : kelas Edlink aktif tanpa edlinkGroupId
+//   - belumSinkron    : kelas terpetakan (Edlink / nusaputra.app) yang belum disinkronkan > 24 jam
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     kodeKelas: true,
     modePembelajaran: true,
     edlinkGroupId: true,
+    sumberLms: true,
     mataKuliah: { select: { nama: true, prodi: { select: { kode: true, nama: true } } } },
     dosen: { select: { nama: true } },
   } as const;
@@ -67,6 +68,7 @@ export async function GET(req: NextRequest) {
     .map(({ s, p }) => ({
       kelasId: s.kelas.id,
       edlinkGroupId: s.kelas.edlinkGroupId,
+      sumberLms: s.kelas.sumberLms,
       kodeKelas: s.kelas.kodeKelas,
       mataKuliah: s.kelas.mataKuliah.nama,
       prodi: s.kelas.mataKuliah.prodi.kode,
@@ -94,14 +96,24 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  const kemarin = new Date(Date.now() - 24 * 3600 * 1000);
   const [totalKelas, belumTerpetakan, belumSinkron] = await Promise.all([
     prisma.kelas.count({ where: filterKelas }),
-    prisma.kelas.count({ where: { ...filterKelas, edlinkGroupId: null } }),
+    prisma.kelas.count({ where: { ...filterKelas, sumberLms: "EDLINK", edlinkGroupId: null } }),
     prisma.kelas.count({
       where: {
         ...filterKelas,
-        edlinkGroupId: { not: null },
-        OR: [{ edlinkSyncedAt: null }, { edlinkSyncedAt: { lt: new Date(Date.now() - 24 * 3600 * 1000) } }],
+        OR: [
+          {
+            sumberLms: "EDLINK",
+            edlinkGroupId: { not: null },
+            OR: [{ edlinkSyncedAt: null }, { edlinkSyncedAt: { lt: kemarin } }],
+          },
+          {
+            sumberLms: "NUSAPUTRA_APP",
+            OR: [{ externalSyncedAt: null }, { externalSyncedAt: { lt: kemarin } }],
+          },
+        ],
       },
     }),
   ]);

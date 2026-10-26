@@ -1,6 +1,7 @@
 "use client";
 // src/components/monitoring/CekEdlinkButton.tsx
-// Tombol "Cek dari Edlink": minta worker menarik data 16 sesi kelas ini dari Edlink,
+// Tombol "Cek dari Edlink" / "Cek nusaputra.app": minta worker menarik data sesi kelas ini dari
+// sumber LMS-nya (Edlink atau LMS nusaputra.app),
 // tunggu hasilnya, lalu kirim data sesi terbaru ke parent untuk memperbarui grid.
 
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +27,8 @@ interface CekEdlinkButtonProps {
   kodeKelas: string;
   terpetakan: boolean;
   edlinkSyncedAt?: Date | string | null;
+  /** Sumber LMS kelas; menentukan label tombol & pesan. Default Edlink. */
+  sumberLms?: "EDLINK" | "NUSAPUTRA_APP";
   /** Dikunci bila ada perubahan belum disimpan (hindari menimpa input staf di layar). */
   disabled?: boolean;
   onSelesai: (sesi: SesiEdlinkTerbaru[], syncedAt: Date | string | null) => void;
@@ -58,9 +61,9 @@ function formatWaktu(v?: Date | string | null) {
   });
 }
 
-function ringkasHasil(hasil: HasilCekEdlink | null): string {
+function ringkasHasil(hasil: HasilCekEdlink | null, namaSumber: string): string {
   const n = hasil?.sesiDiperbarui ?? 0;
-  if (n === 0) return "Data sudah sesuai Edlink, tidak ada perubahan.";
+  if (n === 0) return `Data sudah sesuai ${namaSumber}, tidak ada perubahan.`;
   const perSesi = new Map<number, string[]>();
   for (const p of hasil?.perubahan ?? []) {
     if (p.ke !== true && p.field !== "kehadiran" && p.field !== "tanggal") continue;
@@ -81,9 +84,11 @@ export default function CekEdlinkButton({
   kodeKelas,
   terpetakan,
   edlinkSyncedAt,
+  sumberLms = "EDLINK",
   disabled,
   onSelesai,
 }: CekEdlinkButtonProps) {
+  const namaSumber = sumberLms === "NUSAPUTRA_APP" ? "nusaputra.app" : "Edlink";
   const [berjalan, setBerjalan] = useState(false);
   // Waktu sinkron hasil cek lokal (per kelas); fallback ke nilai dari server.
   const [syncLokal, setSyncLokal] = useState<{ kelasId: string; at: Date | string | null } | null>(null);
@@ -100,11 +105,11 @@ export default function CekEdlinkButton({
   async function handleCek() {
     if (berjalan) return;
     setBerjalan(true);
-    const toastId = toast.loading(`Mengecek [${kodeKelas}] dari Edlink…`);
+    const toastId = toast.loading(`Mengecek [${kodeKelas}] dari ${namaSumber}…`);
     try {
       const res = await mintaCekEdlink(kelasId);
       if (!res.success || !res.requestId) {
-        toast.error(res.error || "Gagal memulai cek Edlink", { id: toastId });
+        toast.error(res.error || `Gagal memulai cek ${namaSumber}`, { id: toastId });
         return;
       }
       const mulai = Date.now();
@@ -119,25 +124,25 @@ export default function CekEdlinkButton({
           if (st.data.sesi) onSelesai(st.data.sesi, st.data.edlinkSyncedAt);
           setSyncLokal({ kelasId, at: st.data.edlinkSyncedAt });
           const selisih = st.data.hasil?.selisihJadwal?.length ?? 0;
-          toast.success(ringkasHasil(st.data.hasil), {
+          toast.success(ringkasHasil(st.data.hasil, namaSumber), {
             id: toastId,
-            description: selisih > 0 ? `${selisih} sesi: tanggal di Edlink berbeda dengan jadwal CDU.` : undefined,
+            description: selisih > 0 ? `${selisih} sesi: tanggal di ${namaSumber} berbeda dengan jadwal CDU.` : undefined,
             duration: 8000,
           });
           return;
         }
         if (st.data.status === "GAGAL") {
-          toast.error(`Cek Edlink gagal: ${st.data.error || "tidak diketahui"}`, { id: toastId });
+          toast.error(`Cek ${namaSumber} gagal: ${st.data.error || "tidak diketahui"}`, { id: toastId });
           return;
         }
       }
       if (aktif.current) {
-        toast.warning("Worker Edlink belum merespons. Coba lagi beberapa saat lagi.", { id: toastId });
+        toast.warning(`Worker ${namaSumber} belum merespons. Coba lagi beberapa saat lagi.`, { id: toastId });
       } else {
         toast.dismiss(toastId);
       }
     } catch {
-      toast.error("Terjadi kesalahan saat cek Edlink", { id: toastId });
+      toast.error(`Terjadi kesalahan saat cek ${namaSumber}`, { id: toastId });
     } finally {
       if (aktif.current) setBerjalan(false);
     }
@@ -145,10 +150,10 @@ export default function CekEdlinkButton({
 
   const waktu = formatWaktu(syncedAt);
   const title = !terpetakan
-    ? "Kelas ini belum dipetakan ke kelas Edlink"
+    ? `Kelas ini belum terhubung ke ${namaSumber}`
     : disabled
-      ? "Simpan perubahan terlebih dahulu sebelum cek dari Edlink"
-      : `Ambil data 16 sesi [${kodeKelas}] langsung dari Edlink${waktu ? ` (terakhir: ${waktu})` : ""}`;
+      ? `Simpan perubahan terlebih dahulu sebelum cek dari ${namaSumber}`
+      : `Ambil data sesi [${kodeKelas}] langsung dari ${namaSumber}${waktu ? ` (terakhir: ${waktu})` : ""}`;
 
   return (
     <button
@@ -159,7 +164,7 @@ export default function CekEdlinkButton({
       title={title}
     >
       {berjalan ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-      <span>{berjalan ? "Mengecek…" : "Cek Edlink"}</span>
+      <span>{berjalan ? "Mengecek…" : `Cek ${namaSumber}`}</span>
       {waktu && !berjalan && <span className="hidden xl:inline text-[10px] font-medium text-sky-600/80">· {waktu}</span>}
     </button>
   );
