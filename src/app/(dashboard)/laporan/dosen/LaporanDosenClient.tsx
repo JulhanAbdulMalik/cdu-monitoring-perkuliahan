@@ -483,7 +483,7 @@ export default function LaporanDosenClient({
                         {/* Nama Dosen */}
                         <td className="py-3 px-2.5">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#a80063]/15 to-[#d946ef]/20 border border-[#fbcfe8] text-[#a80063] font-semibold text-xs flex items-center justify-center shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-semibold text-xs flex items-center justify-center shrink-0">
                               {d.nama[0]}
                             </div>
                             <div>

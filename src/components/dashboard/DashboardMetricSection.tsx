@@ -88,7 +88,7 @@ export default function DashboardMetricSection({
             onClick={() => setMode("BERJALAN")}
             className={`px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
               isBerjalan
-                ? "bg-white text-[#a80063] font-bold shadow-xs"
+                ? "bg-white text-[#a80063] font-semibold shadow-xs"
                 : "text-slate-500 hover:text-slate-900"
             }`}
             title="Tampilkan data berdasarkan sesi perkuliahan yang sedang/sudah berjalan"
@@ -110,7 +110,7 @@ export default function DashboardMetricSection({
             onClick={() => setMode("FULL")}
             className={`px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
               !isBerjalan
-                ? "bg-white text-[#a80063] font-bold shadow-xs"
+                ? "bg-white text-[#a80063] font-semibold shadow-xs"
                 : "text-slate-500 hover:text-slate-900"
             }`}
             title="Tampilkan data terhadap target 16 sesi semester penuh"

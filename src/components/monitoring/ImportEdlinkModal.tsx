@@ -130,46 +130,35 @@ export default function ImportEdlinkModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div
-        className="relative w-full max-w-3xl lg:max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* ── Modal Header ──────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#fdf2f8] border border-[#fbcfe8] flex items-center justify-center text-[#a80063] shadow-xs">
-              <FileSpreadsheet size={16} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                Import Laporan Aktivitas Edlink (.xlsx)
-              </h2>
-              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                <span className="inline-flex px-1.5 py-0.2 rounded bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] text-[10px] font-extrabold">
-                  {targetKelas.kodeKelas}
-                </span>
-                <span className="text-xs text-slate-700 font-semibold">
-                  {targetKelas.mataKuliah.nama}
-                </span>
-                <span className="text-[10px] text-slate-400">• {targetKelas.dosen.nama}</span>
-              </div>
-            </div>
-          </div>
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !applying) handleClose();
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+    >
+      <div className="w-full max-w-3xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={handleClose}
+          disabled={applying}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+          title="Tutup (ESC)"
+        >
+          <X size={18} />
+        </button>
 
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={applying}
-            className="w-8 h-8 rounded-lg hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-            title="Tutup (ESC)"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        {/* ── 1. Modal Header (Clean & Direct) ─────────────────────────────────── */}
+        <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+          <FileSpreadsheet size={16} className="text-[#a80063]" />
+          <span>Import Aktivitas Edlink (.xlsx)</span>
+        </h3>
+        <p className="text-xs text-slate-500 font-normal mb-4">
+          [{targetKelas.kodeKelas}] {targetKelas.mataKuliah.nama} • {targetKelas.dosen.nama}
+        </p>
 
-        {/* ── Modal Body (Scrollable) ────────────────────────────────────────── */}
-        <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
+        {/* ── 2. Modal Body ─────────────────────────────────────────────────── */}
+        <div className="space-y-4 text-xs">
           {/* Upload Zone */}
           {!parsedResult ? (
             <div
@@ -180,10 +169,10 @@ export default function ImportEdlinkModal({
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 ${
+              className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all duration-200 ${
                 isDragOver
-                  ? "border-[#a80063] bg-[#fdf2f8]/60 scale-[0.99]"
-                  : "border-slate-300 hover:border-[#a80063] hover:bg-slate-50/80"
+                  ? "border-[#a80063] bg-[#fdf2f8]/60"
+                  : "border-slate-200 hover:border-[#a80063] hover:bg-slate-50/60"
               }`}
             >
               <input
@@ -199,25 +188,25 @@ export default function ImportEdlinkModal({
               />
 
               {parsing ? (
-                <div className="flex flex-col items-center justify-center py-5">
-                  <Loader2 size={32} className="text-[#a80063] animate-spin mb-2" />
-                  <p className="text-xs font-bold text-slate-800">
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Loader2 size={28} className="text-[#a80063] animate-spin mb-2" />
+                  <p className="text-xs font-semibold text-slate-800">
                     Memproses file Excel Edlink...
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Menganalisis 16 sesi dan 6 komponen pilar pembelajaran
+                    Menganalisis 16 sesi dan 6 komponen pilar
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mb-2.5 shadow-xs">
-                    <UploadCloud size={22} />
+                <div className="flex flex-col items-center justify-center py-2">
+                  <div className="w-10 h-10 rounded-xl bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] flex items-center justify-center mb-2.5 shadow-xs">
+                    <UploadCloud size={20} />
                   </div>
-                  <p className="text-xs font-bold text-slate-800">
-                    Tarik & Lepaskan file Excel Edlink ke sini, atau <span className="text-[#a80063] underline">Pilih File</span>
+                  <p className="text-xs font-semibold text-slate-800">
+                    Klik atau seret file Excel Edlink (.xlsx / .xls) ke sini
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1 max-w-md">
-                    Gunakan file ekspor <strong>Laporan Aktivitas</strong> dari Edlink.id (.xlsx / .xls)
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    File Laporan Aktivitas dari Edlink.id
                   </p>
                 </div>
               )}
@@ -276,7 +265,7 @@ export default function ImportEdlinkModal({
                   </span>
                 </div>
 
-                <div className="max-h-[340px] overflow-y-auto">
+                <div className="max-h-[300px] overflow-y-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-400 z-10 shadow-xs">
                       <tr>
@@ -419,8 +408,8 @@ export default function ImportEdlinkModal({
           )}
         </div>
 
-        {/* ── Modal Footer ──────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/70 shrink-0">
+        {/* ── 3. Modal Footer ──────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
           <button
             type="button"
             onClick={handleClose}
@@ -434,14 +423,10 @@ export default function ImportEdlinkModal({
             type="button"
             onClick={handleApply}
             disabled={!parsedResult}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg text-white transition-all shadow-xs cursor-pointer ${
-              !parsedResult
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-[#a80063] hover:bg-[#8e0054] shadow-md shadow-[#a80063]/25 active:scale-95"
-            }`}
+            className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
           >
-            <CheckCircle2 size={13} />
-            <span>Terapkan ke Matriks Monitoring</span>
+            <CheckCircle2 size={14} />
+            <span>Terapkan ke Matriks</span>
           </button>
         </div>
       </div>

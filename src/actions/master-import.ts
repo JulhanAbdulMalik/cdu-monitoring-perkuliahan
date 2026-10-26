@@ -42,6 +42,7 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
 
     rawRows.forEach((row, idx) => {
       const nama = String(row["Nama Lengkap & Gelar"] || row["Nama"] || row["nama"] || "").trim();
+      const nip = String(row["NIP"] || row["nip"] || "").trim();
       const nidn = String(row["NIDN"] || row["nidn"] || "").trim();
       const nuptk = String(row["NUPTK"] || row["nuptk"] || "").trim();
       const email = String(row["Email"] || row["email"] || "").trim();
@@ -64,6 +65,7 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
         rowIndex: idx + 2,
         data: {
           nama,
+          nip: nip || null,
           nidn: nidn || null,
           nuptk: nuptk || null,
           email: email || null,
@@ -97,17 +99,23 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
       if (!r.nama || !r.prodiId) continue;
 
       const cleanNama = String(r.nama).trim();
+      const cleanNip = r.nip ? String(r.nip).trim() : null;
       const cleanNidn = r.nidn ? String(r.nidn).trim() : null;
       const cleanNuptk = r.nuptk ? String(r.nuptk).trim() : null;
       const cleanEmail = r.email ? String(r.email).trim() : null;
 
       // 1. Cari dosen yang sudah ada (Anti-Duplikasi):
-      //    a. Berdasarkan NIDN (jika NIDN diisi)
-      //    b. Berdasarkan NUPTK (jika NUPTK diisi)
-      //    c. ATAU berdasarkan Nama Dosen (case-insensitive)
-      let existingDosen = cleanNidn
-        ? await prisma.dosen.findUnique({ where: { nidn: cleanNidn } })
+      //    a. Berdasarkan NIP (jika NIP diisi)
+      //    b. Berdasarkan NIDN (jika NIDN diisi)
+      //    c. Berdasarkan NUPTK (jika NUPTK diisi)
+      //    d. ATAU berdasarkan Nama Dosen (case-insensitive)
+      let existingDosen = cleanNip
+        ? await prisma.dosen.findUnique({ where: { nip: cleanNip } })
         : null;
+
+      if (!existingDosen && cleanNidn) {
+        existingDosen = await prisma.dosen.findUnique({ where: { nidn: cleanNidn } });
+      }
 
       if (!existingDosen && cleanNuptk) {
         existingDosen = await prisma.dosen.findFirst({
@@ -133,11 +141,12 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
       }
 
       if (existingDosen) {
-        // UPDATE Dosen yang sudah ada (sinkronisasi homebase prodi, NIDN, NUPTK, Email)
+        // UPDATE Dosen yang sudah ada (sinkronisasi homebase prodi, NIP, NIDN, NUPTK, Email)
         await prisma.dosen.update({
           where: { id: existingDosen.id },
           data: {
             nama: cleanNama,
+            nip: cleanNip || existingDosen.nip,
             nidn: cleanNidn || existingDosen.nidn,
             nuptk: cleanNuptk || existingDosen.nuptk,
             email: cleanEmail || existingDosen.email,
@@ -149,6 +158,7 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
         await prisma.dosen.create({
           data: {
             nama: cleanNama,
+            nip: cleanNip,
             nidn: cleanNidn,
             nuptk: cleanNuptk,
             email: cleanEmail,

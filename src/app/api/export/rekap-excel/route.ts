@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
       "S16 (UAS)",
       "Total Hadir",
       "% Hadir",
-      "Skor 3 Pilar",
+      "Konten (3P)",
       "% Konten",
       "Live Conf (UTS/UAS)",
       "Status Evaluasi",

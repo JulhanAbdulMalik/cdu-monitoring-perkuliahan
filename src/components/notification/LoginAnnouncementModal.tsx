@@ -159,7 +159,7 @@ export default function LoginAnnouncementModal() {
         <div className="p-6 sm:p-7 pb-4 border-b border-slate-100">
           <div className="flex items-center justify-between gap-3 mb-2.5">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
                 <Megaphone size={13} className="text-[#a80063]" />
                 <span>Notifikasi</span>
               </span>

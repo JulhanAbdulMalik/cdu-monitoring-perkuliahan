@@ -923,9 +923,9 @@ export default function NotificationManagerClient({
       {/* Modal Konfirmasi Hapus */}
       {deleteTargetId && mounted && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <Trash2 size={24} />
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mx-auto">
+              <Trash2 size={22} />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">Hapus Notifikasi Ini?</h3>
@@ -937,7 +937,7 @@ export default function NotificationManagerClient({
               <button
                 type="button"
                 onClick={() => setDeleteTargetId(null)}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+                className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer"
               >
                 Batal
               </button>
@@ -945,7 +945,7 @@ export default function NotificationManagerClient({
                 type="button"
                 disabled={isDeleting}
                 onClick={() => handleDelete(deleteTargetId)}
-                className="px-4 py-1.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {isDeleting && <Loader2 size={12} className="animate-spin" />}
                 <span>Ya, Hapus</span>
@@ -956,41 +956,39 @@ export default function NotificationManagerClient({
         document.body
       )}
 
-      {/* Modal Form Buat & Edit Notifikasi (Identik dengan Modal Lapor CDU) */}
+      {/* Modal Form Buat & Edit Notifikasi (Standar /master/kelas) */}
       {isModalOpen && mounted && createPortal(
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false);
+            if (e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false);
           }}
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-4xl bg-white rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto space-y-4">
-            {/* Header Modal & Navigasi */}
-            <div className="pb-4 border-b border-slate-100 flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                  {editingItem ? "Edit Notifikasi" : "Buat Notifikasi Baru"}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  {editingItem
-                    ? "Perbarui konten, tingkat urgensi, batas waktu, atau target sasaran pengumuman resmi ini."
-                    : "Publikasikan pengumuman penting atau informasi resmi dari CDU untuk seluruh dosen atau program studi."}
-                </p>
-              </div>
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Tombol Tutup Modal */}
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isSubmitting}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
+            >
+              <X size={18} />
+            </button>
 
-              {/* Tombol Tutup Modal */}
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-                title="Tutup (Esc)"
-              >
-                <X size={18} />
-              </button>
-            </div>
+            {/* Header Modal */}
+            <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Megaphone size={16} className="text-[#a80063]" />
+              <span>{editingItem ? "Edit Notifikasi" : "Buat Notifikasi Baru"}</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-normal mb-4">
+              {editingItem
+                ? "Perbarui pengumuman, tingkat urgensi, atau target penerima"
+                : "Publikasikan pengumuman atau instruksi resmi CDU"}
+            </p>
 
             {formError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div className="p-3 mb-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <AlertCircle size={15} className="shrink-0 text-rose-500" />
                 <span>{formError}</span>
               </div>
@@ -1000,7 +998,7 @@ export default function NotificationManagerClient({
               {/* Baris 1: Sasaran Penerima & Program Studi */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 relative z-30">
                 <div className={formTargetTipe === "PRODI" ? "sm:col-span-5" : "sm:col-span-12"}>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Sasaran Target Penerima <span className="text-rose-500">*</span>
                   </label>
                   <SearchableSelect
@@ -1017,7 +1015,7 @@ export default function NotificationManagerClient({
 
                 {formTargetTipe === "PRODI" && (
                   <div className="sm:col-span-7 animate-fade-in">
-                    <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                       Pilih Program Studi <span className="text-rose-500">*</span>
                     </label>
                     <SearchableSelect
@@ -1034,10 +1032,10 @@ export default function NotificationManagerClient({
               </div>
 
               {/* Baris 2: Tingkat Urgensi & Batas Waktu Otomatis Selesai (Compact Side-by-Side) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 relative z-10">
                 {/* Sisi Kiri: Tingkat Urgensi (7 cols) */}
-                <div className="lg:col-span-7">
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                <div className="sm:col-span-7">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Tingkat Urgensi <span className="text-rose-500">*</span>
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -1050,10 +1048,10 @@ export default function NotificationManagerClient({
                         key={k.val}
                         type="button"
                         onClick={() => setFormUrgensi(k.val as any)}
-                        className={`px-2.5 py-2.5 rounded-xl text-center border text-xs font-bold transition-all cursor-pointer ${
+                        className={`p-2 rounded-xl text-center border text-xs font-semibold transition-all cursor-pointer ${
                           formUrgensi === k.val
                             ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
-                            : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                         }`}
                       >
                         {k.label}
@@ -1063,8 +1061,8 @@ export default function NotificationManagerClient({
                 </div>
 
                 {/* Sisi Kanan: Batas Waktu Otomatis Selesai (5 cols) */}
-                <div className="lg:col-span-5">
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Calendar size={12} className="text-slate-400" />
                       <span>Batas Selesai</span>
@@ -1076,7 +1074,7 @@ export default function NotificationManagerClient({
                       type="date"
                       value={formKadaluarsaPada}
                       onChange={(e) => setFormKadaluarsaPada(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all font-medium"
+                      className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                     />
                     {formKadaluarsaPada && (
                       <button
@@ -1094,7 +1092,7 @@ export default function NotificationManagerClient({
 
               {/* Baris 3: Judul Notifikasi */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                   Judul Notifikasi <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1102,52 +1100,50 @@ export default function NotificationManagerClient({
                   required
                   value={formJudul}
                   onChange={(e) => setFormJudul(e.target.value)}
-                  placeholder="Tuliskan judul pengumuman atau notifikasi..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none leading-relaxed transition-all placeholder:text-slate-400 font-semibold"
+                  placeholder="Batas Akhir Pengisian Konten Perkuliahan"
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                 />
               </div>
 
-              {/* Baris 4: Penjelasan & Isi Pesan (Lebih tinggi defaultnya) */}
+              {/* Baris 4: Penjelasan & Isi Pesan */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
                   Penjelasan & Isi Pesan <span className="text-rose-500">*</span>
                 </label>
                 <textarea
-                  rows={6}
+                  rows={4}
                   required
                   value={formPesan}
                   onChange={(e) => setFormPesan(e.target.value)}
-                  placeholder="Tuliskan penjelasan detail instruksi, kebijakan, atau uraian notifikasi..."
-                  className="w-full min-h-[160px] px-3.5 py-2.5 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none leading-relaxed transition-all placeholder:text-slate-400 resize-y"
+                  placeholder="Tuliskan isi pengumuman atau instruksi resmi..."
+                  className="w-full px-3 py-2 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none leading-relaxed transition-all placeholder:text-slate-400 resize-y font-normal"
                 />
               </div>
 
               {/* Baris 5: Tautan Lampiran / Dokumen Terkait (Opsional) */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Tautan Lampiran / Dokumen Terkait</span>
-                  <span className="text-[10px] text-slate-400 font-normal lowercase">
-                    (opsional - contoh: link Google Drive atau berkas pendukung)
-                  </span>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Tautan Lampiran / Dokumen</span>
+                  <span className="text-[10px] text-slate-400 font-normal lowercase">(opsional)</span>
                 </label>
                 <input
                   type="text"
                   value={formTautanUrl}
                   onChange={(e) => setFormTautanUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3.5 py-2 bg-slate-50/70 focus:bg-white text-xs text-slate-900 rounded-xl border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/10 outline-none transition-all placeholder:text-slate-400 font-medium"
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                 />
               </div>
 
               {/* Baris 6: Opsi Pop-up saat Login */}
-              <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Megaphone size={13} className="text-[#a80063]" />
                     <span>Tampilkan Pop-up saat Pengguna Login</span>
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Notifikasi akan otomatis muncul sebagai jendela pop-up di layar saat pengguna masuk ke sistem.
+                    Notifikasi akan otomatis muncul sebagai jendela pop-up saat pengguna masuk ke sistem
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -1161,20 +1157,20 @@ export default function NotificationManagerClient({
                 </label>
               </div>
 
-              {/* Footer Actions (Identik dengan Modal Lapor CDU) */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-4">
+              {/* Footer Actions */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#a80063] hover:bg-[#8f0054] text-white rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <Loader2 size={13} className="animate-spin" />

@@ -1018,7 +1018,7 @@ export default function KelasClient({
                       </label>
                       <input
                         type="text"
-                        placeholder="Contoh: 25AK11001"
+                        placeholder="25AK11001"
                         value={kodeMk}
                         onChange={(e) => setKodeMk(e.target.value.toUpperCase())}
                         required={modeMk === "NEW"}
@@ -1031,7 +1031,7 @@ export default function KelasClient({
                       </label>
                       <input
                         type="text"
-                        placeholder="Contoh: Pengantar Manajemen"
+                        placeholder="Pengantar Manajemen"
                         value={namaMk}
                         onChange={(e) => setNamaMk(e.target.value)}
                         required={modeMk === "NEW"}
@@ -1127,7 +1127,7 @@ export default function KelasClient({
                     </label>
                     <input
                       type="text"
-                      placeholder="Contoh: Julhan Abdul Malik, S.Kom"
+                      placeholder="Julhan Abdul Malik, S.Kom"
                       value={namaDosen}
                       onChange={(e) => setNamaDosen(e.target.value)}
                       required={modeDosen === "NEW"}
@@ -1192,7 +1192,7 @@ export default function KelasClient({
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: AK26A, TI26A"
+                    placeholder="AK26A, TI26A"
                     value={kodeKelas}
                     onChange={(e) => setKodeKelas(e.target.value.toUpperCase())}
                     required
@@ -1228,7 +1228,7 @@ export default function KelasClient({
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: 09:10 s.d 10:50"
+                    placeholder="09:10 s.d 10:50"
                     value={jadwalJam}
                     onChange={(e) => setJadwalJam(e.target.value)}
                     required
@@ -1294,7 +1294,7 @@ export default function KelasClient({
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: R.301, Lab Komputer 2, Gedung B lt.2"
+                    placeholder="R.301, Lab Komputer 2, Gedung B lt.2"
                     value={ruangan}
                     onChange={(e) => setRuangan(e.target.value)}
                     className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"

@@ -582,61 +582,59 @@ export default function MataKuliahClient({
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl border border-slate-200 relative">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loading) closeModal();
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Close Button */}
             <button
+              type="button"
               onClick={closeModal}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              disabled={loading}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              {editingMk ? "Edit Mata Kuliah" : "Tambah Mata Kuliah Baru"}
+            {/* Header (Clean & Direct) */}
+            <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <BookOpen size={16} className="text-[#a80063]" />
+              <span>{editingMk ? "Edit Mata Kuliah" : "Tambah Mata Kuliah Baru"}</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
-              Lengkapi informasi mata kuliah sesuai kurikulum program studi
+              Lengkapi informasi kurikulum mata kuliah, kode, bobot SKS, dan program studi pengampu.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Kode Mata Kuliah
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: IF2101 / MN101"
-                  value={kode}
-                  onChange={(e) => setKode(e.target.value.toUpperCase())}
-                  required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none uppercase font-bold"
-                />
-              </div>
+              {/* Grid 2 Kolom: Kode MK & Bobot SKS */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Kode Mata Kuliah <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="IF2101 / MN101"
+                    value={kode}
+                    onChange={(e) => setKode(e.target.value.toUpperCase())}
+                    required
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none uppercase font-bold"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Nama Mata Kuliah
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Pemrograman Web Lanjut"
-                  value={nama}
-                  onChange={(e) => setNama(e.target.value)}
-                  required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Bobot SKS
+                    Bobot SKS <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={sks}
                     onChange={(e) => setSks(parseInt(e.target.value))}
                     required
-                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium cursor-pointer"
                   >
                     <option value={1}>1 SKS</option>
                     <option value={2}>2 SKS</option>
@@ -645,40 +643,57 @@ export default function MataKuliahClient({
                     <option value={6}>6 SKS</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Program Studi
-                  </label>
-                  <select
-                    value={prodiId}
-                    onChange={(e) => setProdiId(e.target.value)}
-                    required
-                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  >
-                    <option value="">-- Pilih Prodi --</option>
-                    {prodiList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.kode} - {p.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
+              {/* Nama Mata Kuliah */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Nama Mata Kuliah <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Pemrograman Web Lanjut"
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  required
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                />
+              </div>
+
+              {/* Program Studi */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Program Studi Pengampu <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={prodiId}
+                  onChange={(e) => setProdiId(e.target.value)}
+                  required
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium cursor-pointer"
+                >
+                  <option value="">-- Pilih Program Studi --</option>
+                  {prodiList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.kode} - {p.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Footer Actions */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={loading}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading && <Loader2 size={12} className="animate-spin" />}
                   <span>{editingMk ? "Simpan Perubahan" : "Tambah Mata Kuliah"}</span>

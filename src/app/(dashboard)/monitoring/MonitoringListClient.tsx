@@ -814,7 +814,7 @@ export default function MonitoringListClient({
         {/* Subtle Background Loading Line */}
         {isFetching && (
           <div className="h-0.5 w-full bg-slate-100 overflow-hidden relative">
-            <div className="h-full bg-gradient-to-r from-[#a80063]/40 via-[#a80063] to-[#a80063]/40 animate-pulse w-full" />
+            <div className="h-full bg-[#a80063] animate-pulse w-full" />
           </div>
         )}
 
@@ -842,7 +842,7 @@ export default function MonitoringListClient({
                 {renderSortHeader("Jadwal Kuliah", "JADWAL")}
                 {renderSortHeader("Ruang Kelas", "RUANG")}
                 {renderSortHeader("Kehadiran", "KEHADIRAN", "center")}
-                {renderSortHeader("Skor 3 Pilar", "PILAR", "center")}
+                {renderSortHeader("Konten (3P)", "PILAR", "center")}
                 <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold">Live Conf</th>
                 <th className="py-2.5 px-2.5 text-center text-slate-700 font-bold w-24">Aksi</th>
               </tr>
@@ -976,11 +976,6 @@ export default function MonitoringListClient({
                               {cls.dosen.nama}
                             </span>
                           </div>
-                          {cls.dosen.nidn && (
-                            <p className="text-[9.5px] text-slate-400 pl-4.5 leading-none">
-                              NIDN: {cls.dosen.nidn}
-                            </p>
-                          )}
                           {/* Info Dosen Tandem jika belum ada sesi yang dibagi khusus tandem */}
                           {cls.dosen2 && !cls.dosenPengajarList?.some((p) => p.id === cls.dosen2?.id) && (
                             <div className="flex items-center gap-1.5 text-slate-500 pt-0.5">
@@ -1049,7 +1044,7 @@ export default function MonitoringListClient({
                           <span className="font-bold text-xs text-emerald-600 leading-tight">
                             {cls.summary.totalHadir} / 16 Sesi
                           </span>
-                          <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="w-14 h-1 rounded-full bg-slate-100 overflow-hidden mt-0.5">
                             <div
                               className="h-full bg-emerald-500 rounded-full"
                               style={{ width: `${cls.summary.persenKehadiran}%` }}
@@ -1113,7 +1108,7 @@ export default function MonitoringListClient({
                             <span className="font-bold text-xs text-[#a80063] leading-tight">
                               {cls.summary.totalSkor3Pilar} / {cls.modePembelajaran === "LURING" ? 28 : 42} Poin
                             </span>
-                            <div className="w-14 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="w-14 h-1 rounded-full bg-slate-100 overflow-hidden mt-0.5">
                               <div
                                 className="h-full bg-[#a80063] rounded-full transition-all"
                                 style={{ width: `${cls.summary.persenKonten}%` }}

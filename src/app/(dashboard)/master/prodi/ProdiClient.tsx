@@ -918,7 +918,7 @@ export default function ProdiClient({
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Teknik Informatika"
+                  placeholder="Teknik Informatika"
                   value={prodiNama}
                   onChange={(e) => setProdiNama(e.target.value)}
                   required
@@ -932,7 +932,7 @@ export default function ProdiClient({
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: TI / MN / SI"
+                  placeholder="TI / MN / SI"
                   value={prodiKode}
                   onChange={(e) => setProdiKode(e.target.value.toUpperCase())}
                   required
@@ -1007,7 +1007,7 @@ export default function ProdiClient({
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Fakultas Teknologi dan Informatika"
+                  placeholder="Fakultas Teknologi dan Informatika"
                   value={fakultasNama}
                   onChange={(e) => setFakultasNama(e.target.value)}
                   required

@@ -271,7 +271,7 @@ export default function UserManagementClient({
     switch (role) {
       case "SUPER_ADMIN":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-gradient-to-r from-[#fdf2f8] to-[#fce7f3] text-[#a80063] border border-[#fbcfe8] shadow-2xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] shadow-2xs">
             <ShieldCheck size={11} className="text-[#a80063]" />
             <span>Super Admin</span>
           </span>
@@ -331,7 +331,7 @@ export default function UserManagementClient({
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-[#fbcfe8]/60 bg-gradient-to-br from-white to-[#fdf2f8]/30 flex items-center gap-3">
+        <div className="bg-white p-3.5 rounded-xl border border-[#fbcfe8]/60 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#fdf2f8] text-[#a80063] border border-[#fbcfe8] flex items-center justify-center shrink-0">
             <ShieldCheck size={18} />
           </div>
@@ -596,66 +596,74 @@ export default function UserManagementClient({
       {mounted && isCreateOpen && createPortal(
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsCreateOpen(false);
+            if (e.target === e.currentTarget && !loading) setIsCreateOpen(false);
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Close Button */}
             <button
+              type="button"
               onClick={() => setIsCreateOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              disabled={loading}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
+            {/* Header */}
             <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
               <UserPlus size={16} className="text-[#a80063]" />
               <span>Tambah Akun Pengguna Baru</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
-              Hanya Super Admin yang berhak mendaftarkan staf baru ke dalam sistem portal CDU.
+              Daftarkan akun staf atau dosen baru ke dalam sistem portal CDU
             </p>
 
-            <form onSubmit={handleCreateUser} className="space-y-3.5">
-              {/* Nama Lengkap */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Nama Lengkap & Gelar <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Contoh: Budi Santoso, S.Kom., M.T."
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    required
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  />
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              {/* Baris 1: Nama Lengkap & Email (2 Kolom) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Nama Lengkap */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Nama Lengkap & Gelar <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Dr. Nama Dosen, M.Kom."
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      required
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Alamat Email <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="email"
-                    placeholder="nama@nusaputra.ac.id"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    required
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  />
+                {/* Email */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Alamat Email <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      placeholder="nama@nusaputra.ac.id"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      required
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Hak Akses / Role */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Hak Akses (Role) <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -668,14 +676,14 @@ export default function UserManagementClient({
                       key={r.val}
                       type="button"
                       onClick={() => setNewRole(r.val as any)}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
                         newRole === r.val
-                          ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] shadow-xs"
+                          ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/70"
                       }`}
                     >
                       <p className="text-[11px] font-bold leading-tight">{r.label}</p>
-                      <p className="text-[9px] text-slate-400 font-normal mt-0.5">{r.desc}</p>
+                      <p className="text-[9.5px] text-slate-400 font-normal mt-0.5">{r.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -683,7 +691,7 @@ export default function UserManagementClient({
 
               {/* Dynamic Multi-Prodi Checklist jika Role DOSEN */}
               {newRole === "DOSEN" && (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                       <GraduationCap size={14} className="text-[#a80063]" />
@@ -708,7 +716,7 @@ export default function UserManagementClient({
                     </div>
                   </div>
 
-                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
                     {allProdis.length === 0 ? (
                       <p className="text-xs text-slate-400 py-2 text-center">Belum ada data prodi di sistem</p>
                     ) : (
@@ -765,48 +773,51 @@ export default function UserManagementClient({
                 </div>
               )}
 
-              {/* Password */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Password Awal <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Lock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    placeholder="Minimal 6 karakter"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full pl-8 pr-10 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                  >
-                    {showNewPassword ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
+              {/* Baris 3: Password & Konfirmasi Password (2 Kolom) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Password */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Password Awal <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Minimal 6 karakter"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="w-full pl-8 pr-9 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      {showNewPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Konfirmasi Password */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Konfirmasi Password <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Lock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    placeholder="Ulangi password di atas"
-                    value={newPasswordConfirm}
-                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                  />
+                {/* Konfirmasi Password */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Konfirmasi Password <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Ulangi kata sandi"
+                      value={newPasswordConfirm}
+                      onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                      required
+                      minLength={6}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -816,14 +827,14 @@ export default function UserManagementClient({
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
                   disabled={loading}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading && <Loader2 size={12} className="animate-spin" />}
                   <span>Simpan Akun Baru</span>
@@ -839,58 +850,68 @@ export default function UserManagementClient({
       {mounted && isEditOpen && selectedUser && createPortal(
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsEditOpen(false);
+            if (e.target === e.currentTarget && !loading) setIsEditOpen(false);
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Close Button */}
             <button
+              type="button"
               onClick={() => setIsEditOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              disabled={loading}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
+            {/* Header */}
             <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
               <Edit2 size={15} className="text-[#a80063]" />
               <span>Edit Akun Pengguna</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
-              Perbarui profil, hak akses, atau lakukan reset kata sandi akun pengguna ini.
+              Perbarui profil, hak akses, atau ganti kata sandi akun pengguna
             </p>
 
-            <form onSubmit={handleEditUser} className="space-y-3.5">
-              {/* Nama Lengkap */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Nama Lengkap <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-semibold"
-                />
-              </div>
+            <form onSubmit={handleEditUser} className="space-y-4">
+              {/* Baris 1: Nama Lengkap & Email (2 Kolom) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Nama Lengkap */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Nama Lengkap <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Dr. Nama Dosen, M.Kom."
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                  />
+                </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Alamat Email <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
-                />
+                {/* Email */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Alamat Email <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="nama@nusaputra.ac.id"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    required
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                  />
+                </div>
               </div>
 
               {/* Hak Akses / Role */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Hak Akses (Role) <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -903,14 +924,14 @@ export default function UserManagementClient({
                       key={r.val}
                       type="button"
                       onClick={() => setEditRole(r.val as any)}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
                         editRole === r.val
-                          ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] shadow-xs"
+                          ? "bg-[#fdf2f8] border-[#a80063] text-[#a80063] shadow-2xs ring-1 ring-[#a80063]/30"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/70"
                       }`}
                     >
                       <p className="text-[11px] font-bold leading-tight">{r.label}</p>
-                      <p className="text-[9px] text-slate-400 font-normal mt-0.5">{r.desc}</p>
+                      <p className="text-[9.5px] text-slate-400 font-normal mt-0.5">{r.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -918,7 +939,7 @@ export default function UserManagementClient({
 
               {/* Dynamic Multi-Prodi Checklist jika Role DOSEN */}
               {editRole === "DOSEN" && (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                       <GraduationCap size={14} className="text-[#a80063]" />
@@ -943,7 +964,7 @@ export default function UserManagementClient({
                     </div>
                   </div>
 
-                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 bg-white rounded-lg p-2 border border-slate-200/80">
                     {allProdis.length === 0 ? (
                       <p className="text-xs text-slate-400 py-2 text-center">Belum ada data prodi di sistem</p>
                     ) : (
@@ -1001,7 +1022,7 @@ export default function UserManagementClient({
               )}
 
               {/* Ganti Password (Opsional) */}
-              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                     <KeyRound size={13} className="text-[#a80063]" />
@@ -1013,10 +1034,10 @@ export default function UserManagementClient({
                 <div className="relative">
                   <input
                     type={showEditPassword ? "text" : "password"}
-                    placeholder="Masukkan password baru (opsional)"
+                    placeholder="Password baru (opsional)"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
-                    className="w-full pl-3 pr-10 py-1.5 bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+                    className="w-full pl-3 pr-10 py-1.5 bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                   />
                   <button
                     type="button"
@@ -1034,14 +1055,14 @@ export default function UserManagementClient({
                   type="button"
                   onClick={() => setIsEditOpen(false)}
                   disabled={loading}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading && <Loader2 size={12} className="animate-spin" />}
                   <span>Simpan Perubahan</span>
@@ -1057,7 +1078,7 @@ export default function UserManagementClient({
       {mounted && isDeleteOpen && selectedUser && createPortal(
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsDeleteOpen(false);
+            if (e.target === e.currentTarget && !loading) setIsDeleteOpen(false);
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
         >
@@ -1078,7 +1099,7 @@ export default function UserManagementClient({
                 type="button"
                 onClick={() => setIsDeleteOpen(false)}
                 disabled={loading}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-4 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-all cursor-pointer disabled:opacity-50"
               >
                 Batal
               </button>
@@ -1086,7 +1107,7 @@ export default function UserManagementClient({
                 type="button"
                 onClick={handleDeleteUser}
                 disabled={loading}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
                 {loading && <Loader2 size={12} className="animate-spin" />}
                 <span>Ya, Hapus Akun</span>

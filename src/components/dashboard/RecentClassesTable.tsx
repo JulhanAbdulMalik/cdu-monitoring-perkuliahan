@@ -109,7 +109,7 @@ export default function RecentClassesTable({ classes }: RecentClassesTableProps)
                     </div>
                     <div className="w-full h-1 rounded-full bg-slate-100 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-[#a80063] to-[#c026d3] rounded-full transition-all duration-300"
+                        className="h-full bg-[#a80063] rounded-full transition-all duration-300"
                         style={{ width: `${(item.progress / 16) * 100}%` }}
                       />
                     </div>

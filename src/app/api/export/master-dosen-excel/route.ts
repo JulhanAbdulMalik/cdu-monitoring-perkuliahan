@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     if (search.trim()) {
       whereClause.OR = [
         { nama: { contains: search.trim(), mode: "insensitive" } },
+        { nip: { contains: search.trim() } },
         { nidn: { contains: search.trim() } },
         { nuptk: { contains: search.trim() } },
         { email: { contains: search.trim(), mode: "insensitive" } },

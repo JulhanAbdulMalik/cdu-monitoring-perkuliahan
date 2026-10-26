@@ -26,6 +26,7 @@ import {
   PanelLeft,
   ShieldCheck,
   AlertCircle,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -89,6 +90,11 @@ const navGroups: NavGroup[] = [
         label: "Laporan per Prodi",
         href: "/laporan/prodi",
         icon: Building2,
+      },
+      {
+        label: "Rapor Dosen",
+        href: "/laporan/rapor-dosen",
+        icon: Award,
       },
     ],
   },
@@ -187,7 +193,7 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
           className="flex items-center gap-2.5 min-w-0"
           title="CDU PORTAL - Nusa Putra University"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#a80063] to-[#d946ef] flex items-center justify-center shadow-sm shadow-[#a80063]/20 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#a80063] flex items-center justify-center shadow-sm shadow-[#a80063]/20 shrink-0">
             <GraduationCap size={17} className="text-white" />
           </div>
           {!isCollapsed && (
@@ -315,7 +321,7 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
 
         {/* Bottom Banner Card in Full Mode */}
         {!isCollapsed && (
-          <div className="p-3 rounded-xl bg-gradient-to-br from-[#fdf2f8] to-[#fce7f3] border border-[#fbcfe8]/50 mt-3 overflow-hidden">
+          <div className="p-3 rounded-xl bg-[#fdf2f8] border border-[#fbcfe8]/50 mt-3 overflow-hidden">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#a80063]" />
               <span className="text-[10px] font-bold text-[#a80063] uppercase tracking-wider">

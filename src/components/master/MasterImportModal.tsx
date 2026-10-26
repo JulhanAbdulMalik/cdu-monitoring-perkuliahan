@@ -393,7 +393,7 @@ export default function MasterImportModal({
             /* ── VIEW 1: UPLOAD & DOWNLOAD TEMPLATE ────────────────────────── */
             <div className="space-y-4 overflow-y-auto pr-1 py-1">
               {/* Download Template Banner */}
-              <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#fdf2f8] to-[#fce7f3] border border-[#fbcfe8] flex items-center justify-between gap-3">
+              <div className="p-3.5 rounded-xl bg-[#fdf2f8] border border-[#fbcfe8] flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-[#a80063]">
                     Ingin menggunakan format template standar?
@@ -823,7 +823,7 @@ export default function MasterImportModal({
                         value={editFormData.kodeKelas || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, kodeKelas: e.target.value.toUpperCase() })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-[#a80063] focus:outline-none focus:border-[#a80063]"
-                        placeholder="Contoh: GZ26A"
+                        placeholder="GZ26A"
                       />
                     </div>
                     <div>
@@ -960,7 +960,7 @@ export default function MasterImportModal({
                         value={editFormData.jadwalJam && editFormData.jadwalJam !== "-" ? editFormData.jadwalJam : ""}
                         onChange={(e) => setEditFormData({ ...editFormData, jadwalJam: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                        placeholder="Contoh: 08:00 - 09:40"
+                        placeholder="08:00 - 09:40"
                       />
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         <span className="text-[10px] text-slate-400 font-medium">Pilihan cepat:</span>
@@ -998,7 +998,7 @@ export default function MasterImportModal({
                         value={editFormData.ruangan || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, ruangan: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                        placeholder="Contoh: B2A, R.301"
+                        placeholder="B2A, R.301"
                       />
                     </div>
                   </div>

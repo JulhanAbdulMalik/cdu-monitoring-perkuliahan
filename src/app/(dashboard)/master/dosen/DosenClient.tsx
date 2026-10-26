@@ -32,6 +32,7 @@ interface DosenItem {
   id: string;
   nama: string;
   nidn: string | null;
+  nip?: string | null;
   nuptk: string | null;
   email?: string | null;
   prodiId: string;
@@ -86,6 +87,7 @@ export default function DosenClient({
   const [editingDosen, setEditingDosen] = useState<DosenItem | null>(null);
   const [nama, setNama] = useState("");
   const [nidn, setNidn] = useState("");
+  const [nip, setNip] = useState("");
   const [nuptk, setNuptk] = useState("");
   const [email, setEmail] = useState("");
   const [prodiId, setProdiId] = useState("");
@@ -97,6 +99,7 @@ export default function DosenClient({
     setEditingDosen(null);
     setNama("");
     setNidn("");
+    setNip("");
     setNuptk("");
     setEmail("");
     setProdiId(prodiList[0]?.id || "");
@@ -107,6 +110,7 @@ export default function DosenClient({
     setEditingDosen(dosen);
     setNama(dosen.nama);
     setNidn(dosen.nidn || "");
+    setNip(dosen.nip || "");
     setNuptk(dosen.nuptk || "");
     setEmail(dosen.email || "");
     setProdiId(dosen.prodiId);
@@ -134,6 +138,7 @@ export default function DosenClient({
         const res = await updateDosen(editingDosen.id, {
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
+          nip: nip.trim() ? nip.trim() : undefined,
           nuptk: nuptk.trim() ? nuptk.trim() : undefined,
           email: email.trim() ? email.trim() : undefined,
           prodiId,
@@ -152,6 +157,7 @@ export default function DosenClient({
                     ...d,
                     nama,
                     nidn: nidn.trim() || null,
+                    nip: nip.trim() || null,
                     nuptk: nuptk.trim() || null,
                     email: email.trim() || null,
                     prodiId,
@@ -165,6 +171,7 @@ export default function DosenClient({
         const res = await createDosen({
           nama,
           nidn: nidn.trim() ? nidn.trim() : undefined,
+          nip: nip.trim() ? nip.trim() : undefined,
           nuptk: nuptk.trim() ? nuptk.trim() : undefined,
           email: email.trim() ? email.trim() : undefined,
           prodiId,
@@ -178,6 +185,7 @@ export default function DosenClient({
           const targetProdi = prodiList.find((p) => p.id === prodiId);
           const newDosenItem: DosenItem = {
             ...res.data!,
+            nip: nip.trim() || null,
             email: email.trim() || null,
             prodi: targetProdi ? { id: targetProdi.id, nama: targetProdi.nama, kode: targetProdi.kode } : (res.data as any).prodi,
             _count: { kelas: 0 },
@@ -242,6 +250,7 @@ export default function DosenClient({
   const filteredDosen = dosenList.filter((d) => {
     const matchSearch =
       d.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.nip && d.nip.includes(searchQuery)) ||
       (d.nidn && d.nidn.includes(searchQuery)) ||
       (d.nuptk && d.nuptk.includes(searchQuery)) ||
       (d.email && d.email.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -250,10 +259,12 @@ export default function DosenClient({
   });
 
   // ── Sorting Logic & Header (Standard CDU Table) ───────────────────────────
-  type DosenSortColumn = "NAMA" | "NIDN" | "NUPTK" | "EMAIL" | "PRODI" | "KELAS";
+  type DosenSortColumn = "NAMA" | "NIP" | "NIDN" | "NUPTK" | "EMAIL" | "PRODI" | "KELAS";
   type DosenSortKey =
     | "NAMA_ASC"
     | "NAMA_DESC"
+    | "NIP_ASC"
+    | "NIP_DESC"
     | "NIDN_ASC"
     | "NIDN_DESC"
     | "NUPTK_ASC"
@@ -273,6 +284,10 @@ export default function DosenClient({
         return a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
       case "NAMA_DESC":
         return b.nama.localeCompare(a.nama, "id", { sensitivity: "base" });
+      case "NIP_ASC":
+        return (a.nip || "").localeCompare(b.nip || "", "id");
+      case "NIP_DESC":
+        return (b.nip || "").localeCompare(a.nip || "", "id");
       case "NIDN_ASC":
         return (a.nidn || "").localeCompare(b.nidn || "", "id");
       case "NIDN_DESC":
@@ -315,6 +330,9 @@ export default function DosenClient({
       case "NAMA":
         setSortBy(sortBy === "NAMA_ASC" ? "NAMA_DESC" : "NAMA_ASC");
         break;
+      case "NIP":
+        setSortBy(sortBy === "NIP_ASC" ? "NIP_DESC" : "NIP_ASC");
+        break;
       case "NIDN":
         setSortBy(sortBy === "NIDN_ASC" ? "NIDN_DESC" : "NIDN_ASC");
         break;
@@ -341,6 +359,7 @@ export default function DosenClient({
   ) {
     const isCurrent =
       (columnKey === "NAMA" && (sortBy === "NAMA_ASC" || sortBy === "NAMA_DESC")) ||
+      (columnKey === "NIP" && (sortBy === "NIP_ASC" || sortBy === "NIP_DESC")) ||
       (columnKey === "NIDN" && (sortBy === "NIDN_ASC" || sortBy === "NIDN_DESC")) ||
       (columnKey === "NUPTK" && (sortBy === "NUPTK_ASC" || sortBy === "NUPTK_DESC")) ||
       (columnKey === "EMAIL" && (sortBy === "EMAIL_ASC" || sortBy === "EMAIL_DESC")) ||
@@ -349,6 +368,7 @@ export default function DosenClient({
 
     const isAsc =
       sortBy === "NAMA_ASC" ||
+      sortBy === "NIP_ASC" ||
       sortBy === "NIDN_ASC" ||
       sortBy === "NUPTK_ASC" ||
       sortBy === "EMAIL_ASC" ||
@@ -528,6 +548,7 @@ export default function DosenClient({
               <tr className="border-b-2 border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-50">
                 <th className="py-2.5 px-2.5 w-10 text-center text-slate-700 font-bold">No</th>
                 {renderSortHeader("Nama Dosen", "NAMA", "left", "min-w-[190px]")}
+                {renderSortHeader("NIP", "NIP", "left", "w-28 min-w-[100px]")}
                 {renderSortHeader("NIDN", "NIDN", "left", "w-32 min-w-[110px]")}
                 {renderSortHeader("NUPTK", "NUPTK", "left", "w-32 min-w-[110px]")}
                 {renderSortHeader("Email", "EMAIL", "left", "w-44 min-w-[150px]")}
@@ -539,7 +560,7 @@ export default function DosenClient({
             <tbody className="divide-y divide-slate-100/80 text-xs">
               {sortedDosen.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-xs text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-xs text-slate-400">
                     Tidak ada data dosen yang sesuai dengan kriteria pencarian.
                   </td>
                 </tr>
@@ -561,13 +582,25 @@ export default function DosenClient({
                       {/* Nama Dosen with Avatar */}
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#a80063]/15 to-[#d946ef]/20 border border-[#fbcfe8] text-[#a80063] font-bold text-xs flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-[#fdf2f8] border border-[#fbcfe8] text-[#a80063] font-bold text-xs flex items-center justify-center shrink-0">
                             {d.nama[0]}
                           </div>
                           <span className="font-semibold text-xs text-slate-900 leading-tight">
                             {d.nama}
                           </span>
                         </div>
+                      </td>
+
+                      {/* NIP */}
+                      <td className="py-2.5 px-3">
+                        {d.nip ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium font-mono">
+                            <IdCard size={11} className="text-slate-400" />
+                            <span>{d.nip}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">-</span>
+                        )}
                       </td>
 
                       {/* NIDN */}
@@ -671,85 +704,117 @@ export default function DosenClient({
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl border border-slate-200 relative">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loading) closeModal();
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
+            {/* Close Button */}
             <button
+              type="button"
               onClick={closeModal}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              disabled={loading}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              {editingDosen ? "Edit Data Dosen" : "Tambah Dosen Baru"}
+            {/* Header (Clean & Direct) */}
+            <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <GraduationCap size={16} className="text-[#a80063]" />
+              <span>{editingDosen ? "Edit Data Dosen" : "Tambah Dosen Baru"}</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
-              Lengkapi identitas dosen pengampu perkuliahan
+              Lengkapi identitas dosen pengampu perkuliahan dan homebase program studi.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
+              {/* Nama Lengkap & Gelar */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Nama Lengkap & Gelar
+                  Nama Lengkap & Gelar <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Dr. Nama Dosen, S.T., M.Kom."
+                  placeholder="Dr. Nama Dosen, M.Kom."
                   value={nama}
                   onChange={(e) => setNama(e.target.value)}
                   required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none"
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  NIDN (Nomor Induk Dosen Nasional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: 0412345678 (opsional)"
-                  value={nidn}
-                  onChange={(e) => setNidn(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none font-mono"
-                />
+              {/* Grid 2 Kolom: NIP & NIDN */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    NIP (Nomor Induk Pegawai)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="022026005 (opsional)"
+                    value={nip}
+                    onChange={(e) => setNip(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    NIDN (Nomor Induk Dosen Nasional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="0412345678 (opsional)"
+                    value={nidn}
+                    onChange={(e) => setNidn(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-mono"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  NUPTK (Nomor Unik Pendidik & Tenaga Kependidikan)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: 1234567890123456 (opsional)"
-                  value={nuptk}
-                  onChange={(e) => setNuptk(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none font-mono"
-                />
+              {/* Grid 2 Kolom: NUPTK & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    NUPTK
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="1234567890123456 (opsional)"
+                    value={nuptk}
+                    onChange={(e) => setNuptk(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Email Dosen
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="dosen@nusaputra.ac.id (opsional)"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                  />
+                </div>
               </div>
 
+              {/* Homebase Program Studi */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Email Dosen
-                </label>
-                <input
-                  type="email"
-                  placeholder="Contoh: dosen@nusaputra.ac.id (opsional)"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Homebase Program Studi
+                  Homebase Program Studi <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={prodiId}
                   onChange={(e) => setProdiId(e.target.value)}
                   required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none"
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium cursor-pointer"
                 >
                   <option value="">-- Pilih Program Studi --</option>
                   {prodiList.map((p) => (
@@ -760,19 +825,20 @@ export default function DosenClient({
                 </select>
               </div>
 
+              {/* Footer Actions */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={loading}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading && <Loader2 size={12} className="animate-spin" />}
                   <span>{editingDosen ? "Simpan Perubahan" : "Tambah Dosen"}</span>

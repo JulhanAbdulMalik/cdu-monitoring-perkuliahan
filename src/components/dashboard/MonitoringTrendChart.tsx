@@ -255,8 +255,8 @@ export default function MonitoringTrendChart({
         </div>
       </div>
 
-      {/* ── Compact Chart Area ────────────────────────────────────────────── */}
-      <div className="h-44 sm:h-48 w-full">
+      {/* ── Chart Area (+25% Height for spacious data visualization) ──────── */}
+      <div className="h-56 sm:h-60 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={displayedData as any[]} margin={{ top: 6, right: 8, left: -22, bottom: 0 }}>
             <defs>

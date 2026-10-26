@@ -52,8 +52,10 @@ model Semester {
   tanggalMulai  DateTime? // Tanggal mulai sesi 1 resmi (misal: 2026-09-21)
   createdAt     DateTime  @default(now())
 
-  kelas     Kelas[]
-  hariLibur LiburSemester[]
+  kelas            Kelas[]
+  hariLibur        LiburSemester[]
+  raporDosen       RaporDosen[]
+  raporDosenConfig RaporDosenConfig?
 
   @@unique([tahunAkademik, periode])
 }
@@ -107,6 +109,7 @@ model Dosen {
   id        String   @id @default(cuid())
   nama      String
   nidn      String?  @unique
+  nip       String?  @unique
   nuptk     String?
   email     String?
   prodiId   String
@@ -117,6 +120,7 @@ model Dosen {
   kelas                Kelas[]          @relation("DosenUtamaKelas")
   kelasTandem          Kelas[]          @relation("DosenTandemKelas")
   monitoringSesiDiajar MonitoringSesi[] @relation("SesiDosenPengajar")
+  raporDosen           RaporDosen[]
 }
 
 model MataKuliah {
@@ -387,4 +391,96 @@ enum StatusEdlinkCek {
   PROSES
   SELESAI
   GAGAL
+}
+
+// ─────────────────────────────────────────
+// RAPOR DOSEN (Evaluasi Tridharma Dosen QAU & CDU)
+// ─────────────────────────────────────────
+
+model RaporDosenConfig {
+  id              String   @id @default(cuid())
+  semesterId      String   @unique
+  bobotKuesioner  Float    @default(40.0) // 40%
+  bobotKehadiran  Float    @default(20.0) // 20%
+  bobotKonten     Float    @default(20.0) // 20%
+  bobotPenelitian Float    @default(10.0) // 10%
+  bobotPengabdian Float    @default(10.0) // 10%
+  targetSesi      Int      @default(16)   // Minimal 16 pertemuan
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  semester        Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+}
+
+model RaporDosen {
+  id                 String           @id @default(cuid())
+  dosenId            String
+  semesterId         String
+
+  // ── Indikator 1: Kuesioner Mahasiswa (SIAKAD)
+  nilaiKuesioner     Float?           // Nilai rerata kuesioner, misal 4.10
+  totalResponden     Int?             // Mahasiswa yang mengisi kuesioner
+  targetResponden    Int?             // Total mahasiswa di kelas
+  skorKuesioner      Float?           // Skala 1.00 - 5.00
+
+  // ── Indikator 2: Kehadiran Mengajar (CDU)
+  rerataSesiHadir    Float?           // Rata-rata sesi hadir per kelas, misal 16.0
+  persenKehadiran    Float?           // Persentase kehadiran riil, misal 100.0%
+  skorKehadiran      Float?           // Skala 1.00 - 5.00
+
+  // ── Indikator 3: Kelengkapan Konten LMS (CDU 3 Pilar)
+  persenKonten       Float?           // Persentase 3 pilar, misal 68.0%
+  skorKonten         Float?           // Skala 1.00 - 5.00
+
+  // ── Indikator 4: Penelitian (LPPM / Input QAU)
+  jumlahPenelitian   Int              @default(0) // Jumlah publikasi/penelitian
+  skorPenelitian     Float?           // 0: 3.20 | 1: 3.88 | 2: 4.35 | >=3: 5.00
+
+  // ── Indikator 5: Pengabdian Masyarakat (LPPM / Input QAU)
+  jumlahPengabdian   Int              @default(0) // Jumlah kegiatan PkM
+  skorPengabdian     Float?           // 0: 3.20 | 1: 3.88 | 2: 4.35 | >=3: 5.00
+
+  // ── Skor Akhir & Predikat
+  nilaiAkhir         Float?           // Total terbobot skala 1.00 - 5.00, misal 4.41
+  predikat           String?          // SANGAT_BAIK, BAIK, CUKUP, KURANG_BAIK, KURANG
+
+  // ── Bagian C: Rekomendasi Perbaikan (P1 - P5)
+  // Array JSON string: ["Mengenal dengan baik mahasiswa...", ...]
+  rekomendasiPerbaikan Json?
+
+  // ── Bagian D: Catatan Kritik & Saran Mahasiswa (K1 - K5)
+  // Array JSON string: ["terlalu cepat dalam menyampaikan materi...", ...]
+  komentarMahasiswa    Json?
+
+  // ── Arsip Seluruh Komentar Mentah Mahasiswa dari Kuesioner SIAKAD
+  rawKomentarMahasiswa Json?
+
+  // ── Bagian E: Analisis Sentimen Mahasiswa & Kesimpulan
+  responPositifCount Int?             // misal: 90
+  responNetralCount  Int?             // misal: 13
+  responNegatifCount Int?             // misal: 7
+  responPositifPct   Float?           // misal: 81.8
+  responNetralPct    Float?           // misal: 11.8
+  responNegatifPct   Float?           // misal: 6.4
+  narasiKesimpulan   String?          @db.Text
+
+  // ── Metadata & Status
+  statusRapor        StatusRaporDosen @default(DRAFT)
+  sumberImport       String?          // Nama file sumber import, misal "laporan_rekap_angket.xls"
+  catatanQau         String?          @db.Text
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  dosen              Dosen            @relation(fields: [dosenId], references: [id], onDelete: Cascade)
+  semester           Semester         @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@unique([dosenId, semesterId])
+  @@index([semesterId])
+  @@index([dosenId])
+  @@index([predikat])
+}
+
+enum StatusRaporDosen {
+  DRAFT
+  FINAL
 }

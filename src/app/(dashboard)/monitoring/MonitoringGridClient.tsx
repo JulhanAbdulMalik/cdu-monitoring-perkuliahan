@@ -1390,7 +1390,7 @@ export default function MonitoringGridClient({
             </div>
 
             {/* Card 4: Aksi Cepat CDU */}
-            <div className="duralux-card p-3 bg-gradient-to-br from-slate-50 to-[#fdf2f8]/40 border border-slate-200/80 flex flex-col justify-between">
+            <div className="duralux-card p-3 bg-white border border-slate-200/80 flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[10.5px] mb-1">
                 <Zap size={13} className="text-amber-500" />
                 <span>Aksi Cepat CDU</span>

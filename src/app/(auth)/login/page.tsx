@@ -139,7 +139,7 @@ function LoginForm() {
           
           {/* Top Brand Header */}
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#a80063] to-[#d946ef] flex items-center justify-center shadow-xs text-white shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-[#a80063] flex items-center justify-center shadow-xs text-white shrink-0">
               <GraduationCap size={16} strokeWidth={2.3} />
             </div>
             <div>
@@ -267,18 +267,18 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* ── RIGHT PANEL: Hero Showcase Slider (Deep Brand Gradient) ──────── */}
+        {/* ── RIGHT PANEL: Hero Showcase Slider (Deep Brand Solid) ─────────── */}
         <div
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="lg:col-span-6 relative bg-gradient-to-br from-[#240015] via-[#3b0022] to-[#14000b] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden text-white min-h-[400px] lg:min-h-full"
+          className="lg:col-span-6 relative bg-[#240015] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden text-white min-h-[400px] lg:min-h-full"
         >
           {/* Subtle Grid Pattern Overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
           {/* Glowing Radial Color Accents */}
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-[#a80063]/25 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-[#d946ef]/15 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-[#a80063]/15 blur-3xl pointer-events-none" />
 
           {/* ── TOP SECTION: Floating UI Mockup Cards (Symmetrical & Centered) ─── */}
           <div className="relative z-10 w-full pt-1 pb-3 flex items-center justify-center">
@@ -473,7 +473,7 @@ function LoginForm() {
                     </span>
                   </div>
 
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-400/30 flex items-center justify-between">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-between">
                     <div>
                       <div className="text-sm sm:text-base font-black text-emerald-300">≥ 90.0%</div>
                       <div className="text-[10px] sm:text-[10.5px] text-white/80 font-medium">Target Presensi Minimal</div>

@@ -9,7 +9,8 @@ import { invalidateLaporanCache } from "@/actions/laporan";
 
 const dosenSchema = z.object({
   nama: z.string().min(1, "Nama dosen wajib diisi"),
-  nidn: z.string().optional().nullable(),
+  nidn: z.string().optional().nullable().or(z.literal("")),
+  nip: z.string().optional().nullable().or(z.literal("")),
   nuptk: z.string().optional().nullable().or(z.literal("")),
   email: z.string().optional().nullable().or(z.literal("")),
   prodiId: z.string().min(1, "Program studi wajib dipilih"),
@@ -43,6 +44,7 @@ export async function getDosenList() {
 export async function createDosen(formData: {
   nama: string;
   nidn?: string;
+  nip?: string;
   nuptk?: string;
   email?: string;
   prodiId: string;
@@ -59,13 +61,25 @@ export async function createDosen(formData: {
       }
     }
 
+    if (parsed.nip && parsed.nip.trim() !== "") {
+      const existingNip = await prisma.dosen.findUnique({
+        where: { nip: parsed.nip.trim() },
+      });
+      if (existingNip) {
+        return { success: false, error: `NIP "${parsed.nip}" sudah terdaftar pada dosen lain` };
+      }
+    }
+
+    const cleanNidn = parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null;
+    const cleanNip = parsed.nip && parsed.nip.trim() !== "" ? parsed.nip.trim() : null;
     const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
     const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
 
     const data = await prisma.dosen.create({
       data: {
         nama: parsed.nama.trim(),
-        nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
+        nidn: cleanNidn,
+        nip: cleanNip,
         nuptk: cleanNuptk,
         email: cleanEmail,
         prodiId: parsed.prodiId,
@@ -95,6 +109,7 @@ export async function updateDosen(
   formData: {
     nama: string;
     nidn?: string;
+    nip?: string;
     nuptk?: string;
     email?: string;
     prodiId: string;
@@ -112,6 +127,17 @@ export async function updateDosen(
       }
     }
 
+    if (parsed.nip && parsed.nip.trim() !== "") {
+      const existingNip = await prisma.dosen.findFirst({
+        where: { nip: parsed.nip.trim(), NOT: { id } },
+      });
+      if (existingNip) {
+        return { success: false, error: `NIP "${parsed.nip}" sudah terdaftar pada dosen lain` };
+      }
+    }
+
+    const cleanNidn = parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null;
+    const cleanNip = parsed.nip && parsed.nip.trim() !== "" ? parsed.nip.trim() : null;
     const cleanNuptk = parsed.nuptk && parsed.nuptk.trim() !== "" ? parsed.nuptk.trim() : null;
     const cleanEmail = parsed.email && parsed.email.trim() !== "" ? parsed.email.trim() : null;
 
@@ -119,7 +145,8 @@ export async function updateDosen(
       where: { id },
       data: {
         nama: parsed.nama.trim(),
-        nidn: parsed.nidn && parsed.nidn.trim() !== "" ? parsed.nidn.trim() : null,
+        nidn: cleanNidn,
+        nip: cleanNip,
         nuptk: cleanNuptk,
         email: cleanEmail,
         prodiId: parsed.prodiId,

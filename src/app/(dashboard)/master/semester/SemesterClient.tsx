@@ -693,82 +693,93 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
 
       {/* ── Create / Edit Modal ──────────────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl border border-slate-200 relative">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loading) closeModal();
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
             {/* Close Button */}
             <button
+              type="button"
               onClick={closeModal}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+              disabled={loading}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              {editingSemester ? "Edit Data Semester" : "Tambah Semester Baru"}
+            {/* Header (Clean & Direct) */}
+            <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Calendar size={16} className="text-[#a80063]" />
+              <span>{editingSemester ? "Edit Data Semester" : "Tambah Semester Baru"}</span>
             </h3>
             <p className="text-xs text-slate-500 font-normal mb-4">
-              Isi tahun akademik, periode, dan tanggal mulai perkuliahan
+              Isi tahun akademik, periode semester, dan tanggal mulai perkuliahan tatap muka.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Tahun Akademik */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Tahun Akademik
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: 2026/2027"
-                  value={tahunAkademik}
-                  onChange={(e) => setTahunAkademik(e.target.value)}
-                  required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
-                />
-                <span className="text-[10px] text-slate-400">Format: YYYY/YYYY (contoh: 2026/2027)</span>
-              </div>
+              {/* Grid 2 Kolom: Tahun Akademik & Periode */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Tahun Akademik <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="2026/2027"
+                    value={tahunAkademik}
+                    onChange={(e) => setTahunAkademik(e.target.value)}
+                    required
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Format: YYYY/YYYY (contoh: 2026/2027)</span>
+                </div>
 
-              {/* Periode */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Periode Semester
-                </label>
-                <select
-                  value={periode}
-                  onChange={(e) => setPeriode(e.target.value as "GANJIL" | "GENAP")}
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
-                >
-                  <option value="GANJIL">GANJIL</option>
-                  <option value="GENAP">GENAP</option>
-                </select>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Periode Semester <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={periode}
+                    onChange={(e) => setPeriode(e.target.value as "GANJIL" | "GENAP")}
+                    className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium cursor-pointer"
+                  >
+                    <option value="GANJIL">GANJIL</option>
+                    <option value="GENAP">GENAP</option>
+                  </select>
+                </div>
               </div>
 
               {/* Tanggal Mulai Perkuliahan Sesi 1 */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Tanggal Mulai Kuliah (Sesi 1)
+                  Tanggal Mulai Kuliah (Sesi 1) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={tanggalMulai}
                   onChange={(e) => setTanggalMulai(e.target.value)}
                   required
-                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
+                  className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] outline-none font-medium"
                 />
-                <span className="text-[10px] text-slate-400">
-                  Acuan resmi awal Sesi 1 (default: 21 September 2026)
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Acuan resmi awal perkuliahan Sesi 1 (misal: 21 September 2026)
                 </span>
               </div>
 
               {/* Checkbox Jadikan Aktif */}
-              <div className="flex items-center gap-2 pt-1">
+              <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center gap-2.5">
                 <input
                   type="checkbox"
                   id="aktif-checkbox"
                   checked={aktif}
                   onChange={(e) => setAktif(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#a80063] focus:ring-[#a80063] border-slate-300"
+                  className="w-4 h-4 rounded text-[#a80063] focus:ring-[#a80063] border-slate-300 cursor-pointer"
                 />
-                <label htmlFor="aktif-checkbox" className="text-xs font-medium text-slate-700 cursor-pointer">
+                <label htmlFor="aktif-checkbox" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
                   Jadikan sebagai semester aktif saat ini
                 </label>
               </div>
@@ -779,14 +790,14 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                   type="button"
                   onClick={closeModal}
                   disabled={loading}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading && <Loader2 size={12} className="animate-spin" />}
                   <span>{editingSemester ? "Simpan Perubahan" : "Tambah Semester"}</span>
@@ -799,30 +810,32 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
 
       {/* ── Modal Kelola Hari Libur Perkuliahan ─────────────────────────────────── */}
       {isLiburModalOpen && selectedSemesterForLibur && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="w-full max-w-xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !loadingLibur) closeLiburModal();
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-200 relative max-h-[92vh] flex flex-col">
             {/* Close Button */}
             <button
+              type="button"
               onClick={closeLiburModal}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              disabled={loadingLibur}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
+              title="Tutup (ESC)"
             >
               <X size={18} />
             </button>
 
             {/* Modal Header */}
-            <div className="mb-4 pr-6">
-              <div className="flex items-center gap-2 mb-1">
-                {/* <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
-                  <Palmtree size={16} />
-                </span> */}
-                <h3 className="text-base font-bold text-slate-900">
-                  Libur Perkuliahan - {selectedSemesterForLibur.tahunAkademik} ({selectedSemesterForLibur.periode})
-                </h3>
-              </div>
-              {/* <p className="text-xs text-slate-500 leading-relaxed">
-                Atur tanggal merah, minggu tenang, dan masa libur. Tanggal sesi perkuliahan pada lembar monitoring yang masuk ke hari libur ini akan <strong>otomatis dilewatkan ke minggu berikutnya</strong>.
-              </p> */}
-            </div>
+            <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Palmtree size={16} className="text-[#a80063]" />
+              <span>Libur Perkuliahan - {selectedSemesterForLibur.tahunAkademik} ({selectedSemesterForLibur.periode})</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-normal mb-4">
+              Atur tanggal libur atau minggu tenang. Sesi perkuliahan yang masuk ke masa libur akan otomatis dilewatkan ke pekan berikutnya.
+            </p>
 
             {/* Modal Body - Scrollable */}
             <div className="overflow-y-auto space-y-4 pr-1 flex-1">
@@ -874,7 +887,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: Minggu Tenang UTS, Tahun Baru Masehi, Libur Remedial"
+                    placeholder="Minggu Tenang UTS, Tahun Baru Masehi, Libur Remedial"
                     value={namaLibur}
                     onChange={(e) => setNamaLibur(e.target.value)}
                     required
@@ -935,7 +948,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
                   </label>
                   <input
                     type="text"
-                    placeholder="Contoh: Sesi perkuliahan reguler digeser ke pekan depan"
+                    placeholder="Sesi perkuliahan reguler digeser ke pekan depan"
                     value={keteranganLibur}
                     onChange={(e) => setKeteranganLibur(e.target.value)}
                     className="w-full px-3 py-1.5 bg-white text-xs text-slate-900 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-1 focus:ring-[#a80063]/20 transition-all outline-none"
@@ -1045,7 +1058,7 @@ export default function SemesterClient({ initialData }: SemesterClientProps) {
               <button
                 type="button"
                 onClick={closeLiburModal}
-                className="px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer border border-slate-200"
+                className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
               >
                 Tutup
               </button>

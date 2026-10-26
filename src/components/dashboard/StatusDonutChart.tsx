@@ -120,8 +120,8 @@ export default function StatusDonutChart({
         </div>
       </div>
 
-      {/* ── Donut Chart Visual ───────────────────────────────────────────── */}
-      <div className="relative h-44 w-full my-auto flex items-center justify-center">
+      {/* ── Donut Chart Visual (+25% Height) ─────────────────────────────── */}
+      <div className="relative h-56 w-full my-auto flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart onMouseLeave={() => setIsHovered(false)}>
             <Tooltip
@@ -133,8 +133,8 @@ export default function StatusDonutChart({
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={52}
-                outerRadius={72}
+                innerRadius={62}
+                outerRadius={86}
                 paddingAngle={3}
                 dataKey="value"
                 stroke="none"
@@ -155,8 +155,8 @@ export default function StatusDonutChart({
                 data={[{ value: 1, color: "#f1f5f9" }]}
                 cx="50%"
                 cy="50%"
-                innerRadius={52}
-                outerRadius={72}
+                innerRadius={62}
+                outerRadius={86}
                 dataKey="value"
                 stroke="none"
               >
