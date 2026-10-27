@@ -73,7 +73,7 @@ function ringkasHasil(hasil: HasilCekEdlink | null): string {
     .slice(0, 6)
     .map(([no, f]) => `S${no}: ${f.join(", ")}`)
     .join(" • ");
-  return `${n} sesi diperbarui${detail ? ` — ${detail}` : ""}`;
+  return `${n} sesi diperbarui${detail ? ` - ${detail}` : ""}`;
 }
 
 export default function CekEdlinkButton({

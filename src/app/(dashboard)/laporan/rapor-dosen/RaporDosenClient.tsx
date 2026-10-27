@@ -443,6 +443,16 @@ export default function RaporDosenClient({
     );
   }
 
+  // Construct dynamic export URL with all active filters
+  const exportParams = new URLSearchParams();
+  if (selectedSemester) exportParams.set("semesterId", selectedSemester);
+  if (filterProdi && filterProdi !== "ALL") exportParams.set("prodiId", filterProdi);
+  if (filterStatus && filterStatus !== "ALL") exportParams.set("status", filterStatus);
+  if (searchQuery.trim()) exportParams.set("q", searchQuery.trim());
+  if (sortField) exportParams.set("sortField", sortField);
+  if (sortOrder) exportParams.set("sortOrder", sortOrder);
+  const exportUrl = `/api/export/rapor-dosen-excel?${exportParams.toString()}`;
+
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar (Format Standar /monitoring) ────────────────────── */}
@@ -470,6 +480,18 @@ export default function RaporDosenClient({
 
         {/* Global Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Export Excel Button (Identik dengan /laporan/rekap & /laporan/dosen) */}
+          <a
+            id="btn-export-excel-rapor"
+            href={exportUrl}
+            download
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+            title="Export Rekapitulasi Rapor Dosen ke Format Excel (.xlsx) sesuai filter aktif"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Export Excel</span>
+          </a>
+
           <button
             type="button"
             onClick={() => setIsConfigModalOpen(true)}
