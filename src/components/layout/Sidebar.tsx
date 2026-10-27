@@ -3,6 +3,7 @@
 // Compact & Collapsible Mini / Full Sidebar with Plus Jakarta Sans & #a80063 Brand
 // Completely free from horizontal scrollbars (overflow-x-hidden)
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -42,6 +43,7 @@ interface NavGroup {
     badge?: string;
     allowedRoles?: ("SUPER_ADMIN" | "ADMIN" | "DOSEN")[];
     children?: { label: string; href: string }[];
+    dividerBefore?: boolean;
   }[];
 }
 
@@ -83,9 +85,9 @@ const navGroups: NavGroup[] = [
         icon: BarChart3,
       },
       {
-        label: "Laporan per Dosen",
-        href: "/laporan/dosen",
-        icon: Users,
+        label: "Laporan per Prodi",
+        href: "/laporan/prodi",
+        icon: Building2,
       },
       {
         label: "Laporan per Fakultas",
@@ -93,9 +95,10 @@ const navGroups: NavGroup[] = [
         icon: Landmark,
       },
       {
-        label: "Laporan per Prodi",
-        href: "/laporan/prodi",
-        icon: Building2,
+        label: "Laporan per Dosen",
+        href: "/laporan/dosen",
+        icon: Users,
+        dividerBefore: true,
       },
       {
         label: "Rapor Dosen",
@@ -245,7 +248,18 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
                 const hasChildren = item.children && item.children.length > 0;
 
                 return (
-                  <div key={item.href} className="relative">
+                  <Fragment key={item.href}>
+                    {item.dividerBefore && (
+                      <div
+                        className={cn(
+                          "my-1.5",
+                          isCollapsed
+                            ? "h-px bg-slate-100 mx-1"
+                            : "h-px bg-slate-200/70 mx-2"
+                        )}
+                      />
+                    )}
+                    <div className="relative">
                     <Link
                       href={hasChildren ? item.children![0].href : item.href}
                       prefetch={true}
@@ -319,9 +333,10 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                </Fragment>
+              );
+            })}
+          </div>
           </div>
         ))}
 
