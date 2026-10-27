@@ -160,6 +160,8 @@ export async function POST(req: NextRequest) {
       try {
         revalidatePath(`/monitoring/${kelas.id}`);
         revalidatePath("/monitoring");
+        revalidatePath("/laporan/fakultas");
+        revalidatePath("/laporan/prodi");
         revalidatePath("/laporan/rekap");
         revalidatePath("/");
       } catch {

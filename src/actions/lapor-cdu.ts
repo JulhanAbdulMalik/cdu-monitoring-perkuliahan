@@ -462,6 +462,7 @@ export async function approveLaporCdu(data: {
     revalidatePath("/monitoring");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/");
 

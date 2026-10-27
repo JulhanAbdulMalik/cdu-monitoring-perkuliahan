@@ -116,10 +116,14 @@ export default async function LaporanProdiPage({
       totalSesiAktif > 0
         ? Math.round((totalHadirAktif / totalSesiAktif) * 1000) / 10
         : 0;
+    const isAllBimbingan =
+      targetJenisKelas === "BIMBINGAN" ||
+      (activeProdiReports.length > 0 && activeProdiReports.every((p) => p.totalKelasNonBimbingan === 0));
+
     const avgKontenRentangSemua =
       totalMaxSkorKontenAktif > 0
         ? Math.round((totalSkorKontenAktif / totalMaxSkorKontenAktif) * 1000) / 10
-        : 0;
+        : (isAllBimbingan ? 100 : 0);
     const totalConfRentangSemua = filteredProdiReports.reduce((s, p) => s + p.totalConfRentang, 0);
     const totalGantiHariRentangSemua = filteredProdiReports.reduce((s, p) => s + (p.totalGantiHariRentang || 0), 0);
 

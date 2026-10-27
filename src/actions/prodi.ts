@@ -161,6 +161,7 @@ export async function createProdi(formData: {
 
     await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -206,6 +207,7 @@ export async function updateProdi(
 
     await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -244,6 +246,7 @@ export async function deleteProdi(id: string) {
     await prisma.prodi.delete({ where: { id } });
     await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -265,6 +268,7 @@ export async function toggleProdiStatus(id: string, isActive: boolean) {
 
     await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");

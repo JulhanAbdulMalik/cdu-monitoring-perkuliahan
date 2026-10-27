@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   BarChart3,
   Users,
+  Landmark,
   Building2,
   Calendar,
   Layers,
@@ -85,6 +86,11 @@ const navGroups: NavGroup[] = [
         label: "Laporan per Dosen",
         href: "/laporan/dosen",
         icon: Users,
+      },
+      {
+        label: "Laporan per Fakultas",
+        href: "/laporan/fakultas",
+        icon: Landmark,
       },
       {
         label: "Laporan per Prodi",

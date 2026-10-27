@@ -92,6 +92,7 @@ export async function createDosen(formData: {
     await invalidateLaporanCache();
     revalidatePath("/master/dosen");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/");
@@ -159,6 +160,7 @@ export async function updateDosen(
     await invalidateLaporanCache();
     revalidatePath("/master/dosen");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/");
@@ -194,6 +196,7 @@ export async function deleteDosen(id: string) {
     await invalidateLaporanCache();
     revalidatePath("/master/dosen");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/");
@@ -315,6 +318,7 @@ export async function resetDosenData(options: {
     revalidatePath("/master/dosen");
     revalidatePath("/master/kelas");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/");

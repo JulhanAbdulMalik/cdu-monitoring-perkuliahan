@@ -78,6 +78,7 @@ export async function createMataKuliah(formData: {
 
     await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/dosen");
     revalidatePath("/laporan/rekap");
@@ -133,6 +134,7 @@ export async function updateMataKuliah(
 
     await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/dosen");
     revalidatePath("/laporan/rekap");
@@ -167,6 +169,7 @@ export async function deleteMataKuliah(id: string) {
     await prisma.mataKuliah.delete({ where: { id } });
     await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/dosen");
     revalidatePath("/laporan/rekap");

@@ -15,7 +15,6 @@ import {
   Laptop,
   Building,
   Save,
-  Search,
   User,
   Users,
   AlertTriangle,
@@ -32,7 +31,6 @@ import {
   Zap,
   Layers,
   ChevronDown,
-  X,
   MessageSquare,
   UserCog,
   UserCheck,
@@ -161,9 +159,6 @@ export default function MonitoringGridClient({
   filterProdiId,
 }: MonitoringGridClientProps) {
   const router = useRouter();
-  const searchDropdownRef = useRef<HTMLDivElement>(null);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchKelasQuery, setSearchKelasQuery] = useState("");
 
   const [sesiList, setSesiList] = useState<MonitoringSesiData[]>(
     currentKelas?.monitoringSesi || []
@@ -253,32 +248,6 @@ export default function MonitoringGridClient({
       setHasUnsavedChanges(false);
     }
   }, [currentKelas?.id]);
-
-  // Close search dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        searchDropdownRef.current &&
-        !searchDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsSearchOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Filter kelasList based on search query
-  const filteredKelasList = activeQueueList.filter((k) => {
-    if (!searchKelasQuery.trim()) return true;
-    const q = searchKelasQuery.toLowerCase();
-    return (
-      k.kodeKelas.toLowerCase().includes(q) ||
-      k.mataKuliah.nama.toLowerCase().includes(q) ||
-      k.mataKuliah.kode.toLowerCase().includes(q) ||
-      k.dosen.nama.toLowerCase().includes(q)
-    );
-  });
 
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -875,106 +844,6 @@ export default function MonitoringGridClient({
 
         {/* Controls: Class Selector & Actions */}
         <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
-          {/* Searchable Class Combobox */}
-          <div className="relative" ref={searchDropdownRef}>
-            <div className="relative flex items-center">
-              <Search size={13} className="absolute left-2.5 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                value={searchKelasQuery}
-                onChange={(e) => {
-                  setSearchKelasQuery(e.target.value);
-                  setIsSearchOpen(true);
-                }}
-                onFocus={() => setIsSearchOpen(true)}
-                placeholder={
-                  currentKelas
-                    ? `[${currentKelas.kodeKelas}] ${currentKelas.mataKuliah.nama}`
-                    : "Cari kelas..."
-                }
-                className="pl-8 pr-7 py-1.5 bg-slate-50 focus:bg-white text-xs font-semibold text-slate-800 rounded-lg border border-slate-200 focus:border-[#a80063] focus:ring-2 focus:ring-[#a80063]/15 outline-none shadow-xs w-[220px] sm:w-[260px] transition-all truncate placeholder:text-slate-700 placeholder:font-bold"
-              />
-              {searchKelasQuery ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchKelasQuery("");
-                    setIsSearchOpen(true);
-                  }}
-                  className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
-                  title="Hapus filter"
-                >
-                  <X size={12} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsSearchOpen((prev) => !prev)}
-                  className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  title="Buka daftar kelas"
-                >
-                  <ChevronDown size={13} className={`transition-transform duration-150 ${isSearchOpen ? "rotate-180" : ""}`} />
-                </button>
-              )}
-            </div>
-
-            {/* Floating Dropdown Results */}
-            {isSearchOpen && (
-              <div className="absolute right-0 mt-1.5 w-[280px] sm:w-[340px] bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-50 max-h-[300px] overflow-y-auto divide-y divide-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between bg-slate-50/70">
-                  <span>Daftar Kelas ({filteredKelasList.length})</span>
-                  <span className="text-[9px] text-slate-400 font-normal">Klik untuk pilih</span>
-                </div>
-
-                {filteredKelasList.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-slate-400">
-                    Tidak ada kelas yang cocok dengan &quot;{searchKelasQuery}&quot;
-                  </div>
-                ) : (
-                  filteredKelasList.map((k) => {
-                    const isCurrent = k.id === currentKelas?.id;
-                    return (
-                      <button
-                        key={k.id}
-                        type="button"
-                        onClick={() => {
-                          setIsSearchOpen(false);
-                          setSearchKelasQuery("");
-                          handleNavigateKelas(k);
-                        }}
-                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between gap-2 hover:bg-slate-50 cursor-pointer ${
-                          isCurrent
-                            ? "bg-[#fdf2f8]/70 font-semibold text-[#a80063]"
-                            : "text-slate-700"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="px-1.5 py-0.2 rounded bg-[#fdf2f8] text-[#a80063] font-bold text-[10px] border border-[#fbcfe8]">
-                              {k.kodeKelas}
-                            </span>
-                            <span className="font-bold text-slate-900 truncate">
-                              {k.mataKuliah.nama}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {k.dosen.nama}
-                          </p>
-                        </div>
-
-                        {isCurrent && (
-                          <span className="text-[9px] font-bold text-[#a80063] bg-[#fdf2f8] px-1.5 py-0.5 rounded border border-[#fbcfe8] shrink-0">
-                            Aktif
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Sequential Class Navigation Controls (Kelas X dari Y) */}
           {activeQueueList.length > 0 && currentIndex >= 0 && (
             <div className="inline-flex items-center gap-0.5 bg-slate-50 p-1 rounded-lg border border-slate-200 shadow-2xs">

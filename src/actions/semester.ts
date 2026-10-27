@@ -113,6 +113,7 @@ export async function createSemester(formData: {
 
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -177,6 +178,7 @@ export async function updateSemester(
 
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -207,6 +209,7 @@ export async function toggleSemesterAktif(id: string) {
 
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -255,6 +258,7 @@ export async function deleteSemester(id: string) {
 
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -307,6 +311,7 @@ export async function createLiburSemester(data: {
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -350,6 +355,7 @@ export async function updateLiburSemester(
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -369,6 +375,7 @@ export async function deleteLiburSemester(id: string) {
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
     revalidatePath("/monitoring");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");

@@ -175,6 +175,7 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
     await invalidateLaporanCache();
     revalidatePath("/master/dosen");
     revalidatePath("/laporan/dosen");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/");
@@ -282,6 +283,7 @@ export async function commitMataKuliahImport(rows: any[]): Promise<{ success: bo
 
     await invalidateLaporanCache();
     revalidatePath("/master/mata-kuliah");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/dosen");
     revalidatePath("/laporan/rekap");
@@ -1022,6 +1024,7 @@ export async function commitProdiImport(rows: any[]): Promise<{ success: boolean
 
     await invalidateLaporanCache();
     revalidatePath("/master/prodi");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");
@@ -1118,6 +1121,7 @@ export async function commitSemesterImport(rows: any[]): Promise<{ success: bool
 
     await invalidateLaporanCache();
     revalidatePath("/master/semester");
+    revalidatePath("/laporan/fakultas");
     revalidatePath("/laporan/prodi");
     revalidatePath("/laporan/rekap");
     revalidatePath("/laporan/dosen");

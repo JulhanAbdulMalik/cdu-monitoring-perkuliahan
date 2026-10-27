@@ -497,6 +497,14 @@ export default function LaporanProdiClient({
       ? Math.round((totalPilar3Univ / totalRegularUniv) * 1000) / 10
       : 0;
 
+  const isBimbinganOnly =
+    jenisKelas === "BIMBINGAN" ||
+    (prodiReports.length > 0 &&
+      prodiReports.filter((p) => p.totalKelas > 0).length > 0 &&
+      prodiReports.filter((p) => p.totalKelas > 0).every((p) => p.totalKelasNonBimbingan === 0));
+
+  const avgKontenUniv = isBimbinganOnly ? 100 : globalSummary.avgKontenRentangSemua;
+
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar ──────────────────────────────────────────────────── */}
@@ -667,24 +675,40 @@ export default function LaporanProdiClient({
               ? "Rata-rata Konten (Semua)"
               : "Rata-rata Konten (Rentang)"
           }
-          value={formatPct(globalSummary.avgKontenRentangSemua)}
+          value={formatPct(avgKontenUniv)}
           valueColor="maroon"
           subtitle={
-            isSesiActive
+            isBimbinganOnly
+              ? "Kelas bimbingan dibebaskan dari kewajiban 3 pilar materi LMS"
+              : isSesiActive
               ? `Rerata keterpenuhan 3 pilar seluruh kelas reguler pada Sesi ${selectedSesi}`
               : isAppliedAllTime
               ? "Rerata keterpenuhan 3 pilar seluruh kelas reguler"
               : "Rerata keterpenuhan 3 pilar pada rentang aktif"
           }
-          trendText={globalSummary.avgKontenRentangSemua >= 75 ? "Sesuai Standar" : "Perlu Optimasi"}
-          isPositive={globalSummary.avgKontenRentangSemua >= 75}
-          progress={globalSummary.avgKontenRentangSemua}
+          trendText={
+            isBimbinganOnly
+              ? "Bebas 3 Pilar"
+              : avgKontenUniv >= 75
+              ? "Sesuai Standar"
+              : "Perlu Optimasi"
+          }
+          isPositive={isBimbinganOnly || avgKontenUniv >= 75}
+          progress={avgKontenUniv}
           progressColor="maroon"
-          details={[
-            { label: "P1 (L/S)", value: formatPct(p1Pct), color: "maroon" },
-            { label: "P2 (T/Q)", value: formatPct(p2Pct), color: "maroon" },
-            { label: "P3 (V/C)", value: formatPct(p3Pct), color: "maroon" },
-          ]}
+          details={
+            isBimbinganOnly
+              ? [
+                  { label: "Pilar LMS", value: "Bebas", color: "emerald" },
+                  { label: "Evaluasi", value: "Bimbingan", color: "blue" },
+                  { label: "Kepatuhan", value: "100%", color: "emerald" },
+                ]
+              : [
+                  { label: "P1 (L/S)", value: formatPct(p1Pct), color: "maroon" },
+                  { label: "P2 (T/Q)", value: formatPct(p2Pct), color: "maroon" },
+                  { label: "P3 (V/C)", value: formatPct(p3Pct), color: "maroon" },
+                ]
+          }
         />
       </div>
 
