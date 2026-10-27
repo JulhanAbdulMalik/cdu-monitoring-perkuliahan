@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const semesterId = sp.get("semesterId") || undefined;
   const prodiId = sp.get("prodiId") || undefined;
   const hanyaTerpetakan = sp.get("hanyaTerpetakan") === "1";
+  const sumber = sp.get("sumber");
+  const sumberLms = sumber === "NUSAPUTRA_APP" || sumber === "EDLINK" ? sumber : undefined;
 
   const semester = semesterId
     ? await prisma.semester.findUnique({ where: { id: semesterId } })
@@ -30,6 +32,7 @@ export async function GET(req: NextRequest) {
       semesterId: semester.id,
       ...(prodiId ? { mataKuliah: { prodiId } } : {}),
       ...(hanyaTerpetakan ? { edlinkGroupId: { not: null } } : {}),
+      ...(sumberLms ? { sumberLms } : {}),
     },
     select: {
       id: true,
@@ -40,6 +43,9 @@ export async function GET(req: NextRequest) {
       modePembelajaran: true,
       edlinkGroupId: true,
       edlinkSyncedAt: true,
+      sumberLms: true,
+      externalId: true,
+      externalSyncedAt: true,
       mataKuliah: { select: { kode: true, nama: true, prodi: { select: { id: true, kode: true, nama: true } } } },
       dosen: { select: { id: true, nama: true } },
       dosen2: { select: { id: true, nama: true } },

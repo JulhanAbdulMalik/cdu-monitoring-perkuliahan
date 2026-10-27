@@ -52,6 +52,7 @@ import ImportEdlinkModal from "@/components/monitoring/ImportEdlinkModal";
 import GantiDosenModal, { DosenItemOption } from "@/components/monitoring/GantiDosenModal";
 import CekEdlinkButton, { SesiEdlinkTerbaru } from "@/components/monitoring/CekEdlinkButton";
 import BukaEdlinkButton from "@/components/monitoring/BukaEdlinkButton";
+import BukaNusaputraAppButton from "@/components/monitoring/BukaNusaputraAppButton";
 import { ParsedSesiData } from "@/lib/excel-parser";
 import {
   getEstimatedSessionDate,
@@ -104,6 +105,9 @@ interface KelasDetailData {
   modePembelajaran: "DARING" | "LURING" | "BIMBINGAN";
   edlinkGroupId?: number | null;
   edlinkSyncedAt?: Date | string | null;
+  sumberLms?: "EDLINK" | "NUSAPUTRA_APP";
+  externalUrl?: string | null;
+  externalSyncedAt?: Date | string | null;
   semester: {
     id: string;
     tahunAkademik: string;
@@ -901,20 +905,25 @@ export default function MonitoringGridClient({
             <CekEdlinkButton
               kelasId={currentKelas.id}
               kodeKelas={currentKelas.kodeKelas}
-              terpetakan={!!currentKelas.edlinkGroupId}
-              edlinkSyncedAt={currentKelas.edlinkSyncedAt}
+              terpetakan={
+                currentKelas.sumberLms === "NUSAPUTRA_APP" ? !!currentKelas.externalUrl : !!currentKelas.edlinkGroupId
+              }
+              edlinkSyncedAt={
+                currentKelas.sumberLms === "NUSAPUTRA_APP" ? currentKelas.externalSyncedAt : currentKelas.edlinkSyncedAt
+              }
+              sumberLms={currentKelas.sumberLms}
               disabled={hasUnsavedChanges || saving}
               onSelesai={handleCekEdlinkSelesai}
             />
           )}
 
           {/* Buka halaman kelas di Edlink (tab baru) untuk pengecekan langsung */}
-          {currentKelas && (
-            <BukaEdlinkButton
-              kodeKelas={currentKelas.kodeKelas}
-              edlinkGroupId={currentKelas.edlinkGroupId}
-            />
-          )}
+          {currentKelas &&
+            (currentKelas.sumberLms === "NUSAPUTRA_APP" ? (
+              <BukaNusaputraAppButton kodeKelas={currentKelas.kodeKelas} externalUrl={currentKelas.externalUrl} />
+            ) : (
+              <BukaEdlinkButton kodeKelas={currentKelas.kodeKelas} edlinkGroupId={currentKelas.edlinkGroupId} />
+            ))}
 
           {/* Manual Save Button & Status Indicator */}
           <button
