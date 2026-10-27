@@ -2,13 +2,28 @@
 // src/app/(dashboard)/laporan/rapor-dosen/print-batch/PrintBatchClient.tsx
 // Tampilan Preview Massal Lembar Rapor format A4 dengan Panel Aksi di Sebelah Kanan
 // Menyelaraskan 100% Standar UI dengan halaman /laporan/rapor-dosen/[id]
+// Dilengkapi Fitur "Download Semua (.ZIP)" - Kualitas Ultra HD 300 DPI Lossless PNG
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer, CheckCircle2, Clock } from "lucide-react";
+import { toPng } from "html-to-image";
+import jsPDF from "jspdf";
+import JSZip from "jszip";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Printer,
+  CheckCircle2,
+  Clock,
+  Archive,
+  Loader2,
+} from "lucide-react";
 import RaporSheetA4 from "@/components/rapor/RaporSheetA4";
 import { RaporDosenDetailData } from "@/actions/rapor";
-import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
+import {
+  formatRaporPdfFilename,
+  formatRaporZipFilename,
+} from "@/lib/rapor-calculator";
 
 interface PrintBatchClientProps {
   items: RaporDosenDetailData[];
@@ -21,6 +36,14 @@ export default function PrintBatchClient({
 }: PrintBatchClientProps) {
   // State untuk melacak apakah sedang mencetak satu lembar spesifik atau semua lembar
   const [printingSingleId, setPrintingSingleId] = useState<string | null>(null);
+
+  // State untuk proses Download Semua (.ZIP) Ultra HD
+  const [isZipping, setIsZipping] = useState(false);
+  const [zipProgressPercent, setZipProgressPercent] = useState(0);
+  const [zipCurrentIndex, setZipCurrentIndex] = useState(0);
+  const [zipCurrentDosenName, setZipCurrentDosenName] = useState("");
+  const [zipStatusText, setZipStatusText] = useState("");
+  const isCancelledRef = useRef<boolean>(false);
 
   const semesterInfo = items[0]?.semester;
   const cleanTahun = (semesterInfo?.tahunAkademik || "").replace(/\//g, "_").trim();
@@ -44,7 +67,7 @@ export default function PrintBatchClient({
     };
   }, [defaultPageTitle]);
 
-  // Cetak Semua Lembar Disatukan (1 file PDF multi-halaman berurutan)
+  // Cetak Semua Lembar Disatukan (1 file PDF multi-halaman berurutan Vektor Asli)
   const handlePrintAll = () => {
     setPrintingSingleId(null);
     document.title = defaultPageTitle;
@@ -54,7 +77,7 @@ export default function PrintBatchClient({
     }, 80);
   };
 
-  // Cetak Lembar Ini Secara Terpisah (1 file PDF khusus dosen ini)
+  // Cetak Lembar Ini Secara Terpisah (1 file PDF khusus dosen ini Vektor Asli)
   const handlePrintSingle = (item: RaporDosenDetailData) => {
     const singleTitle = formatRaporPdfFilename(
       item.dosen.nama,
@@ -69,6 +92,108 @@ export default function PrintBatchClient({
     setTimeout(() => {
       window.print();
     }, 120);
+  };
+
+  // Download Semua Lembar Evaluasi Terpisah dalam 1 file .ZIP (Ultra HD 300 DPI Lossless PNG)
+  const handleDownloadZip = async () => {
+    if (items.length === 0) return;
+
+    try {
+      setIsZipping(true);
+      isCancelledRef.current = false;
+      setZipProgressPercent(0);
+      setZipCurrentIndex(0);
+      setZipCurrentDosenName("");
+      setZipStatusText(`Menyiapkan ${items.length} file PDF...`);
+
+      const zip = new JSZip();
+      const total = items.length;
+
+      for (let i = 0; i < total; i++) {
+        if (isCancelledRef.current) return;
+
+        const item = items[i];
+        setZipCurrentIndex(i + 1);
+        setZipCurrentDosenName(item.dosen.nama);
+        setZipStatusText(`Membuat PDF Ultra HD (${i + 1} dari ${total})...`);
+        setZipProgressPercent(Math.round((i / total) * 90));
+
+        // Ambil elemen A4 yang sudah dirender di halaman
+        const wrapperEl = document.getElementById(`sheet-${item.dosen.id}`);
+        const sheetEl = (wrapperEl?.querySelector(".a4-sheet") || wrapperEl) as HTMLElement;
+
+        if (!sheetEl) {
+          console.warn(`Elemen lembar dosen ${item.dosen.nama} tidak ditemukan`);
+          continue;
+        }
+
+        // Tunggu sesaat agar reflow stabil
+        await new Promise((r) => setTimeout(r, 60));
+
+        // Render ke PNG Lossless pada standar percetakan 300 DPI (pixelRatio 3.125)
+        const imgData = await toPng(sheetEl, {
+          quality: 1,
+          pixelRatio: 3.125,
+          backgroundColor: "#ffffff",
+          skipFonts: true, // Mencegah SecurityError cross-origin font stylesheet
+          cacheBust: false,
+        });
+
+        // Masukkan ke jsPDF A4 (210mm x 297mm)
+        const pdf = new jsPDF({
+          orientation: "p",
+          unit: "mm",
+          format: "a4",
+          compress: true,
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, 210, 297, undefined, "FAST");
+
+        // Format nama file resmi: 'Rapor Dosen - [NamaDosen] ([TahunAkademik] [Periode]).pdf'
+        const filename = formatRaporPdfFilename(
+          item.dosen.nama,
+          item.semester.tahunAkademik,
+          item.semester.periode,
+          true
+        );
+
+        const pdfBlob = pdf.output("blob");
+        zip.file(filename, pdfBlob);
+      }
+
+      if (isCancelledRef.current) return;
+
+      setZipStatusText("Mengompresi ke file .ZIP...");
+      setZipProgressPercent(94);
+
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+
+      const zipFilename = `Rapor Dosen - Batch (${total} Dosen - ${cleanTahun} ${cleanPeriode}).zip`;
+
+      // Trigger download file di browser
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = zipFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+
+      setZipProgressPercent(100);
+      toast.success(`Berhasil mengunduh ${total} file PDF dalam format ZIP!`);
+      setTimeout(() => {
+        setIsZipping(false);
+      }, 500);
+    } catch (err: any) {
+      console.error("Gagal membuat batch ZIP:", err);
+      toast.error(err?.message || "Gagal mengunduh file ZIP.");
+      setIsZipping(false);
+    }
   };
 
   return (
@@ -103,16 +228,30 @@ export default function PrintBatchClient({
         <div className="w-full lg:w-72 shrink-0 sticky top-[72px] z-10 print:hidden space-y-3">
           
           {/* Card Aksi Utama (Sama persis dengan [id]) */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-2.5">
             {/* Tombol Cetak Semua (Disatukan) */}
             <button
               id="btn-print-all-combined"
               onClick={handlePrintAll}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-[0.99]"
+              disabled={isZipping}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-[0.99] disabled:opacity-50"
               title={`Cetak semua ${items.length} lembar dosen disatukan dalam satu file PDF`}
             >
               <Printer className="w-4 h-4" />
               <span>Cetak Semua (Disatukan)</span>
+            </button>
+
+            {/* Tombol Download Semua (.ZIP) - Ultra HD 300 DPI */}
+            <button
+              id="btn-download-all-zip"
+              type="button"
+              onClick={handleDownloadZip}
+              disabled={isZipping}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-[0.99] disabled:opacity-50"
+              title={`Download ${items.length} file PDF terpisah dalam format .ZIP (Ultra HD 300 DPI)`}
+            >
+              <Archive className="w-4 h-4 text-white" />
+              <span>Download PDF Terpisah (.ZIP)</span>
             </button>
 
             {/* Tombol Kembali ke Daftar Rapor */}
@@ -167,7 +306,7 @@ export default function PrintBatchClient({
             <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
               Cetak PDF Terpisah ({items.length})
             </span>
-            <div className="space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[450px] overflow-y-auto pr-1">
               {items.map((item, idx) => {
                 const isFinal = item.rapor?.statusRapor === "FINAL";
                 const nipOrNidn = item.dosen.nip
@@ -192,7 +331,7 @@ export default function PrintBatchClient({
                       title={`Lompat ke lembar ${item.dosen.nama}`}
                     >
                       <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-[#a80063]">
-                        {idx + 1}. {item.dosen.nama}
+                        {item.dosen.nama}
                       </p>
                       <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
                         {nipOrNidn} &bull; {prodiNama}
@@ -215,7 +354,7 @@ export default function PrintBatchClient({
                         type="button"
                         id={`btn-print-single-${item.dosen.id}`}
                         onClick={() => handlePrintSingle(item)}
-                        className="w-7 h-7 bg-slate-800 hover:bg-[#a80063] text-white rounded-lg flex items-center justify-center transition-all shadow-2xs cursor-pointer active:scale-95"
+                        className="w-7 h-7 rounded-lg bg-white hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border border-slate-200/80 text-slate-500 flex items-center justify-center transition-all shadow-2xs cursor-pointer active:scale-95"
                         title={`Cetak PDF Lembar ${item.dosen.nama}`}
                       >
                         <Printer size={13} />
@@ -229,6 +368,58 @@ export default function PrintBatchClient({
 
         </div>
       </div>
+
+      {/* ── MODAL INDIKATOR PROGRESS DOWNLOAD ZIP (CDU PORTAL STANDARD) ──────── */}
+      {isZipping && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#a80063]/10 text-[#a80063] border border-[#a80063]/20 flex items-center justify-center shrink-0">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Menyiapkan File ZIP
+                </h3>
+                <p className="text-xs text-slate-500 truncate">
+                  {zipStatusText || `Memproses ${zipCurrentIndex} dari ${items.length} dosen...`}
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                <div
+                  className="bg-[#a80063] h-full transition-all duration-200 rounded-full"
+                  style={{ width: `${zipProgressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[10.5px] text-slate-500 font-mono">
+                <span className="truncate max-w-[200px]">
+                  {zipCurrentDosenName || "Inisialisasi..."}
+                </span>
+                <span className="font-bold text-slate-700">{zipProgressPercent}%</span>
+              </div>
+            </div>
+
+            {/* Tombol Batal */}
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  isCancelledRef.current = true;
+                  setIsZipping(false);
+                  toast.info("Download ZIP dibatalkan.");
+                }}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── PRINT SPECIFIC CSS - 100% PRESISI A4 & BEBAS BORDER GREY ──────────── */}
       <style jsx global>{`
