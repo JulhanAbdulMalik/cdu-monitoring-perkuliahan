@@ -48,6 +48,12 @@ export async function getRaporConfig(semesterId: string): Promise<RaporConfigDat
       bobotPenelitian: config.bobotPenelitian,
       bobotPengabdian: config.bobotPengabdian,
       targetSesi: config.targetSesi,
+      namaPejabat: config.namaPejabat ?? DEFAULT_RAPOR_CONFIG.namaPejabat,
+      nidnPejabat: config.nidnPejabat ?? DEFAULT_RAPOR_CONFIG.nidnPejabat,
+      jabatanPejabat: config.jabatanPejabat ?? DEFAULT_RAPOR_CONFIG.jabatanPejabat,
+      kotaTerbit: config.kotaTerbit ?? DEFAULT_RAPOR_CONFIG.kotaTerbit,
+      ttdImageUrl: config.ttdImageUrl ?? DEFAULT_RAPOR_CONFIG.ttdImageUrl,
+      showTtdDigital: config.showTtdDigital ?? DEFAULT_RAPOR_CONFIG.showTtdDigital,
     };
   } catch (error) {
     console.error("Error getRaporConfig:", error);
@@ -67,7 +73,26 @@ export async function saveRaporConfig(
       bobotPenelitian: payload.bobotPenelitian ?? DEFAULT_RAPOR_CONFIG.bobotPenelitian,
       bobotPengabdian: payload.bobotPengabdian ?? DEFAULT_RAPOR_CONFIG.bobotPengabdian,
       targetSesi: payload.targetSesi ?? DEFAULT_RAPOR_CONFIG.targetSesi,
+      namaPejabat: payload.namaPejabat !== undefined ? payload.namaPejabat : DEFAULT_RAPOR_CONFIG.namaPejabat,
+      nidnPejabat: payload.nidnPejabat !== undefined ? payload.nidnPejabat : DEFAULT_RAPOR_CONFIG.nidnPejabat,
+      jabatanPejabat: payload.jabatanPejabat !== undefined ? payload.jabatanPejabat : DEFAULT_RAPOR_CONFIG.jabatanPejabat,
+      kotaTerbit: payload.kotaTerbit !== undefined ? payload.kotaTerbit : DEFAULT_RAPOR_CONFIG.kotaTerbit,
+      ttdImageUrl: payload.ttdImageUrl !== undefined ? payload.ttdImageUrl : DEFAULT_RAPOR_CONFIG.ttdImageUrl,
+      showTtdDigital: payload.showTtdDigital !== undefined ? payload.showTtdDigital : DEFAULT_RAPOR_CONFIG.showTtdDigital,
     };
+
+    const currentConfig = await prisma.raporDosenConfig.findUnique({
+      where: { semesterId },
+    });
+
+    const isWeightChanged =
+      !currentConfig ||
+      currentConfig.bobotKuesioner !== configData.bobotKuesioner ||
+      currentConfig.bobotKehadiran !== configData.bobotKehadiran ||
+      currentConfig.bobotKonten !== configData.bobotKonten ||
+      currentConfig.bobotPenelitian !== configData.bobotPenelitian ||
+      currentConfig.bobotPengabdian !== configData.bobotPengabdian ||
+      currentConfig.targetSesi !== configData.targetSesi;
 
     const saved = await prisma.raporDosenConfig.upsert({
       where: { semesterId },
@@ -78,38 +103,40 @@ export async function saveRaporConfig(
       update: configData,
     });
 
-    // Otomatis kalkulasi ulang seluruh Rapor Dosen di semester ini dengan bobot baru
-    const existingRapors = await prisma.raporDosen.findMany({
-      where: { semesterId },
-    });
-
-    for (const r of existingRapors) {
-      const calc = calculateRaporFull(
-        {
-          nilaiKuesioner: r.nilaiKuesioner,
-          totalResponden: r.totalResponden,
-          targetResponden: r.targetResponden,
-          rerataSesiHadir: r.rerataSesiHadir,
-          persenKehadiran: r.persenKehadiran,
-          persenKonten: r.persenKonten,
-          jumlahPenelitian: r.jumlahPenelitian,
-          jumlahPengabdian: r.jumlahPengabdian,
-        },
-        configData
-      );
-
-      await prisma.raporDosen.update({
-        where: { id: r.id },
-        data: {
-          skorKuesioner: calc.skorKuesioner,
-          skorKehadiran: calc.skorKehadiran,
-          skorKonten: calc.skorKonten,
-          skorPenelitian: calc.skorPenelitian,
-          skorPengabdian: calc.skorPengabdian,
-          nilaiAkhir: calc.nilaiAkhir,
-          predikat: calc.predikat.kode,
-        },
+    // Otomatis kalkulasi ulang seluruh Rapor Dosen HANYA jika bobot atau target sesi berubah
+    if (isWeightChanged) {
+      const existingRapors = await prisma.raporDosen.findMany({
+        where: { semesterId },
       });
+
+      for (const r of existingRapors) {
+        const calc = calculateRaporFull(
+          {
+            nilaiKuesioner: r.nilaiKuesioner,
+            totalResponden: r.totalResponden,
+            targetResponden: r.targetResponden,
+            rerataSesiHadir: r.rerataSesiHadir,
+            persenKehadiran: r.persenKehadiran,
+            persenKonten: r.persenKonten,
+            jumlahPenelitian: r.jumlahPenelitian,
+            jumlahPengabdian: r.jumlahPengabdian,
+          },
+          configData
+        );
+
+        await prisma.raporDosen.update({
+          where: { id: r.id },
+          data: {
+            skorKuesioner: calc.skorKuesioner,
+            skorKehadiran: calc.skorKehadiran,
+            skorKonten: calc.skorKonten,
+            skorPenelitian: calc.skorPenelitian,
+            skorPengabdian: calc.skorPengabdian,
+            nilaiAkhir: calc.nilaiAkhir,
+            predikat: calc.predikat.kode,
+          },
+        });
+      }
     }
 
     safeRevalidatePath("/laporan/rapor-dosen");
@@ -734,6 +761,25 @@ export async function getRaporDosenDetail(
   } catch (error: any) {
     console.error("Error getRaporDosenDetail:", error);
     return { success: false, error: error.message || "Gagal memuat detail rapor dosen" };
+  }
+}
+
+export async function getBatchRaporDosenDetails(
+  dosenIds: string[],
+  semesterId?: string
+): Promise<{ success: boolean; data?: RaporDosenDetailData[]; error?: string }> {
+  try {
+    const results: RaporDosenDetailData[] = [];
+    for (const id of dosenIds) {
+      const res = await getRaporDosenDetail(id, semesterId);
+      if (res.success && res.data) {
+        results.push(res.data);
+      }
+    }
+    return { success: true, data: results };
+  } catch (error: any) {
+    console.error("Error getBatchRaporDosenDetails:", error);
+    return { success: false, error: error.message || "Gagal memuat data rapor massal" };
   }
 }
 

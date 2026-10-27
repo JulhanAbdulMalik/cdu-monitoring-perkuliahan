@@ -10,6 +10,8 @@ import RaporDosenDetailClient from "./RaporDosenDetailClient";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
+
 interface PageProps {
   params: Promise<{ dosenId: string }>;
   searchParams: Promise<{ semesterId?: string }>;
@@ -24,8 +26,14 @@ export async function generateMetadata({
   const res = await getRaporDosenDetail(dosenId, semesterId);
 
   if (res.success && res.data) {
+    const title = formatRaporPdfFilename(
+      res.data.dosen.nama,
+      res.data.semester.tahunAkademik,
+      res.data.semester.periode,
+      false
+    );
     return {
-      title: `Rapor Dosen - ${res.data.dosen.nama} (${res.data.semester.tahunAkademik})`,
+      title: `${title} | CDU Portal`,
       description: `Lembar Evaluasi Tridharma Dosen ${res.data.dosen.nama}`,
     };
   }

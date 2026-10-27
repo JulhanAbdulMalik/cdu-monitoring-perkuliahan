@@ -2,11 +2,20 @@
 // src/app/(dashboard)/laporan/rapor-dosen/[dosenId]/RaporDosenDetailClient.tsx
 // Tampilan Preview Lembar Rapor format A4 dengan Panel Aksi di Sebelah Kanan Surat
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer, CheckCircle2, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Printer,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 import RaporSheetA4 from "@/components/rapor/RaporSheetA4";
+import RaporConfigModal from "../RaporConfigModal";
 import { RaporDosenDetailData } from "@/actions/rapor";
+import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
 
 interface RaporDosenDetailClientProps {
   data: RaporDosenDetailData;
@@ -17,8 +26,31 @@ export default function RaporDosenDetailClient({
   data,
   semesterId,
 }: RaporDosenDetailClientProps) {
+  const router = useRouter();
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+
+  // Format nama file resmi: Rapor Dosen - [NamaDosen] ([TahunAkademik] [Periode]).pdf
+  const officialFilename = formatRaporPdfFilename(
+    data.dosen.nama,
+    data.semester.tahunAkademik,
+    data.semester.periode,
+    true
+  );
+
+  const officialTitle = formatRaporPdfFilename(
+    data.dosen.nama,
+    data.semester.tahunAkademik,
+    data.semester.periode,
+    false
+  );
+
   const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = officialTitle;
     window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1500);
   };
 
   const isFinal = data.rapor?.statusRapor === "FINAL";
@@ -29,7 +61,7 @@ export default function RaporDosenDetailClient({
       <div className="max-w-[1300px] mx-auto flex flex-col lg:flex-row items-start justify-center gap-5 print:block">
         
         {/* ── SURAT A4 (Tampil langsung di posisi atas tanpa terdorong header) ─ */}
-        <div className="print-canvas shrink-0 mx-auto lg:mx-0 shadow-lg print:shadow-none">
+        <div className="print-canvas shrink-0 mx-auto lg:mx-0 print:p-0 print:m-0">
           <RaporSheetA4 data={data} />
         </div>
 
@@ -41,7 +73,7 @@ export default function RaporDosenDetailClient({
             <button
               onClick={handlePrint}
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-[0.99]"
-              title="Cetak atau Simpan PDF Lembar Evaluasi A4"
+              title={`Cetak atau Simpan PDF: ${officialFilename}`}
             >
               <Printer className="w-4 h-4" />
               <span>Cetak / Simpan PDF (A4)</span>
@@ -108,21 +140,14 @@ export default function RaporDosenDetailClient({
         </div>
       </div>
 
-      {/* Print Specific CSS */}
+      {/* Print Specific CSS - 100% Presisi A4 & Bebas Border Grey */}
       <style jsx global>{`
         @page {
           size: A4 portrait;
-          margin: 8mm 8mm;
+          margin: 0 !important;
         }
         @media print {
-          body {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
+          /* Sembunyikan semua elemen UI dashboard di luar lembar rapor */
           nav,
           header,
           aside,
@@ -130,19 +155,74 @@ export default function RaporDosenDetailClient({
           .no-print {
             display: none !important;
           }
+
+          /* Reset html & body ke canvas A4 murni */
+          html,
+          body {
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          /* Hilangkan padding, margin, border, dan bayangan dari pembungkus luar */
+          main,
+          main > div,
+          .min-h-screen,
+          .print-canvas {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            background: transparent !important;
+            background-color: transparent !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-width: 210mm !important;
+            max-height: 297mm !important;
+          }
+
+          /* Lembar Rapor A4: Tepat 210mm x 297mm, margin 0, tanpa bayangan / border abu-abu */
           .a4-sheet {
             box-shadow: none !important;
-            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            max-height: 297mm !important;
+            max-width: 210mm !important;
             margin: 0 !important;
-            width: 100% !important;
-            max-width: none !important;
-            min-height: 0 !important;
-            height: auto !important;
+            padding: 7mm 20mm 2mm 20mm !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
             page-break-after: avoid !important;
+            page-break-inside: avoid !important;
             break-after: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>
+
+      {/* Modal Konfigurasi Bobot & Pengesahan TTD */}
+      <RaporConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        semesterId={semesterId}
+        semesterLabel={`${data.semester.tahunAkademik} ${data.semester.periode}`}
+        initialConfig={data.config}
+        onSuccess={() => {
+          toast.success("Pengesahan & bobot penilaian berhasil diperbarui.");
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

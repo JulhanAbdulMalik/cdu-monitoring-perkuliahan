@@ -62,6 +62,14 @@ export interface RaporConfigData {
   bobotPenelitian: number; // default: 10.0%
   bobotPengabdian: number; // default: 10.0%
   targetSesi: number; // default: 16
+
+  // ── Pengesahan & TTD QAU
+  namaPejabat: string;
+  nidnPejabat: string;
+  jabatanPejabat: string;
+  kotaTerbit: string;
+  ttdImageUrl: string | null;
+  showTtdDigital: boolean;
 }
 
 export const DEFAULT_RAPOR_CONFIG: RaporConfigData = {
@@ -71,6 +79,14 @@ export const DEFAULT_RAPOR_CONFIG: RaporConfigData = {
   bobotPenelitian: 10.0,
   bobotPengabdian: 10.0,
   targetSesi: 16,
+
+  // ── Default Pengesahan
+  namaPejabat: "Dr. Samsul Pahmi, M.Pd.",
+  nidnPejabat: "0403048803",
+  jabatanPejabat: "Kepala Quality Assurance Unit (QAU)",
+  kotaTerbit: "Sukabumi",
+  ttdImageUrl: null,
+  showTtdDigital: false,
 };
 
 export interface IndikatorPenilaianDetail {
@@ -157,7 +173,7 @@ export function calculateScoreKonten(persenKonten?: number | null): number | nul
  */
 export function calculateScoreTridharma(count?: number | null): number {
   const c = Math.max(0, Math.floor(count || 0));
-  if (c === 0) return 3.2;
+  if (c === 0) return 0;
   if (c === 1) return 3.88;
   if (c === 2) return 4.35;
   return 5.0;
@@ -312,4 +328,57 @@ export function calculateRaporFull(
 }
 
 export const calculateRaporDosen = calculateRaporFull;
+
+/**
+ * Format nama file PDF Rapor Dosen resmi:
+ * Rapor Dosen - [NamaDosen] ([TahunAkademik] [Periode]).pdf
+ * Contoh: Rapor Dosen - ABD RAHMAN BIN ABDUL RAHIM, M.Sc., Ph.D (2026_2027 Gasal).pdf
+ */
+export function formatRaporPdfFilename(
+  dosenNama: string,
+  tahunAkademik: string,
+  periode: string,
+  withExtension = true
+): string {
+  const cleanNama = (dosenNama || "Dosen")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim();
+
+  const cleanTahun = (tahunAkademik || "")
+    .replace(/\//g, "_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim();
+
+  const cleanPeriode = (periode || "")
+    .replace(/\//g, "_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim();
+
+  const baseName = `Rapor Dosen - ${cleanNama} (${cleanTahun} ${cleanPeriode})`.trim();
+  return withExtension ? `${baseName}.pdf` : baseName;
+}
+
+/**
+ * Format nama file ZIP Rapor Dosen Batch:
+ * Rapor Dosen - Batch ([TahunAkademik] [Periode]).zip
+ * Contoh: Rapor Dosen - Batch (2026_2027 Gasal).zip
+ */
+export function formatRaporZipFilename(
+  tahunAkademik: string,
+  periode: string,
+  withExtension = true
+): string {
+  const cleanTahun = (tahunAkademik || "")
+    .replace(/\//g, "_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim();
+
+  const cleanPeriode = (periode || "")
+    .replace(/\//g, "_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim();
+
+  const baseName = `Rapor Dosen - Batch (${cleanTahun} ${cleanPeriode})`.trim();
+  return withExtension ? `${baseName}.zip` : baseName;
+}
 

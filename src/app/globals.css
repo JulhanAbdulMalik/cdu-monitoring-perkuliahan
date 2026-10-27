@@ -196,23 +196,43 @@ body {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 0 !important;
   }
+  html,
   body {
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  .print-canvas {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
   }
   .a4-sheet {
     box-shadow: none !important;
     border: none !important;
+    outline: none !important;
     width: 210mm !important;
+    height: 297mm !important;
     min-height: 297mm !important;
+    max-height: 297mm !important;
     max-width: 210mm !important;
     margin: 0 auto !important;
+    padding: 7mm 20mm 2mm 20mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
   }
   .no-print {
     display: none !important;

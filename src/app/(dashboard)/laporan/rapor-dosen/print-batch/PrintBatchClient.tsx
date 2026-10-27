@@ -1,12 +1,14 @@
 "use client";
 // src/app/(dashboard)/laporan/rapor-dosen/print-batch/PrintBatchClient.tsx
-// Halaman Cetak Massal (Batch Print) Lembar Rapor Dosen A4
+// Tampilan Preview Massal Lembar Rapor format A4 dengan Panel Aksi di Sebelah Kanan
+// Menyelaraskan 100% Standar UI dengan halaman /laporan/rapor-dosen/[id]
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer, AlertCircle, Layers } from "lucide-react";
+import { ArrowLeft, Printer, CheckCircle2, Clock } from "lucide-react";
 import RaporSheetA4 from "@/components/rapor/RaporSheetA4";
 import { RaporDosenDetailData } from "@/actions/rapor";
+import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
 
 interface PrintBatchClientProps {
   items: RaporDosenDetailData[];
@@ -17,96 +19,318 @@ export default function PrintBatchClient({
   items,
   semesterId,
 }: PrintBatchClientProps) {
-  const handlePrint = () => {
-    window.print();
+  // State untuk melacak apakah sedang mencetak satu lembar spesifik atau semua lembar
+  const [printingSingleId, setPrintingSingleId] = useState<string | null>(null);
+
+  const semesterInfo = items[0]?.semester;
+  const cleanTahun = (semesterInfo?.tahunAkademik || "").replace(/\//g, "_").trim();
+  const cleanPeriode = (semesterInfo?.periode || "").trim();
+
+  const countFinal = items.filter((i) => i.rapor?.statusRapor === "FINAL").length;
+  const countDraft = items.length - countFinal;
+
+  const defaultPageTitle = `Rapor Dosen - Gabungan (${items.length} Dosen - ${cleanTahun} ${cleanPeriode})`.trim();
+
+  // Bersihkan state & restore document.title setelah event cetak browser selesai
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintingSingleId(null);
+      document.title = defaultPageTitle;
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => {
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, [defaultPageTitle]);
+
+  // Cetak Semua Lembar Disatukan (1 file PDF multi-halaman berurutan)
+  const handlePrintAll = () => {
+    setPrintingSingleId(null);
+    document.title = defaultPageTitle;
+
+    setTimeout(() => {
+      window.print();
+    }, 80);
+  };
+
+  // Cetak Lembar Ini Secara Terpisah (1 file PDF khusus dosen ini)
+  const handlePrintSingle = (item: RaporDosenDetailData) => {
+    const singleTitle = formatRaporPdfFilename(
+      item.dosen.nama,
+      item.semester.tahunAkademik,
+      item.semester.periode,
+      false
+    );
+
+    setPrintingSingleId(item.dosen.id);
+    document.title = singleTitle;
+
+    setTimeout(() => {
+      window.print();
+    }, 120);
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 pb-20">
-      {/* ── TOP ACTION TOOLBAR (HIDDEN IN PRINT) ──────────────────────────────── */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-3.5 print:hidden shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-slate-100/70 p-4 sm:p-5 print:p-0 print:bg-white">
+      {/* ── CONTAINER FLEX: SURAT A4 DI KIRI & PANEL AKSI DI KANAN (IDENTIK DENGAN [ID]) ── */}
+      <div className="max-w-[1300px] mx-auto flex flex-col lg:flex-row items-start justify-center gap-5 print:block">
+        
+        {/* ── SURAT A4 STACK DI SEBELAH KIRI ─────────────────────────────────── */}
+        <div
+          className={`print-canvas shrink-0 mx-auto lg:mx-0 print:p-0 print:m-0 space-y-8 print:space-y-0 ${
+            printingSingleId ? "is-printing-single" : ""
+          }`}
+        >
+          {items.map((item) => {
+            const isSingleHidden =
+              printingSingleId !== null && printingSingleId !== item.dosen.id;
+
+            return (
+              <div
+                key={item.dosen.id}
+                id={`sheet-${item.dosen.id}`}
+                className={`batch-item-wrapper ${isSingleHidden ? "print-hide-sheet" : ""}`}
+              >
+                {/* ── LEMBAR EVALUASI A4 VEKTOR ASLI ──────────────────────── */}
+                <RaporSheetA4 data={item} />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── PANEL AKSI & INFORMASI DI SEBELAH KANAN (PRINT HIDDEN, IDENTIK DENGAN [ID]) ──── */}
+        <div className="w-full lg:w-72 shrink-0 sticky top-[72px] z-10 print:hidden space-y-3">
+          
+          {/* Card Aksi Utama (Sama persis dengan [id]) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3">
+            {/* Tombol Cetak Semua (Disatukan) */}
+            <button
+              id="btn-print-all-combined"
+              onClick={handlePrintAll}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer active:scale-[0.99]"
+              title={`Cetak semua ${items.length} lembar dosen disatukan dalam satu file PDF`}
+            >
+              <Printer className="w-4 h-4" />
+              <span>Cetak Semua (Disatukan)</span>
+            </button>
+
+            {/* Tombol Kembali ke Daftar Rapor */}
             <Link
               href={`/laporan/rapor-dosen?semesterId=${semesterId}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Kembali ke Daftar Rapor</span>
             </Link>
-            <div>
-              <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#a80063]" />
-                Cetak Massal Lembar Evaluasi ({items.length} Dosen)
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Setiap lembar dosen akan otomatis dicetak pada halaman baru (Page Break)
-              </p>
+
+            {/* Info Ringkas Dokumen Batch */}
+            <div className="pt-3 border-t border-slate-100 space-y-2.5 text-left">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
+                  Jumlah Dosen Terpilih
+                </span>
+                <p className="text-xs font-semibold text-slate-900 leading-snug">
+                  {items.length} Dosen
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
+                  Semester
+                </span>
+                <p className="text-xs font-semibold text-slate-700">
+                  {semesterInfo?.tahunAkademik} ({semesterInfo?.periode})
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block mb-1">
+                  Status Validasi
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle2 size={12} />
+                    <span>Final ({countFinal})</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    <Clock size={12} />
+                    <span>Draft ({countDraft})</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            Cetak Semua Lembar ({items.length} Dosen)
-          </button>
-        </div>
-      </div>
+          {/* Card Daftar Dosen & Cetak PDF Terpisah */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-2.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
+              Cetak PDF Terpisah ({items.length})
+            </span>
+            <div className="space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
+              {items.map((item, idx) => {
+                const isFinal = item.rapor?.statusRapor === "FINAL";
+                const nipOrNidn = item.dosen.nip
+                  ? `${item.dosen.nip}`
+                  : item.dosen.nidn
+                  ? `${item.dosen.nidn}`
+                  : " -";
+                const prodiNama = item.dosen.prodi?.nama || "-";
 
-      {/* ── BATCH PRINT CANVAS ──────────────────────────────────────────────── */}
-      <div className="py-8 px-4 print:py-0 print:px-0">
-        <div className="max-w-[210mm] mx-auto space-y-10 print:space-y-0 print:max-w-none print:w-full">
-          {items.map((item, index) => (
-            <div
-              key={item.dosen.id}
-              className="batch-item-wrapper print:page-break-after-always print:break-after-page"
-            >
-              <RaporSheetA4 data={item} />
+                return (
+                  <div
+                    key={item.dosen.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 transition-colors gap-2.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById(`sheet-${item.dosen.id}`);
+                        el?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="min-w-0 flex-1 text-left cursor-pointer group"
+                      title={`Lompat ke lembar ${item.dosen.nama}`}
+                    >
+                      <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-[#a80063]">
+                        {idx + 1}. {item.dosen.nama}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                        {nipOrNidn} &bull; {prodiNama}
+                      </p>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                          isFinal
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                            : "bg-amber-50 text-amber-600 border border-amber-200"
+                        }`}
+                        title={isFinal ? "Status: Final (Terverifikasi)" : "Status: Draft (Peninjauan)"}
+                      >
+                        {isFinal ? <CheckCircle2 size={13} /> : <Clock size={13} />}
+                      </span>
+
+                      <button
+                        type="button"
+                        id={`btn-print-single-${item.dosen.id}`}
+                        onClick={() => handlePrintSingle(item)}
+                        className="w-7 h-7 bg-slate-800 hover:bg-[#a80063] text-white rounded-lg flex items-center justify-center transition-all shadow-2xs cursor-pointer active:scale-95"
+                        title={`Cetak PDF Lembar ${item.dosen.nama}`}
+                      >
+                        <Printer size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </div>
+
         </div>
       </div>
 
-      {/* Print Specific CSS */}
+      {/* ── PRINT SPECIFIC CSS - 100% PRESISI A4 & BEBAS BORDER GREY ──────────── */}
       <style jsx global>{`
         @page {
           size: A4 portrait;
-          margin: 8mm 8mm;
+          margin: 0 !important;
         }
+
         @media print {
-          body {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
+          /* Sembunyikan elemen UI dashboard di luar lembar */
           nav,
           header,
           aside,
           footer,
-          .no-print {
+          .no-print,
+          .print\\:hidden {
             display: none !important;
           }
-          .batch-item-wrapper {
+
+          /* Reset canvas ke A4 murni */
+          html,
+          body {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          /* Hilangkan padding, margin, border dari pembungkus luar */
+          main,
+          main > div,
+          .min-h-screen,
+          .print-canvas {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            background: transparent !important;
+            background-color: transparent !important;
+          }
+
+          /* Mode Cetak Terpisah (Single Print): Matikan page-break-after agar TIDAK ADA halaman kedua yang kosong */
+          .is-printing-single .batch-item-wrapper {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            outline: none !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            overflow: hidden !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
+          }
+
+          /* Mode Cetak Massal (Combined): Page-break setelah setiap lembar kecuali yang terakhir */
+          .print-canvas:not(.is-printing-single) > .batch-item-wrapper {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            outline: none !important;
             page-break-after: always !important;
             break-after: page !important;
           }
-          .batch-item-wrapper:last-child {
+
+          .print-canvas:not(.is-printing-single) > .batch-item-wrapper:last-child {
             page-break-after: avoid !important;
             break-after: avoid !important;
           }
+
+          /* Sembunyikan lembar lain saat mode Cetak Terpisah (Single Print) aktif */
+          .print-hide-sheet {
+            display: none !important;
+          }
+
+          /* Pastikan lembar A4 berukuran presisi 210mm x 297mm */
           .a4-sheet {
             box-shadow: none !important;
-            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            max-height: 297mm !important;
+            max-width: 210mm !important;
             margin: 0 !important;
-            width: 100% !important;
-            max-width: none !important;
-            min-height: 0 !important;
-            height: auto !important;
+            padding: 7mm 20mm 2mm 20mm !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>

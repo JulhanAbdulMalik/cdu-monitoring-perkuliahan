@@ -15,7 +15,7 @@ export default function RaporSheetA4({
   data,
   printDate,
 }: RaporSheetA4Props) {
-  const { dosen, semester, rapor, monitoringStats, calculation } = data;
+  const { dosen, semester, rapor, monitoringStats, calculation, config } = data;
 
   const [logoError, setLogoError] = useState(false);
   const [footerError, setFooterError] = useState(false);
@@ -42,7 +42,13 @@ export default function RaporSheetA4({
         // fallback
       }
     }
-    return text.replace(/^kritik\s*:\s*/i, "").replace(/^saran\s*:\s*/i, "").trim();
+    return text
+      .replace(/^\[\d+\]\s*/, "") 
+      .replace(/^\d+[\.\)]\s*/, "") 
+      .replace(/^k\d+[\.\:\-]\s*/i, "") 
+      .replace(/^kritik\s*:\s*/i, "")
+      .replace(/^saran\s*:\s*/i, "")
+      .trim();
   });
 
   // Sentimen
@@ -53,12 +59,62 @@ export default function RaporSheetA4({
   };
 
   // Narasi Kesimpulan Evaluasi
-  const narasiKesimpulan =
+  const rawNarasi =
     rapor?.narasiKesimpulan ||
     `Berdasarkan evaluasi Tridharma pada semester ${semester.tahunAkademik} ${semester.periode}, Dosen ${dosen.nama} menunjukkan kinerja mengajar dan mutu akademik dengan predikat ${calculation.predikat?.label || "Cukup"}. Rekomendasi peningkatan difokuskan pada pengayaan media pembelajaran LMS serta kontinuitas penelitian dan pengabdian kepada masyarakat.`;
 
+  const narasiKesimpulan = rawNarasi
+    .replace(/pada Bagian C/gi, "pada Bagian B")
+    .replace(/\bBagian C\b/g, "Bagian B");
+
+  // Perhitungan total sesi mengajar dan target sesi semester
+  const targetPerKelas = (data.config?.targetSesi && data.config.targetSesi > 0) ? data.config.targetSesi : 16;
+  const totalTargetSesi = monitoringStats.totalKelas > 0 ? monitoringStats.totalKelas * targetPerKelas : 0;
+  const totalHadirSesi = monitoringStats.totalSesiHadirSemua;
+
+  // Perhitungan total skor 3 pilar konten dan total max skor pilar untuk seluruh kelas reguler
+  let totalSkorPilar = 0;
+  let totalMaxPilar = 0;
+  (monitoringStats.kelasList || []).forEach((k) => {
+    if (k.modePembelajaran !== "BIMBINGAN") {
+      totalSkorPilar += k.totalSkor3Pilar || 0;
+      totalMaxPilar += k.maxSkor3Pilar || 28;
+    }
+  });
+  // Fallback jika tidak ada kelas reguler tetapi ada kelas bimbingan
+  if (totalMaxPilar === 0 && (monitoringStats.kelasList || []).length > 0) {
+    (monitoringStats.kelasList || []).forEach((k) => {
+      totalSkorPilar += k.totalSkor3Pilar || 0;
+      totalMaxPilar += k.maxSkor3Pilar || 28;
+    });
+  }
+
+  // Format Capaian (misal Kuesioner: '4.48', Kehadiran: '24 / 96 Sesi', Konten: '39 / 140 Poin', Penelitian/PkM: '3')
+  const formatAngkaCapaian = (ind: (typeof calculation.indikatorList)[number]) => {
+    if (ind.capaianRiil == null) return "-";
+    if (ind.id === "kuesioner") {
+      const val = Number(ind.capaianRiil);
+      return isNaN(val) ? String(ind.capaianRiil) : val.toFixed(2);
+    }
+    if (ind.id === "kehadiran") {
+      if (totalTargetSesi > 0) {
+        return `${totalHadirSesi} / ${totalTargetSesi} Sesi`;
+      }
+      const val = Number(ind.capaianRiil);
+      return isNaN(val) ? String(ind.capaianRiil) : val.toFixed(1);
+    }
+    if (ind.id === "konten") {
+      if (totalMaxPilar > 0) {
+        return `${totalSkorPilar} / ${totalMaxPilar} Poin`;
+      }
+      const val = Number(ind.capaianRiil);
+      return isNaN(val) ? String(ind.capaianRiil) : `${val.toFixed(1)}%`;
+    }
+    return String(ind.capaianRiil);
+  };
+
   return (
-    <div className="a4-sheet relative bg-white text-black mx-auto px-[20mm] pt-[10mm] pb-[2mm] w-[210mm] max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full font-rockwell text-[8.5pt] leading-normal flex flex-col justify-between overflow-hidden">
+    <div className="a4-sheet relative bg-white text-black mx-auto px-[20mm] pt-[7mm] pb-[2mm] w-[210mm] max-w-[210mm] min-h-[297mm] h-[297mm] max-h-[297mm] shadow-lg print:shadow-none print:border-none print:m-0 font-rockwell text-[9pt] leading-normal flex flex-col justify-between overflow-hidden">
       {/* ── WATERMARK RESMI (Tengah Halaman) ──────────────────────────────────── */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.15] select-none z-0">
         {!logoError ? (
@@ -78,9 +134,9 @@ export default function RaporSheetA4({
 
       <div className="relative z-10 flex-1 flex flex-col">
         {/* ── KOP SURAT RESMI UNIVERSITAS NUSA PUTRA (Tengah) ──────────────────── */}
-        <div className="text-center pb-1 mb-2">
+        <div className="text-center pb-0.5 mb-1.5">
           {/* Logo Nusa Putra Tengah */}
-          <div className="flex justify-center mb-1">
+          <div className="flex justify-center mb-0.5">
             {!logoError ? (
               <img
                 src="/images/logo-nusa-putra.png"
@@ -96,24 +152,24 @@ export default function RaporSheetA4({
             )}
           </div>
 
-          <h1 className="text-[10pt] font-semibold text-black uppercase">
+          <h1 className="text-[10.5pt] font-semibold text-black uppercase">
             UNIVERSITAS NUSA PUTRA
           </h1>
         </div>
 
         {/* ── JUDUL DOKUMEN ────────────────────────────────────────────────────── */}
-        <div className="text-center mb-2">
-          <h2 className="text-[10pt] font-semibold text-black uppercase underline underline-offset-4 decoration-1">
+        <div className="text-center mb-1.5">
+          <h2 className="text-[10.5pt] font-semibold text-black uppercase underline underline-offset-4 decoration-1">
             LEMBAR EVALUASI &amp; RAPOR MUTU TRIDHARMA DOSEN
           </h2>
-          <p className="text-[8.5pt] text-black font-medium mt-0.5 uppercase">
+          <p className="text-[9pt] text-black font-medium mt-0.5 uppercase">
             SEMESTER {semester.tahunAkademik} - {semester.periode.toUpperCase()}
           </p>
         </div>
 
         {/* ── IDENTITAS DOSEN (Format Resmi Bersih Tanpa Container) ──────────── */}
-        <div className="mb-2 text-[8.5pt]">
-          <table className="w-full text-[8.5pt]">
+        <div className="mb-1.5 text-[9pt]">
+          <table className="w-full text-[9pt]">
             <tbody>
               <tr>
                 <td className="py-0.5 font-medium text-black w-[105px] whitespace-nowrap">Nama Dosen</td>
@@ -126,7 +182,7 @@ export default function RaporSheetA4({
               <tr>
                 <td className="py-0.5 font-medium text-black whitespace-nowrap">NIP / NIDN</td>
                 <td className="py-0.5 text-center font-normal text-slate-700">:</td>
-                <td className="py-0.5 text-black font-mono pr-4">
+                <td className="py-0.5 text-black pr-4">
                   {dosen.nip || "-"} / {dosen.nidn || "-"}
                 </td>
                 <td className="py-0.5 font-medium text-black whitespace-nowrap">Beban Mengajar</td>
@@ -136,10 +192,10 @@ export default function RaporSheetA4({
                 </td>
               </tr>
               <tr>
-                <td className="py-0.5 font-medium text-black whitespace-nowrap">Status Validasi</td>
+                <td className="py-0.5 font-medium text-black whitespace-nowrap">Responden</td>
                 <td className="py-0.5 text-center font-normal text-slate-700">:</td>
                 <td className="py-0.5 font-medium text-black pr-4">
-                  {rapor?.statusRapor === "FINAL" ? "FINAL (Terverifikasi)" : "DRAFT (Dalam Peninjauan)"}
+                  {rapor?.totalResponden ?? 0} Mahasiswa
                 </td>
                 <td className="py-0.5 font-medium text-black whitespace-nowrap">Tanggal Terbit</td>
                 <td className="py-0.5 text-center font-normal text-slate-700">:</td>
@@ -148,23 +204,22 @@ export default function RaporSheetA4({
             </tbody>
           </table>
         </div>
-
-        {/* ── BAGIAN A: TABEL 5 INDIKATOR KINERJA TRIDHARMA ───────────────────── */}
-        <div className="mb-2">
+        <div className="mb-1.5">
           <div className="flex items-baseline justify-between mb-1">
-            <h3 className="text-[8.5pt] font-semibold uppercase text-black">
-              A. TABEL CAPAIAN RIIL &amp; NILAI TERSTANDAR (SKALA 1.00 – 5.00)
+            <h3 className="text-[9pt] font-semibold uppercase text-black">
+              A. REKAPITULASI PENILAIAN
             </h3>
-            <span className="text-[7.5pt] font-normal text-slate-700">Standar Mutu QAU</span>
           </div>
-          <table className="w-full text-[8pt] border-collapse border border-black text-left">
+          <table className="w-full text-[8.5pt] border-collapse border border-black text-left">
             <thead>
               <tr className="bg-slate-50 text-black font-semibold border-b border-black text-center">
-                <th className="py-0.5 px-1 border border-black w-8">No</th>
-                <th className="py-0.5 px-2 border border-black text-left">Indikator Kinerja Penilaian</th>
-                <th className="py-0.5 px-2 border border-black">Capaian Riil</th>
-                <th className="py-0.5 px-1 border border-black w-14">Nilai</th>
-                <th className="py-0.5 px-1 border border-black w-14">Bobot</th>
+                <th className="py-1 px-1 border border-black w-8">No</th>
+                <th className="py-1 px-2 border border-black text-left">Indikator Kinerja Penilaian</th>
+                <th className="py-1 px-2 border border-black w-24">Capaian</th>
+                <th className="py-1 px-1 border border-black w-28 text-center leading-tight">
+                  Nilai Konversi<br />
+                  {/* <span className="text-[7pt] font-normal block">(Skala 1.00 – 5.00)</span> */}
+                </th>
                 <th className="py-0.5 px-1 border border-black w-14">Terbobot</th>
                 <th className="py-0.5 px-2 border border-black w-32">Kategori Mutu</th>
               </tr>
@@ -179,13 +234,10 @@ export default function RaporSheetA4({
                     {ind.nama}
                   </td>
                   <td className="py-0.5 px-2 text-center border border-black font-normal text-black">
-                    {ind.satuan}
+                    {formatAngkaCapaian(ind)}
                   </td>
                   <td className="py-0.5 px-1 text-center font-normal border border-black text-black">
                     {ind.skorStandar != null ? ind.skorStandar.toFixed(2) : "-"}
-                  </td>
-                  <td className="py-0.5 px-1 text-center font-normal border border-black text-black">
-                    {ind.bobot}%
                   </td>
                   <td className="py-0.5 px-1 text-center font-normal border border-black text-black">
                     {ind.skorTerbobot != null ? ind.skorTerbobot.toFixed(2) : "-"}
@@ -196,50 +248,39 @@ export default function RaporSheetA4({
                 </tr>
               ))}
 
-              {/* TOTAL AKUMULASI (Style Biasa Monochrome Tanpa Warna-Warni) */}
-              <tr className="bg-slate-50 text-black font-semibold border-t-2 border-black">
-                <td colSpan={3} className="py-1 px-2 text-right uppercase border border-black">
-                  Nilai Akhir Evaluasi Tridharma (Skala 1.00 – 5.00) :
+              {/* TOTAL AKUMULASI (Garis border-t 1px halus selaras dengan border-b header) */}
+              <tr className="bg-slate-50 text-black font-semibold border-t border-black">
+                <td colSpan={3} className="py-1 px-2 text-center border border-black">
+                  Nilai Akhir Evaluasi Tridharma
                 </td>
                 <td className="py-1 px-1 text-center border border-black text-black">-</td>
-                <td className="py-1 px-1 text-center border border-black text-black">100%</td>
-                <td className="py-1 px-1 text-center border border-black text-[8.5pt] font-semibold text-black">
+                <td className="py-1 px-1 text-center border border-black text-[9pt] font-semibold text-black">
                   {calculation.nilaiAkhir != null ? calculation.nilaiAkhir.toFixed(2) : "-"}
                 </td>
                 <td className="py-1 px-2 text-center border border-black">
-                  <span className="font-semibold uppercase text-black">
+                  <span className="font-semibold text-black">
                     {calculation.predikat?.label || "Belum Lengkap"}
                   </span>
                 </td>
               </tr>
             </tbody>
           </table>
-
-          {/* Catatan Kriteria Penskoran */}
-          <p className="mt-0.5 text-[7.5pt] text-black leading-snug text-justify">
-            <span className="font-semibold">Catatan Kriteria:</span> Sangat Baik (&ge; 4.58), Baik (4.12 – 4.57), Cukup (3.66 – 4.11), Kurang Baik (3.20 – 3.65). Khusus Penelitian &amp; Pengabdian: 0 = 3.20 | 1 = 3.88 | 2 = 4.35 | &ge; 3 = 5.00.
-          </p>
         </div>
 
         {/* ── BAGIAN B: REKOMENDASI PERBAIKAN & MASUKAN MAHASISWA ──────────────── */}
-        <div className="mb-2 text-[8.5pt]">
-          <div className="flex items-baseline justify-between mb-0.5">
-            <h3 className="text-[8.5pt] font-semibold uppercase text-black">
-              B. REKOMENDASI PERBAIKAN &amp; MASUKAN MAHASISWA
-            </h3>
-            <span className="text-[7.5pt] font-normal text-slate-700">
-              (Sentimen: Positif {sentimen.positifPct}% &bull; Netral {sentimen.netralPct}% &bull; Negatif {sentimen.negatifPct}%)
-            </span>
-          </div>
+        <div className="mb-1.5 text-[9pt]">
+          <h3 className="text-[9pt] font-semibold uppercase text-black mb-1">
+            B. ASPEK PEMBELAJARAN
+          </h3>
 
-          {/* Poin-poin Berbaris ke Bawah (Tidak Menjadi 2 Bagian Kanan-Kiri) */}
-          <div className="space-y-1 mt-1">
+          {/* Poin-poin Berbaris ke Bawah (Tab satu kali ke kanan agar tidak sejajar dengan judul Poin B) */}
+          <div className="ml-3 space-y-1">
             {/* 1. Rekomendasi Area Perbaikan */}
             <div>
-              <p className="font-semibold text-black text-[8.5pt] mb-0.5">
-                1. Rekomendasi Area Perbaikan:
+              <p className="font-semibold text-black text-[9pt] mb-0.5">
+                1. Rekomendasi Perbaikan:
               </p>
-              <ol className="space-y-0.5 text-[8pt] text-black pl-3">
+              <ol className="space-y-0.5 text-[8.5pt] text-black pl-3">
                 {rekomendasiList.length > 0 ? (
                   rekomendasiList.slice(0, 5).map((p: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-1.5 leading-snug">
@@ -255,7 +296,7 @@ export default function RaporSheetA4({
 
             {/* 2. Masukan / Kritik Konstruktif Mahasiswa */}
             <div>
-              <p className="font-semibold text-black text-[8.5pt] mb-0.5">
+              <p className="font-semibold text-black text-[9pt] mb-0.5">
                 2. Masukan / Kritik Konstruktif Mahasiswa:
               </p>
               <ol className="space-y-0.5 text-[8pt] text-black pl-3">
@@ -275,39 +316,104 @@ export default function RaporSheetA4({
         </div>
 
         {/* ── BAGIAN C: KESIMPULAN EVALUASI ASESOR / QAU ──────────────────────── */}
-        <div className="mb-2 text-[8.5pt]">
-          <h3 className="text-[8.5pt] font-semibold uppercase text-black mb-0.5">
-            C. KESIMPULAN EVALUASI ASESOR / QAU
-          </h3>
-          <p className="text-[8pt] text-black leading-relaxed italic text-justify pl-3 border-l-2 border-black">
-            &ldquo;{narasiKesimpulan}&rdquo;
-          </p>
+        <div className="mb-1.5 text-[9pt]">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-[9pt] font-semibold uppercase text-black">
+              C. KESIMPULAN &amp; ANALISIS SENTIMEN MAHASISWA
+            </h3>
+            {/* Blok Sentimen: Positif (Hijau), Netral (Grey White), Negatif (Merah) */}
+            <div className="flex items-center gap-1.5 text-[7.5pt]">
+              <span className="font-medium text-slate-700">Sentimen:</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-medium">
+                Positif {sentimen.positifPct}%
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-medium">
+                Netral {sentimen.netralPct}%
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 font-medium">
+                Negatif {sentimen.negatifPct}%
+              </span>
+            </div>
+          </div>
+
+          {/* Isi Poin C: Ditab satu kali ke kanan (ml-3) agar posisi beda dengan Poin C */}
+          <div className="ml-3 pl-2.5 border-l-2 border-black">
+            <p className="text-[8.5pt] text-black leading-snug italic text-justify">
+              &ldquo;{narasiKesimpulan}&rdquo;
+            </p>
+          </div>
         </div>
 
-        {/* ── PENGESAHAN: TANDA TANGAN TUNGGAL KEPALA QAU (Sebelah Kanan) ──────── */}
-        <div className="flex justify-end pt-1 mb-1">
-          <div className="w-64 text-center text-[8.5pt]">
-            <p className="text-[8pt] text-black font-normal mb-0.5">
-              Sukabumi, {formattedDate}
+        {/* ── BAGIAN BAWAH: TABEL KRITERIA (KIRI) & PENGESAHAN (KANAN) ─ */}
+        <div className="flex items-start justify-between gap-6 pt-3.5 mb-0.5">
+          {/* KIRI: Tabel Catatan Kriteria */}
+          <div className="w-[310px] shrink-0 text-[7.5pt]">
+            <p className="font-semibold text-black uppercase mb-1">
+              Catatan Kriteria:
+            </p>
+            <table className="w-full text-[7pt] border-collapse border border-black text-left">
+              <thead>
+                <tr className="bg-slate-50 text-black font-semibold border-b border-black text-center">
+                  <th className="py-0.5 px-1.5 border border-black text-left">Predikat Mutu</th>
+                  <th className="py-0.5 px-1 border border-black">Rentang Skor</th>
+                  <th className="py-0.5 px-1.5 border border-black">Khusus Penelitian &amp; PkM</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-black">
+                  <td className="py-0.5 px-1.5 border border-black font-medium">Sangat Baik</td>
+                  <td className="py-0.5 px-1 border border-black text-center">&ge; 4.58</td>
+                  <td className="py-0.5 px-1.5 border border-black text-center">&ge; 3 Kegiatan = 5.00</td>
+                </tr>
+                <tr className="border-b border-black">
+                  <td className="py-0.5 px-1.5 border border-black font-medium">Baik</td>
+                  <td className="py-0.5 px-1 border border-black text-center">4.12 – 4.57</td>
+                  <td className="py-0.5 px-1.5 border border-black text-center">2 Kegiatan = 4.35</td>
+                </tr>
+                <tr className="border-b border-black">
+                  <td className="py-0.5 px-1.5 border border-black font-medium">Cukup</td>
+                  <td className="py-0.5 px-1.5 border border-black text-center">3.66 – 4.11</td>
+                  <td className="py-0.5 px-1.5 border border-black text-center">1 Kegiatan = 3.88</td>
+                </tr>
+                <tr>
+                  <td className="py-0.5 px-1.5 border border-black font-medium">Kurang Baik</td>
+                  <td className="py-0.5 px-1 border border-black text-center">3.20 – 3.65</td>
+                  <td className="py-0.5 px-1.5 border border-black text-center">0 Kegiatan = 0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* KANAN: Pengesahan Kepala QAU */}
+          <div className="w-64 text-center text-[9pt]">
+            <p className="text-[8.5pt] text-black font-normal mb-0.5">
+              {config?.kotaTerbit || "Sukabumi"}, {formattedDate}
             </p>
             <p className="font-semibold text-black leading-tight">
-              Mengesahkan,<br />
-              Kepala Quality Assurance Unit (QAU)
+              Mengetahui,<br />
+              {config?.jabatanPejabat || "Kepala Quality Assurance Unit (QAU)"}
             </p>
 
-            {/* Ruang TTD & Cap */}
-            <div className="h-14 flex items-center justify-center">
-              <span className="text-[7.5pt] text-slate-400 italic">
-                ( Tanda Tangan &amp; Cap Digital )
-              </span>
+            {/* Ruang TTD & Cap (Tampil gambar statis resmi jika TTD Digital diaktifkan, atau ruang kosong jika fisik) */}
+            <div className="h-12 flex items-center justify-center relative">
+              {config?.showTtdDigital ? (
+                <img
+                  src="/images/ttd-kepala-qau.png"
+                  alt={`Tanda Tangan ${config?.namaPejabat || "Kepala QAU"}`}
+                  className="max-h-20 w-auto object-contain mx-auto"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : null}
             </div>
 
             <div>
-              <p className="font-semibold text-black underline">
-                ( .................................................... )
+              <p className="font-semibold text-black underline leading-snug">
+                {config?.namaPejabat || "Dr. Samsul Pahmi, M.Pd."}
               </p>
-              <p className="text-[8pt] text-black font-mono mt-0.5">
-                NIP / NIDN. .........................................
+              <p className="text-[8.5pt] text-black leading-snug">
+                NIDN. {config?.nidnPejabat || "0403048803"}
               </p>
             </div>
           </div>
@@ -315,7 +421,7 @@ export default function RaporSheetA4({
       </div>
 
       {/* ── FOOTER RESMI UNIVERSITAS NUSA PUTRA (Banner Resmi SK) ─────────────── */}
-      <div className="relative z-10 pt-2 shrink-0">
+      <div className="relative z-10 pt-1 shrink-0">
         {!footerError ? (
           <div className="flex justify-center w-full">
             <img

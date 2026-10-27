@@ -98,10 +98,10 @@ ${cleanComments.map((c, i) => `[${i + 1}] "${c}"`).join("\n")}
 INSTRUKSI EVALUASI:
 1. Pilihlah tepat 5 komentar mahasiswa paling kritis, menyoroti kekurangan, atau kritik/saran perbaikan terjelek (K1 sampai K5). Jangan memilih komentar pujian kosong. Utamakan komentar yang menyoroti metode belajar, tempo penjelasan materi, kedisiplinan jadwal, atau transparansi nilai/ujian.
 2. Analisis Sentimen: Klasifikasikan seluruh ${cleanComments.length} komentar ke dalam Positif, Netral, atau Negatif/Kritik. Hitung jumlah dan persentase masing-masing (total persentase wajib tepat 100.0%).
-3. Tuliskan Narasi Kesimpulan Evaluasi (Bagian E) secara RINGKAS dan PADAT (cukup 1-2 kalimat, standar resmi QAU Universitas Nusa Putra), dengan format:
-   - Jika Positif >= 80%: "Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif ({positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian C untuk peningkatan mutu berkelanjutan."
-   - Jika Positif 60% - 79.9%: "Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif ({positifPct}%) dan Netral ({netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan."
-   - Jika Positif < 60%: "Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa ({negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan."
+3. Tuliskan Narasi Kesimpulan Evaluasi (Bagian C) secara RINGKAS dan PADAT (cukup 1-2 kalimat, standar resmi QAU Universitas Nusa Putra), dengan format:
+   - Jika Positif >= 80%: "Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif ({positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian B untuk peningkatan mutu berkelanjutan."
+   - Jika Positif 60% - 79.9%: "Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif ({positifPct}%) dan Netral ({netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan."
+   - Jika Positif < 60%: "Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa ({negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan."
    PENTING: Jangan gunakan CapsLock/HURUF BESAR SEMUA. Gunakan huruf besar hanya pada awal kata saja (contoh: 'Sangat Positif', 'Positif', 'Netral', 'Negatif').
 
 FORMAT KELUARAN WAJIB JSON VALID (tanpa markdown backtick):
@@ -173,9 +173,19 @@ FORMAT KELUARAN WAJIB JSON VALID (tanpa markdown backtick):
     const parsedData = JSON.parse(rawText);
 
     // Validasi & normalisasi komentar kritis terpilih K1 - K5
-    const komentarTerpilih: string[] = Array.isArray(parsedData.komentarTerpilih)
+    const rawKomentar: string[] = Array.isArray(parsedData.komentarTerpilih)
       ? parsedData.komentarTerpilih.slice(0, 5)
       : [];
+
+    const komentarTerpilih = rawKomentar.map((k) =>
+      String(k || "")
+        .replace(/^\[\d+\]\s*/, "") // Hapus nomor referensi kurung siku seperti [4], [17], [28]
+        .replace(/^\d+[\.\)]\s*/, "") // Hapus nomor urut seperti 1., 1), 2.
+        .replace(/^k\d+[\.\:\-]\s*/i, "") // Hapus awalan K1:, K1., dll
+        .replace(/^kritik\s*:\s*/i, "")
+        .replace(/^saran\s*:\s*/i, "")
+        .trim()
+    );
 
     // Rekomendasi Perbaikan P1 - P5:
     // Utamakan langsung dari butir pertanyaan kuesioner yang telah dihitung dari SIAKAD
@@ -199,16 +209,18 @@ FORMAT KELUARAN WAJIB JSON VALID (tanpa markdown backtick):
     let narasiKesimpulan = parsedData.narasiKesimpulan;
     if (!narasiKesimpulan || narasiKesimpulan.length < 20) {
       if (positifPct >= 80) {
-        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif (${positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian C untuk peningkatan mutu berkelanjutan.`;
+        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif (${positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian B untuk peningkatan mutu berkelanjutan.`;
       } else if (positifPct >= 60) {
-        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif (${positifPct}%) dan Netral (${netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan.`;
+        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif (${positifPct}%) dan Netral (${netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan.`;
       } else {
-        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa (${negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan.`;
+        narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa (${negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan.`;
       }
     }
 
-    // Pastikan tidak ada ALL CAPS seperti SANGAT POSITIF, POSITIF, NETRAL, NEGATIF
+    // Pastikan referensi ke rekomendasi perbaikan adalah Bagian B, bukan Bagian C
     narasiKesimpulan = narasiKesimpulan
+      .replace(/pada Bagian C/gi, "pada Bagian B")
+      .replace(/\bBagian C\b/g, "Bagian B")
       .replace(/SANGAT POSITIF/g, "Sangat Positif")
       .replace(/POSITIF/g, "Positif")
       .replace(/SANGAT NEGATIF/g, "Sangat Negatif")
@@ -301,11 +313,11 @@ function generateFallbackAnalysis(ctx: LecturerAnalysisContext): GeminiRaporAnal
 
   let narasiKesimpulan = "";
   if (positifPct >= 80) {
-    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif (${positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian C untuk peningkatan mutu berkelanjutan.`;
+    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, mayoritas mahasiswa memberikan respon Sangat Positif (${positifPct}%) terhadap proses pembelajaran dan pengajaran dosen. Dosen diharapkan mempertahankan kinerja yang baik serta menindaklanjuti rekomendasi perbaikan pada Bagian B untuk peningkatan mutu berkelanjutan.`;
   } else if (positifPct >= 60) {
-    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif (${positifPct}%) dan Netral (${netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan.`;
+    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, respon mahasiswa didominasi penilaian Positif (${positifPct}%) dan Netral (${netralPct}%). Dosen disarankan untuk memperhatikan catatan mahasiswa dan rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan.`;
   } else {
-    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa (${negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian C guna meningkatkan efektivitas perkuliahan.`;
+    narasiKesimpulan = `Berdasarkan hasil kuesioner dan analisis sentimen, evaluasi mahasiswa menunjukkan perlunya perhatian terhadap masukan kritis mahasiswa (${negatifPct}%). Dosen diharapkan proaktif menindaklanjuti rekomendasi perbaikan pada Bagian B guna meningkatkan efektivitas perkuliahan.`;
   }
 
   return {

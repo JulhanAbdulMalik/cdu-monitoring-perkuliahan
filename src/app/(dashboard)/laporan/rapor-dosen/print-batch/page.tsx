@@ -1,10 +1,11 @@
 // src/app/(dashboard)/laporan/rapor-dosen/print-batch/page.tsx
 // Halaman Cetak Massal (Batch Print) Lembar Rapor Dosen A4
+// Memungkinkan cetak massal (semua halaman disatukan) atau cetak per dosen (terpisah) dengan kualitas vektor asli 100%
 
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
-import { getRaporDosenDetail, RaporDosenDetailData } from "@/actions/rapor";
+import { getBatchRaporDosenDetails } from "@/actions/rapor";
 import PrintBatchClient from "./PrintBatchClient";
 
 export const dynamic = "force-dynamic";
@@ -51,17 +52,9 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
     .map((id) => id.trim())
     .filter(Boolean);
 
-  const detailPromises = dosenIds.map((id) => getRaporDosenDetail(id, semesterId));
-  const results = await Promise.all(detailPromises);
+  const res = await getBatchRaporDosenDetails(dosenIds, semesterId);
 
-  const validItems: RaporDosenDetailData[] = [];
-  for (const res of results) {
-    if (res.success && res.data) {
-      validItems.push(res.data);
-    }
-  }
-
-  if (validItems.length === 0) {
+  if (!res.success || !res.data || res.data.length === 0) {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 shadow-sm text-center">
         <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
@@ -69,7 +62,7 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
         </div>
         <h2 className="text-lg font-bold text-slate-800">Gagal Memuat Data Dosen</h2>
         <p className="text-xs text-slate-500 mt-1 mb-6">
-          Tidak ada data rapor yang dapat dimuat untuk dosen-dosen yang dipilih.
+          {res.error || "Tidak ada data rapor yang dapat dimuat untuk dosen-dosen yang dipilih."}
         </p>
         <Link
           href={`/laporan/rapor-dosen${semesterId ? `?semesterId=${semesterId}` : ""}`}
@@ -82,7 +75,7 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
     );
   }
 
-  const activeSemesterId = semesterId || validItems[0].semester.id;
+  const activeSemesterId = semesterId || res.data[0].semester.id;
 
-  return <PrintBatchClient items={validItems} semesterId={activeSemesterId} />;
+  return <PrintBatchClient items={res.data} semesterId={activeSemesterId} />;
 }

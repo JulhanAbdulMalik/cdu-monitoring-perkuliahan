@@ -406,6 +406,15 @@ model RaporDosenConfig {
   bobotPenelitian Float    @default(10.0) // 10%
   bobotPengabdian Float    @default(10.0) // 10%
   targetSesi      Int      @default(16)   // Minimal 16 pertemuan
+
+  // ── Pengesahan & Tanda Tangan (TTD)
+  namaPejabat     String   @default("Dr. Samsul Pahmi, M.Pd.")
+  nidnPejabat     String   @default("0403048803")
+  jabatanPejabat  String   @default("Kepala Quality Assurance Unit (QAU)")
+  kotaTerbit      String   @default("Sukabumi")
+  ttdImageUrl     String?  // Data URL base64 atau path file gambar TTD / stempel
+  showTtdDigital  Boolean  @default(false)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

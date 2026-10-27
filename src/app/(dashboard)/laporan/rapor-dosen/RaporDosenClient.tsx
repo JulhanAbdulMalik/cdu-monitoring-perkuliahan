@@ -24,6 +24,7 @@ import {
   Loader2,
   AlertCircle,
   Edit2,
+  FileDown,
 } from "lucide-react";
 import TablePagination from "@/components/common/TablePagination";
 import RaporConfigModal from "./RaporConfigModal";
@@ -147,6 +148,15 @@ export default function RaporDosenClient({
   const [editingItem, setEditingItem] = useState<RaporDosenListItem | null>(null);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [bulkStatusConfirm, setBulkStatusConfirm] = useState<{
+    isOpen: boolean;
+    targetStatus: "FINAL" | "DRAFT";
+    count: number;
+  }>({
+    isOpen: false,
+    targetStatus: "FINAL",
+    count: 0,
+  });
 
   // Track last sync time
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -464,10 +474,10 @@ export default function RaporDosenClient({
             type="button"
             onClick={() => setIsConfigModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer"
-            title="Konfigurasi Bobot Penilaian & Target Sesi"
+            title="Konfigurasi Bobot Penilaian, Target Sesi & Pengesahan TTD QAU"
           >
             <Sliders size={13} className="text-[#a80063]" />
-            <span>Bobot Penilaian</span>
+            <span>Bobot & Pengesahan</span>
           </button>
 
           <button
@@ -713,6 +723,7 @@ export default function RaporDosenClient({
                 {/* Select All Checkbox */}
                 <th className="py-2.5 px-2 text-center w-8">
                   <input
+                    id="checkbox-select-all"
                     type="checkbox"
                     checked={isAllCurrentPageSelected}
                     onChange={toggleSelectAllCurrentPage}
@@ -820,6 +831,8 @@ export default function RaporDosenClient({
                       {/* Checkbox (Standar /monitoring) */}
                       <td className="py-2 px-2 text-center">
                         <input
+                          id={`checkbox-dosen-${idx}`}
+                          data-testid={`checkbox-dosen-${idx}`}
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelectDosen(item.dosenId)}
@@ -1048,7 +1061,7 @@ export default function RaporDosenClient({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title={`Buka / Cetak Lembar Rapor A4 untuk ${item.dosenNama} di Tab Baru`}
+                            title={`Preview`}
                           >
                             <Printer size={13} />
                           </Link>
@@ -1089,22 +1102,28 @@ export default function RaporDosenClient({
               </span>
             </div>
 
-            <a
-              href={`/laporan/rapor-dosen/print-batch?ids=${Array.from(selectedDosenIds).join(
-                ","
-              )}&semesterId=${selectedSemester}`}
+            <Link
+              id="btn-batch-preview-print"
+              href={`/laporan/rapor-dosen/print-batch?ids=${Array.from(selectedDosenIds).join(",")}&semesterId=${selectedSemester}`}
               target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#a80063] hover:bg-[#8b0052] text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-              title={`Cetak Lembar Rapor A4 untuk ${selectedDosenIds.size} Dosen Terpilih`}
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#a80063] hover:bg-[#8b0052] text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+              title={`Buka Preview & Cetak Lembar Rapor untuk ${selectedDosenIds.size} Dosen Terpilih di Tab Baru`}
             >
               <Printer size={13} />
-              <span>Cetak Rapor ({selectedDosenIds.size})</span>
-            </a>
+              <span>Preview ({selectedDosenIds.size})</span>
+            </Link>
 
             <button
               type="button"
-              onClick={() => handleBatchUpdate("FINAL")}
+              id="btn-trigger-set-final"
+              onClick={() =>
+                setBulkStatusConfirm({
+                  isOpen: true,
+                  targetStatus: "FINAL",
+                  count: selectedDosenIds.size,
+                })
+              }
               disabled={isBatchUpdating}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               title={`Ubah status menjadi FINAL untuk ${selectedDosenIds.size} dosen`}
@@ -1115,7 +1134,14 @@ export default function RaporDosenClient({
 
             <button
               type="button"
-              onClick={() => handleBatchUpdate("DRAFT")}
+              id="btn-trigger-set-draft"
+              onClick={() =>
+                setBulkStatusConfirm({
+                  isOpen: true,
+                  targetStatus: "DRAFT",
+                  count: selectedDosenIds.size,
+                })
+              }
               disabled={isBatchUpdating}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
               title={`Ubah status menjadi DRAFT untuk ${selectedDosenIds.size} dosen`}
@@ -1172,6 +1198,90 @@ export default function RaporDosenClient({
           router.refresh();
         }}
       />
+
+      {/* ── Modal Konfirmasi Status Masal (Set Final & Set Draft) Standar CDU Portal ── */}
+      {bulkStatusConfirm.isOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isBatchUpdating) {
+              setBulkStatusConfirm((prev) => ({ ...prev, isOpen: false }));
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  bulkStatusConfirm.targetStatus === "FINAL"
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                    : "bg-amber-50 text-amber-600 border border-amber-200"
+                }`}
+              >
+                {bulkStatusConfirm.targetStatus === "FINAL" ? (
+                  <CheckCircle2 size={22} />
+                ) : (
+                  <Clock size={22} />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {bulkStatusConfirm.targetStatus === "FINAL"
+                    ? "Konfirmasi Status Final"
+                    : "Konfirmasi Status Draft"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {currentSemester?.tahunAkademik} {currentSemester?.periode} &bull; {bulkStatusConfirm.count} Dosen
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Apakah Anda yakin ingin mengatur status rapor untuk{" "}
+              <strong className="text-slate-900 font-bold">{bulkStatusConfirm.count} dosen</strong> terpilih menjadi{" "}
+              <span
+                className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${
+                  bulkStatusConfirm.targetStatus === "FINAL"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {bulkStatusConfirm.targetStatus === "FINAL" ? "Final" : "Draft"}
+              </span>
+              ?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBulkStatusConfirm((prev) => ({ ...prev, isOpen: false }))}
+                disabled={isBatchUpdating}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-apply-status"
+                onClick={() => {
+                  const target = bulkStatusConfirm.targetStatus;
+                  setBulkStatusConfirm((prev) => ({ ...prev, isOpen: false }));
+                  handleBatchUpdate(target);
+                }}
+                disabled={isBatchUpdating}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 ${
+                  bulkStatusConfirm.targetStatus === "FINAL"
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                    : "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                }`}
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

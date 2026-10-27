@@ -1,7 +1,7 @@
 // src/lib/prisma.ts
 // Prisma Client singleton untuk Next.js dengan self-healing dynamic reload di development
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -10,11 +10,17 @@ const globalForPrisma = globalThis as unknown as {
 function getPrismaInstance(): PrismaClient {
   const current = globalForPrisma.prisma;
   const hasIsSelesai = Boolean(current && (current as any).notification?.fields?.isSelesai);
-  if (current && (current as any).notification && hasIsSelesai) {
+  const hasNamaPejabat = Boolean(
+    (Prisma as any)?.dmmf?.datamodel?.models
+      ?.find((m: any) => m.name === "RaporDosenConfig")
+      ?.fields?.some((f: any) => f.name === "namaPejabat")
+  );
+
+  if (current && (current as any).notification && hasIsSelesai && hasNamaPejabat) {
     return current;
   }
 
-  // Jika di development dan model notification belum terdeteksi (karena module ter-cache sebelum prisma generate),
+  // Jika di development dan model/field baru belum terdeteksi (karena module ter-cache sebelum prisma generate),
   // lakukan cache-busting native require untuk memuat build terbaru dari disk
   if (process.env.NODE_ENV === "development" && typeof eval !== "undefined") {
     try {
@@ -30,10 +36,8 @@ function getPrismaInstance(): PrismaClient {
           const freshClient = new freshModule.PrismaClient({
             log: ["query", "error", "warn"],
           });
-          if ((freshClient as any).notification) {
-            globalForPrisma.prisma = freshClient;
-            return freshClient;
-          }
+          globalForPrisma.prisma = freshClient;
+          return freshClient;
         }
       }
     } catch {
@@ -42,7 +46,7 @@ function getPrismaInstance(): PrismaClient {
   }
 
   const fallbackClient =
-    (hasIsSelesai ? current : null) ??
+    (hasIsSelesai && hasNamaPejabat ? current : null) ??
     new PrismaClient({
       log:
         process.env.NODE_ENV === "development"
