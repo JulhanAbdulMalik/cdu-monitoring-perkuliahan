@@ -25,11 +25,13 @@ import {
   AlertCircle,
   Edit2,
   FileDown,
+  Mail,
 } from "lucide-react";
 import TablePagination from "@/components/common/TablePagination";
 import RaporConfigModal from "./RaporConfigModal";
 import ImportSiakadModal from "./ImportSiakadModal";
 import EditRaporModal from "./EditRaporModal";
+import SendEmailRaporModal from "./SendEmailRaporModal";
 import {
   RaporDosenListItem,
   RaporDosenSummary,
@@ -146,6 +148,7 @@ export default function RaporDosenClient({
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RaporDosenListItem | null>(null);
+  const [emailTargetItem, setEmailTargetItem] = useState<RaporDosenListItem | null>(null);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [bulkStatusConfirm, setBulkStatusConfirm] = useState<{
@@ -791,7 +794,7 @@ export default function RaporDosenClient({
                   "center",
                   "w-32 min-w-[115px] px-1.5 whitespace-nowrap"
                 )}
-                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-20 min-w-[75px] whitespace-nowrap">Aksi</th>
+                <th className="py-2.5 px-3 text-center text-slate-700 font-bold w-28 min-w-[105px] whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 text-xs">
@@ -1087,6 +1090,25 @@ export default function RaporDosenClient({
                           >
                             <Printer size={13} />
                           </Link>
+
+                          {/* Tombol Send Email Rapor */}
+                          <button
+                            type="button"
+                            disabled={!item.email}
+                            onClick={() => {
+                              if (item.email) {
+                                setEmailTargetItem(item);
+                              }
+                            }}
+                            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all ${
+                              item.email
+                                ? "bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border-slate-200/80 text-slate-400 hover:text-[#a80063] cursor-pointer active:scale-95 shadow-2xs"
+                                : "bg-slate-100/70 border-slate-200/60 text-slate-300 cursor-not-allowed opacity-50"
+                            }`}
+                            title={item.email ? `Kirim Email Rapor ke ${item.email}` : "Email belum diisi."}
+                          >
+                            <Mail size={13} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1303,6 +1325,14 @@ export default function RaporDosenClient({
           </div>
         </div>
       )}
+
+      {/* ── Modal Kirim Rapor Dosen via Email ───────────────────────────────── */}
+      <SendEmailRaporModal
+        isOpen={Boolean(emailTargetItem)}
+        onClose={() => setEmailTargetItem(null)}
+        item={emailTargetItem}
+        semesterId={selectedSemester}
+      />
 
     </div>
   );

@@ -589,6 +589,7 @@ export default function MasterImportModal({
                       {type === "dosen" && (
                         <>
                           <th className="py-2.5 px-3">Nama Dosen & Gelar</th>
+                          <th className="py-2.5 px-3">NIP</th>
                           <th className="py-2.5 px-3">NIDN</th>
                           <th className="py-2.5 px-3">NUPTK</th>
                           <th className="py-2.5 px-3">Email</th>
@@ -697,6 +698,7 @@ export default function MasterImportModal({
                           {type === "dosen" && (
                             <>
                               <td className="py-2.5 px-3 font-bold text-slate-800">{row.data.nama}</td>
+                              <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.nip || "-"}</td>
                               <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.nidn || "-"}</td>
                               <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.nuptk || "-"}</td>
                               <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{row.data.email || "-"}</td>
@@ -1018,14 +1020,27 @@ export default function MasterImportModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
+                      <label className="block font-semibold text-slate-700 mb-1">NIP (Nomor Induk Pegawai)</label>
+                      <input
+                        type="text"
+                        value={editFormData.nip || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, nip: e.target.value })}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-[#a80063]"
+                        placeholder="022026001 (opsional)"
+                      />
+                    </div>
+                    <div>
                       <label className="block font-semibold text-slate-700 mb-1">NIDN</label>
                       <input
                         type="text"
                         value={editFormData.nidn || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, nidn: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-[#a80063]"
+                        placeholder="0412345678 (opsional)"
                       />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">NUPTK</label>
                       <input
@@ -1033,10 +1048,9 @@ export default function MasterImportModal({
                         value={editFormData.nuptk || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, nuptk: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-[#a80063]"
+                        placeholder="1234567890123456 (opsional)"
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">Email</label>
                       <input
@@ -1044,18 +1058,18 @@ export default function MasterImportModal({
                         value={editFormData.email || ""}
                         onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                        placeholder="contoh@cdu.ac.id"
+                        placeholder="dosen@nusaputra.ac.id (opsional)"
                       />
                     </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Kode / Nama Prodi</label>
-                      <input
-                        type="text"
-                        value={editFormData.kodeProdi || editFormData.prodiNama || ""}
-                        onChange={(e) => setEditFormData({ ...editFormData, kodeProdi: e.target.value, prodiNama: e.target.value })}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Kode / Nama Prodi</label>
+                    <input
+                      type="text"
+                      value={editFormData.kodeProdi || editFormData.prodiNama || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, kodeProdi: e.target.value, prodiNama: e.target.value })}
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#a80063]"
+                    />
                   </div>
                 </div>
               )}

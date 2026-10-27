@@ -41,12 +41,12 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
     const previewList: ImportPreviewRow[] = [];
 
     rawRows.forEach((row, idx) => {
-      const nama = String(row["Nama Lengkap & Gelar"] || row["Nama"] || row["nama"] || "").trim();
-      const nip = String(row["NIP"] || row["nip"] || "").trim();
-      const nidn = String(row["NIDN"] || row["nidn"] || "").trim();
+      const nama = String(row["Nama Lengkap & Gelar"] || row["Nama Dosen"] || row["Nama"] || row["nama"] || "").trim();
+      const nip = String(row["NIP"] || row["nip"] || row["NIP / No Pegawai"] || row["Nomor Induk Pegawai"] || row["No Pegawai"] || "").trim();
+      const nidn = String(row["NIDN"] || row["nidn"] || row["Nomor Induk Dosen Nasional"] || "").trim();
       const nuptk = String(row["NUPTK"] || row["nuptk"] || "").trim();
-      const email = String(row["Email"] || row["email"] || "").trim();
-      const kodeProdi = String(row["Kode Prodi"] || row["Prodi"] || row["prodi"] || "").trim().toUpperCase();
+      const email = String(row["Email"] || row["email"] || row["E-mail"] || row["Alamat Email"] || "").trim();
+      const kodeProdi = String(row["Kode Prodi"] || row["Prodi"] || row["prodi"] || row["Program Studi"] || row["Homebase Program Studi"] || "").trim().toUpperCase();
 
       const errors: string[] = [];
 
@@ -54,7 +54,10 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
       if (!kodeProdi) errors.push("Kode prodi wajib diisi");
 
       const matchedProdi = allProdi.find(
-        (p) => p.kode.toUpperCase() === kodeProdi || p.nama.toLowerCase() === kodeProdi.toLowerCase()
+        (p) =>
+          p.kode.toUpperCase() === kodeProdi ||
+          p.nama.toLowerCase() === kodeProdi.toLowerCase() ||
+          `${p.kode} - ${p.nama}`.toLowerCase() === kodeProdi.toLowerCase()
       );
 
       if (kodeProdi && !matchedProdi) {

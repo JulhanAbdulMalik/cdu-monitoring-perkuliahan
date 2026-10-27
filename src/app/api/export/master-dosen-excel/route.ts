@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     };
 
     // ── 1. TITLE HEADER (Row 1) ─────────────────────────────────────────────
-    worksheet.mergeCells("A1:G1");
+    worksheet.mergeCells("A1:H1");
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "UNIVERSITAS NUSA PUTRA - CURRICULUM DEVELOPMENT UNIT (CDU)";
     titleCell.font = { name: "Rockwell", size: 14, bold: true, color: { argb: BRAND_MAGENTA } };
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(1).height = 26;
 
     // ── 2. SUBTITLE (Row 2) ─────────────────────────────────────────────────
-    worksheet.mergeCells("A2:G2");
+    worksheet.mergeCells("A2:H2");
     const subtitleCell = worksheet.getCell("A2");
     subtitleCell.value =
       selectedProdiKode === "SEMUA"
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(2).height = 20;
 
     // ── 3. DATE & FILTER INFO (Row 3) ───────────────────────────────────────
-    worksheet.mergeCells("A3:G3");
+    worksheet.mergeCells("A3:H3");
     const todayStr = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
@@ -129,10 +129,10 @@ export async function GET(request: NextRequest) {
     worksheet.getRow(3).height = 18;
 
     // ── 4. PETUNJUK BAR (Row 4) ─────────────────────────────────────────────
-    worksheet.mergeCells("A4:G4");
+    worksheet.mergeCells("A4:H4");
     const legendCell = worksheet.getCell("A4");
     legendCell.value =
-      "PETUNJUK: Kolom 'Nama Lengkap & Gelar', 'NIDN', 'NUPTK', 'Email', dan 'Kode Prodi' dapat diedit dan diunggah kembali melalui fitur Import Excel Dosen.";
+      "PETUNJUK: Kolom 'Nama Lengkap & Gelar', 'NIP', 'NIDN', 'NUPTK', 'Email', dan 'Kode Prodi' dapat diedit dan diunggah kembali melalui fitur Import Excel Dosen.";
     legendCell.font = { name: "Rockwell", size: 8.5, color: { argb: "FF475569" } };
     legendCell.alignment = { horizontal: "center", vertical: "middle" };
     legendCell.fill = {
@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
     const headers = [
       "No",
       "Nama Lengkap & Gelar",
+      "NIP",
       "NIDN",
       "NUPTK",
       "Email",
@@ -182,6 +183,7 @@ export async function GET(request: NextRequest) {
       const rowValues = [
         idx + 1,
         d.nama,
+        d.nip || "",
         d.nidn || "",
         d.nuptk || "",
         d.email || "",
@@ -214,25 +216,30 @@ export async function GET(request: NextRequest) {
           cell.alignment = { horizontal: "left", vertical: "middle" };
           cell.font = { name: "Rockwell", size: 9, color: { argb: "FF0F172A" } };
         } else if (colNumber === 3) {
-          // NIDN (Text format "@" agar leading zero tidak hilang)
+          // NIP (Text format "@" agar leading zero tidak hilang)
           cell.alignment = { horizontal: "center", vertical: "middle" };
           cell.numFmt = "@";
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
         } else if (colNumber === 4) {
-          // NUPTK (Text format "@" agar leading zero tidak hilang)
+          // NIDN (Text format "@" agar leading zero tidak hilang)
           cell.alignment = { horizontal: "center", vertical: "middle" };
           cell.numFmt = "@";
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
         } else if (colNumber === 5) {
+          // NUPTK (Text format "@" agar leading zero tidak hilang)
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.numFmt = "@";
+          cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
+        } else if (colNumber === 6) {
           // Email
           cell.alignment = { horizontal: "left", vertical: "middle" };
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
-        } else if (colNumber === 6) {
+        } else if (colNumber === 7) {
           // Kode Prodi (Bold Magenta Brand)
           cell.alignment = { horizontal: "center", vertical: "middle" };
           cell.numFmt = "@";
           cell.font = { name: "Rockwell", size: 9, bold: true, color: { argb: BRAND_MAGENTA } };
-        } else if (colNumber === 7) {
+        } else if (colNumber === 8) {
           // Homebase Program Studi
           cell.alignment = { horizontal: "left", vertical: "middle" };
           cell.font = { name: "Rockwell", size: 9, color: { argb: SLATE_DARK } };
@@ -244,11 +251,12 @@ export async function GET(request: NextRequest) {
     worksheet.columns = [
       { width: 6 },  // A: No
       { width: 40 }, // B: Nama Lengkap & Gelar
-      { width: 18 }, // C: NIDN
-      { width: 20 }, // D: NUPTK
-      { width: 28 }, // E: Email
-      { width: 14 }, // F: Kode Prodi
-      { width: 34 }, // G: Homebase Program Studi
+      { width: 22 }, // C: NIP
+      { width: 18 }, // D: NIDN
+      { width: 20 }, // E: NUPTK
+      { width: 28 }, // F: Email
+      { width: 14 }, // G: Kode Prodi
+      { width: 34 }, // H: Homebase Program Studi
     ];
 
     // Buat Buffer & Kirim Response

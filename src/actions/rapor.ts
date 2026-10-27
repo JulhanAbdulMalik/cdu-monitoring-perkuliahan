@@ -26,6 +26,8 @@ import {
   analyzeRaporWithGemini,
   GeminiRaporAnalysisResult,
 } from "@/lib/gemini-rapor-analyzer";
+import { auth } from "@/lib/auth";
+import { sendRaporDosenEmail } from "@/lib/mailer";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. CONFIGURATION (BOBOT & TARGET SESI)
@@ -294,6 +296,7 @@ export interface RaporDosenListItem {
   dosenNama: string;
   nip: string | null;
   nidn: string | null;
+  email?: string | null;
   prodiNama: string;
   prodiKode: string;
   totalKelas: number;
@@ -504,6 +507,7 @@ export async function getRaporDosenList(filters?: {
         dosenNama: d.nama,
         nip: d.nip,
         nidn: d.nidn,
+        email: d.email ?? null,
         prodiNama: d.prodi.nama,
         prodiKode: d.prodi.kode,
         totalKelas,
@@ -1537,6 +1541,137 @@ export async function batchUpdateStatusRapor(
   } catch (error: any) {
     console.error("Error batchUpdateStatusRapor:", error);
     return { success: false, error: error.message || "Gagal mengubah status batch" };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. SEND RAPOR DOSEN VIA EMAIL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendRaporDosenEmailAction(payload: {
+  dosenId: string;
+  semesterId: string;
+  pdfBase64: string;
+  pdfFilename: string;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized. Silakan login kembali." };
+    }
+
+    const dosen = await prisma.dosen.findUnique({
+      where: { id: payload.dosenId },
+      include: { prodi: true },
+    });
+
+    if (!dosen) {
+      return { success: false, error: "Data dosen tidak ditemukan." };
+    }
+
+    if (!dosen.email || !dosen.email.trim()) {
+      return {
+        success: false,
+        error: "Email belum diisi pada Data Dosen.",
+      };
+    }
+
+    const semester = await prisma.semester.findUnique({
+      where: { id: payload.semesterId },
+    });
+
+    if (!semester) {
+      return { success: false, error: "Data semester tidak ditemukan." };
+    }
+
+    const rapor = await prisma.raporDosen.findUnique({
+      where: {
+        dosenId_semesterId: {
+          dosenId: payload.dosenId,
+          semesterId: payload.semesterId,
+        },
+      },
+    });
+
+    // Ambil statistik kelas monitoring & konfigurasi target sesi
+    const [stats, config] = await Promise.all([
+      getLecturerMonitoringStats(payload.dosenId, payload.semesterId),
+      getRaporConfig(payload.semesterId),
+    ]);
+
+    const targetPerKelas = config?.targetSesi && config.targetSesi > 0 ? config.targetSesi : 16;
+    const totalTargetSesi = stats.totalKelas > 0 ? stats.totalKelas * targetPerKelas : 0;
+    const totalHadirSesi = stats.totalSesiHadirSemua;
+
+    let totalSkorPilar = 0;
+    let totalMaxPilar = 0;
+    (stats.kelasList || []).forEach((k) => {
+      if (k.modePembelajaran !== "BIMBINGAN") {
+        totalSkorPilar += k.totalSkor3Pilar || 0;
+        totalMaxPilar += k.maxSkor3Pilar || 28;
+      }
+    });
+    if (totalMaxPilar === 0 && (stats.kelasList || []).length > 0) {
+      (stats.kelasList || []).forEach((k) => {
+        totalSkorPilar += k.totalSkor3Pilar || 0;
+        totalMaxPilar += k.maxSkor3Pilar || 28;
+      });
+    }
+
+    const persenKehadiranVal = rapor?.persenKehadiran ?? stats.persenKehadiran;
+    const persenKontenVal = rapor?.persenKonten ?? stats.persenKonten;
+
+    const kehadiranStr =
+      totalTargetSesi > 0
+        ? `${totalHadirSesi} / ${totalTargetSesi} Sesi (${persenKehadiranVal != null ? persenKehadiranVal.toFixed(1) : "0.0"}%)`
+        : persenKehadiranVal != null
+        ? `${persenKehadiranVal.toFixed(1)}%`
+        : "-";
+
+    const kontenStr =
+      totalMaxPilar > 0
+        ? `${totalSkorPilar} / ${totalMaxPilar} Poin (${persenKontenVal != null ? persenKontenVal.toFixed(1) : "0.0"}%)`
+        : persenKontenVal != null
+        ? `${persenKontenVal.toFixed(1)}%`
+        : "-";
+
+    const predikatObj = determinePredikat(rapor?.nilaiAkhir);
+    const predikatStr = rapor?.predikat ? predikatObj.label : "Belum Lengkap";
+    const nilaiAkhirStr = rapor?.nilaiAkhir != null ? rapor.nilaiAkhir.toFixed(2) : "-";
+    const kuesionerStr =
+      rapor?.nilaiKuesioner != null
+        ? `${rapor.nilaiKuesioner.toFixed(2)}${
+            rapor.totalResponden != null ? ` (${rapor.totalResponden} Responden)` : ""
+          }`
+        : "-";
+
+    const pdfBuffer = Buffer.from(payload.pdfBase64, "base64");
+
+    await sendRaporDosenEmail({
+      toEmail: dosen.email.trim(),
+      dosenNama: dosen.nama,
+      prodiNama: dosen.prodi?.nama || "-",
+      tahunAkademik: semester.tahunAkademik,
+      periode: semester.periode,
+      kehadiranStr,
+      kontenStr,
+      kuesionerStr,
+      nilaiAkhirStr,
+      predikatStr,
+      pdfBuffer,
+      pdfFilename: payload.pdfFilename,
+    });
+
+    return {
+      success: true,
+      message: `Email berhasil dikirim ke ${dosen.email.trim()}!`,
+    };
+  } catch (error: any) {
+    console.error("Error sendRaporDosenEmailAction:", error);
+    return {
+      success: false,
+      error: error?.message || "Gagal mengirim email rapor dosen.",
+    };
   }
 }
 
