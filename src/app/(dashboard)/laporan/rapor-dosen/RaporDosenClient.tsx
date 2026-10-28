@@ -26,10 +26,16 @@ import {
   Edit2,
   FileDown,
   Mail,
+  Upload,
+  ChevronDown,
+  FlaskConical,
+  Archive,
 } from "lucide-react";
 import TablePagination from "@/components/common/TablePagination";
 import RaporConfigModal from "./RaporConfigModal";
 import ImportSiakadModal from "./ImportSiakadModal";
+import ImportTridharmaModal from "./ImportTridharmaModal";
+import ImportRekapLampauModal from "./ImportRekapLampauModal";
 import EditRaporModal from "./EditRaporModal";
 import SendEmailRaporModal from "./SendEmailRaporModal";
 import BatchSendEmailModal from "./BatchSendEmailModal";
@@ -148,6 +154,9 @@ export default function RaporDosenClient({
   const [selectedDosenIds, setSelectedDosenIds] = useState<Set<string>>(new Set());
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
+  const [isImportTridharmaModalOpen, setIsImportTridharmaModalOpen] = useState(false);
+  const [isImportRekapLampauModalOpen, setIsImportRekapLampauModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RaporDosenListItem | null>(null);
   const [emailTargetItem, setEmailTargetItem] = useState<RaporDosenListItem | null>(null);
   const [isBatchEmailModalOpen, setIsBatchEmailModalOpen] = useState(false);
@@ -215,6 +224,16 @@ export default function RaporDosenClient({
     setCurrentPage(1);
     router.push(`/laporan/rapor-dosen?semesterId=${newSemId}`);
   };
+
+  // Semester Aktif Terpilih & Deteksi Semester Lampau (Historis)
+  const activeSelectedSemester = useMemo(() => {
+    return semesters.find((s) => s.id === selectedSemester) || currentSemester;
+  }, [semesters, selectedSemester, currentSemester]);
+
+  const isPastSemester = useMemo(() => {
+    if (!activeSelectedSemester) return false;
+    return !activeSelectedSemester.aktif || activeSelectedSemester.tahunAkademik.includes("2025");
+  }, [activeSelectedSemester]);
 
   // Status Filter Counts (based on current prodi selection)
   const countBase = useMemo(() => {
@@ -515,32 +534,132 @@ export default function RaporDosenClient({
           <button
             type="button"
             onClick={handleSyncAll}
-            disabled={isSyncingAll}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer disabled:opacity-50"
-            title={`Sinkronkan data sesi & konten LMS dari kelas monitoring${lastSyncLabel ? ` (Terakhir: ${lastSyncLabel})` : ""}`}
+            disabled={isSyncingAll || isPastSemester}
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-semibold transition-all shadow-xs ${
+              isPastSemester
+                ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 cursor-pointer disabled:opacity-50"
+            }`}
+            title={
+              isPastSemester
+                ? "Sinkronisasi CDU dinonaktifkan pada semester lampau karena data bersumber dari arsip Excel"
+                : `Sinkronkan data sesi & konten LMS dari kelas monitoring${lastSyncLabel ? ` (Terakhir: ${lastSyncLabel})` : ""}`
+            }
           >
             {isSyncingAll ? (
               <Loader2 size={13} className="animate-spin text-blue-600 shrink-0" />
             ) : (
-              <RotateCcw size={13} className="text-blue-600 shrink-0" />
+              <RotateCcw size={13} className={isPastSemester ? "text-slate-400 shrink-0" : "text-blue-600 shrink-0"} />
             )}
             <div className="flex flex-col text-left">
-              <span className="font-semibold text-xs text-slate-700 leading-tight">Sinkron CDU</span>
-              <span className="text-[9px] font-normal text-slate-400 leading-none mt-0.5">
-                {lastSyncLabel ? `Terakhir: ${lastSyncLabel}` : "Belum pernah"}
+              <span className="font-semibold text-xs leading-tight">Sinkron CDU</span>
+              <span className="text-[9px] font-normal leading-none mt-0.5">
+                {isPastSemester ? "Arsip Historis" : lastSyncLabel ? `Terakhir: ${lastSyncLabel}` : "Belum pernah"}
               </span>
             </div>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsImportModalOpen(true)}
-            className="btn-brand inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs cursor-pointer hover:shadow-sm"
-            title="Impor Nilai Angket & Kuesioner Mahasiswa dari SIAKAD"
-          >
-            <FileSpreadsheet size={13} />
-            <span>Import Kuesioner SIAKAD</span>
-          </button>
+          {/* Dropdown Menu Import Data Terpadu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsImportMenuOpen((prev) => !prev)}
+              className="btn-brand inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs cursor-pointer hover:shadow-sm"
+              title="Menu Import Data Rapor (SIAKAD, Tridharma LPPM, Rekap Lampau)"
+            >
+              <Upload size={13} />
+              <span>Import Data</span>
+              <ChevronDown
+                size={13}
+                className={`transition-transform duration-200 ${isImportMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {isImportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setIsImportMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in slide-in-from-top-1">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    Pilih Jenis Data Import
+                  </div>
+
+                  {/* 1. Kuesioner Mahasiswa (SIAKAD) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportMenuOpen(false);
+                      setIsImportModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] group-hover:bg-[#fce7f3] transition-colors mt-0.5 shrink-0">
+                      <FileSpreadsheet size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 group-hover:text-[#a80063] transition-colors">
+                        Kuesioner Mahasiswa (SIAKAD)
+                      </div>
+                      <div className="text-[11px] text-slate-500 leading-snug">
+                        Upload rekap angket, skor kuesioner, P1-P5 &amp; K1-K5
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 2. Tridharma LPPM (Penelitian & PkM) - Aktif untuk semua semester */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportMenuOpen(false);
+                      setIsImportTridharmaModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors mt-0.5 shrink-0">
+                      <FlaskConical size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                        <span>Tridharma (Penelitian &amp; PkM)</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700">LPPM</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 leading-snug">
+                        Upload rekap luaran penelitian &amp; pengabdian dosen
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 3. Rekap Semester Lampau - Otomatis muncul pada semester lampau */}
+                  {isPastSemester && (
+                    <div className="border-t border-slate-100 mt-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportMenuOpen(false);
+                          setIsImportRekapLampauModalOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-amber-50/60 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-200 transition-colors mt-0.5 shrink-0">
+                          <Archive size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-amber-900 group-hover:text-amber-800 transition-colors flex items-center justify-between">
+                            <span>Rekap Semester Lampau</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-800">
+                              Arsip
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-amber-700 leading-snug">
+                            Import terpadu &amp; normalisasi formula 2025/2026
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -888,12 +1007,15 @@ export default function RaporDosenClient({
                             {item.dosenNama[0]}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span
-                              className="font-semibold text-xs text-slate-900 leading-tight block truncate max-w-[280px]"
-                              title={item.dosenNama}
+                            <Link
+                              href={`/laporan/rapor-dosen/${item.dosenId}?semesterId=${selectedSemester}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-xs text-slate-900 hover:text-[#a80063] transition-colors leading-tight block truncate max-w-[280px]"
+                              title={`Buka Lembar Rapor ${item.dosenNama}`}
                             >
                               {item.dosenNama}
-                            </span>
+                            </Link>
                             <span className="text-[10px] text-slate-400 font-mono block truncate">
                               {item.nip ? `NIP: ${item.nip}` : item.nidn ? `NIDN: ${item.nidn}` : "-"}
                             </span>
@@ -1251,9 +1373,31 @@ export default function RaporDosenClient({
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         semesterId={selectedSemester}
-        semesterLabel={`${currentSemester?.tahunAkademik} ${currentSemester?.periode}`}
+        semesterLabel={`${activeSelectedSemester?.tahunAkademik} ${activeSelectedSemester?.periode}`}
         onSuccess={() => {
           toast.success("File kuesioner SIAKAD berhasil diimpor.");
+          router.refresh();
+        }}
+      />
+
+      <ImportTridharmaModal
+        isOpen={isImportTridharmaModalOpen}
+        onClose={() => setIsImportTridharmaModalOpen(false)}
+        semesterId={selectedSemester}
+        semesterLabel={`${activeSelectedSemester?.tahunAkademik} ${activeSelectedSemester?.periode}`}
+        onSuccess={() => {
+          toast.success("Data luaran Tridharma LPPM berhasil diperbarui.");
+          router.refresh();
+        }}
+      />
+
+      <ImportRekapLampauModal
+        isOpen={isImportRekapLampauModalOpen}
+        onClose={() => setIsImportRekapLampauModalOpen(false)}
+        semesterId={selectedSemester}
+        semesterLabel={`${activeSelectedSemester?.tahunAkademik} ${activeSelectedSemester?.periode}`}
+        onSuccess={() => {
+          toast.success("Data rekap semester lampau berhasil diimpor.");
           router.refresh();
         }}
       />

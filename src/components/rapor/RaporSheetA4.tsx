@@ -68,13 +68,14 @@ export default function RaporSheetA4({
     .replace(/\bBagian C\b/g, "Bagian B");
 
   // Perhitungan total sesi mengajar dan target sesi semester
+  const kelasCount = monitoringStats.totalKelas > 0 ? monitoringStats.totalKelas : ((rapor as any)?.totalKelasOverride || 0);
   const targetPerKelas = (data.config?.targetSesi && data.config.targetSesi > 0) ? data.config.targetSesi : 16;
-  const totalTargetSesi = monitoringStats.totalKelas > 0 ? monitoringStats.totalKelas * targetPerKelas : 0;
+  const totalTargetSesi = kelasCount > 0 ? kelasCount * targetPerKelas : 0;
   
   // Prioritaskan nilai kehadiran dari rapor (hasil edit manual), jika belum ada gunakan monitoring real-time
   const totalHadirSesi =
-    rapor?.rerataSesiHadir != null && monitoringStats.totalKelas > 0
-      ? Math.round(rapor.rerataSesiHadir * monitoringStats.totalKelas)
+    rapor?.rerataSesiHadir != null && kelasCount > 0
+      ? Math.round(rapor.rerataSesiHadir * kelasCount)
       : rapor?.persenKehadiran != null && totalTargetSesi > 0
       ? Math.round((rapor.persenKehadiran / 100) * totalTargetSesi)
       : monitoringStats.totalSesiHadirSemua;
@@ -94,6 +95,10 @@ export default function RaporSheetA4({
       totalSkorPilar += k.totalSkor3Pilar || 0;
       totalMaxPilar += k.maxSkor3Pilar || 28;
     });
+  }
+  // Fallback untuk semester lampau tanpa kelasList riil
+  if (totalMaxPilar === 0 && kelasCount > 0) {
+    totalMaxPilar = kelasCount * 28;
   }
 
   // Prioritaskan nilai konten dari rapor (hasil edit manual) jika ada
@@ -200,7 +205,7 @@ export default function RaporSheetA4({
                 <td className="py-0.5 font-medium text-black whitespace-nowrap">Beban Mengajar</td>
                 <td className="py-0.5 text-center font-normal text-slate-700">:</td>
                 <td className="py-0.5 text-black">
-                  <span className="font-medium">{monitoringStats.totalKelas} Kelas</span> ({totalSks} SKS)
+                  <span className="font-medium">{kelasCount} Kelas</span> ({totalSks > 0 ? totalSks : ((rapor as any)?.totalSksOverride || kelasCount * 2)} SKS)
                 </td>
               </tr>
               <tr>

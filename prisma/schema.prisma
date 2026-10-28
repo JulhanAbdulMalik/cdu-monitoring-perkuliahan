@@ -481,6 +481,11 @@ model RaporDosen {
   responNegatifPct   Float?           // misal: 6.4
   narasiKesimpulan   String?          @db.Text
 
+  // ── Override Beban Mengajar (Khusus Semester Lampau)
+  totalMatkulOverride Int?
+  totalKelasOverride  Int?
+  totalSksOverride    Int?
+
   // ── Metadata & Status
   statusRapor        StatusRaporDosen @default(DRAFT)
   sumberImport       String?          // Nama file sumber import, misal "laporan_rekap_angket.xls"

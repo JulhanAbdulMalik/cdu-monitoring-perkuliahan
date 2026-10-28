@@ -317,11 +317,23 @@ export default function EditRaporModal({
           <button
             type="button"
             onClick={handleSyncMonitoring}
-            disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-            title="Tarik data sesi dan konten LMS langsung dari kelas monitoring"
+            disabled={isSyncing || Boolean(semesterLabel?.includes("2025"))}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold shadow-2xs transition-colors ${
+              semesterLabel?.includes("2025")
+                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700 cursor-pointer disabled:opacity-50"
+            }`}
+            title={
+              semesterLabel?.includes("2025")
+                ? "Data semester lampau bersifat arsip tetap dari rekap Excel dan tidak dapat disinkronkan dari kelas monitoring"
+                : "Tarik data sesi dan konten LMS langsung dari kelas monitoring"
+            }
           >
-            {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} className="text-blue-600" />}
+            {isSyncing ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RotateCcw size={12} className={semesterLabel?.includes("2025") ? "text-slate-400" : "text-blue-600"} />
+            )}
             <span>Sinkronkan CDU</span>
           </button>
 

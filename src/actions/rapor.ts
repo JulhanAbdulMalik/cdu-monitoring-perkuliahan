@@ -19,6 +19,7 @@ import {
   calculateRaporFull,
   RaporCalculatedResult,
   determinePredikat,
+  calculateScoreTridharma,
 } from "@/lib/rapor-calculator";
 import { parseSiakadAngket, SiakadAngketParsedData } from "@/lib/siakad-angket-parser";
 import { calculateClassSummary } from "@/lib/score-calculator";
@@ -28,6 +29,14 @@ import {
 } from "@/lib/gemini-rapor-analyzer";
 import { auth } from "@/lib/auth";
 import { sendRaporDosenEmail } from "@/lib/mailer";
+import {
+  parseTridharmaExcelBuffer,
+  TridharmaPreviewItem,
+  parseRekapLampauExcelBuffer,
+  normalizeRekapLampauRow,
+  RekapLampauPreviewItem,
+  NormalizedRekapLampauData,
+} from "@/lib/rapor-excel-parser";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. CONFIGURATION (BOBOT & TARGET SESI)
@@ -321,6 +330,9 @@ export interface RaporDosenListItem {
   predikatColor: string;
   statusRapor: "DRAFT" | "FINAL" | "BELUM_DIBUAT";
   isLengkap: boolean;
+  totalMatkulOverride?: number | null;
+  totalKelasOverride?: number | null;
+  totalSksOverride?: number | null;
   catatanQau?: string | null;
   updatedAt?: Date | null;
 }
@@ -459,7 +471,7 @@ export async function getRaporDosenList(filters?: {
       );
 
       const allClasses = [...(d.kelas || []), ...(d.kelasTandem || [])];
-      const totalKelas = allClasses.length;
+      let totalKelas = allClasses.length;
 
       // Kumpulkan Mata Kuliah unik, Kelas unik & Total SKS
       const mkMap = new Map<string, { nama: string; sks: number }>();
@@ -479,8 +491,22 @@ export async function getRaporDosenList(filters?: {
         }
       }
 
-      const mataKuliahList = Array.from(mkMap.values()).map((m) => m.nama);
-      const kelasList = Array.from(kelasSet);
+      let mataKuliahList = Array.from(mkMap.values()).map((m) => m.nama);
+      let kelasList = Array.from(kelasSet);
+
+      // ── Dukungan Semester Lampau: Override jika kelas riil kosong
+      if (totalKelas === 0 && (existingRapor?.totalKelasOverride || existingRapor?.totalMatkulOverride)) {
+        totalKelas = existingRapor?.totalKelasOverride ?? 0;
+        totalSks = existingRapor?.totalSksOverride ?? (totalKelas * 2);
+        if (existingRapor?.totalMatkulOverride && existingRapor.totalMatkulOverride > 0) {
+          mataKuliahList = Array.from({ length: existingRapor.totalMatkulOverride }).map(
+            (_, i) => `Mata Kuliah ${i + 1}`
+          );
+        }
+        if (totalKelas > 0) {
+          kelasList = Array.from({ length: totalKelas }).map((_, i) => `Kelas ${i + 1}`);
+        }
+      }
 
       // Hitung Sesi Hadir & Sesi Beban
       const targetSesiPerKelas = config?.targetSesi || 16;
@@ -492,10 +518,15 @@ export async function getRaporDosenList(filters?: {
 
       // Hitung Poin Konten 3 Pilar
       const regularClasses = allClasses.filter((c) => c.modePembelajaran !== "BIMBINGAN");
-      const maxSkorKonten = regularClasses.reduce(
+      let maxSkorKonten = regularClasses.reduce(
         (sum, c) => sum + (c.modePembelajaran === "LURING" ? 28 : 42),
         0
       );
+      // Fallback max skor konten untuk semester lampau
+      if (maxSkorKonten === 0 && totalKelas > 0) {
+        maxSkorKonten = totalKelas * 28;
+      }
+
       const totalSkorKonten =
         existingRapor?.persenKonten != null && maxSkorKonten > 0
           ? Math.round((existingRapor.persenKonten / 100) * maxSkorKonten)
@@ -518,6 +549,9 @@ export async function getRaporDosenList(filters?: {
         totalSesiBeban,
         totalSkorKonten,
         maxSkorKonten,
+        totalMatkulOverride: existingRapor?.totalMatkulOverride ?? null,
+        totalKelasOverride: existingRapor?.totalKelasOverride ?? null,
+        totalSksOverride: existingRapor?.totalSksOverride ?? null,
         nilaiKuesioner: existingRapor?.nilaiKuesioner ?? null,
         totalResponden: existingRapor?.totalResponden ?? null,
         targetResponden: existingRapor?.targetResponden ?? null,
@@ -618,6 +652,9 @@ export interface RaporDosenDetailData {
     statusRapor: "DRAFT" | "FINAL";
     sumberImport: string | null;
     catatanQau: string | null;
+    totalMatkulOverride?: number | null;
+    totalKelasOverride?: number | null;
+    totalSksOverride?: number | null;
     updatedAt?: Date | null;
   };
   monitoringStats: LecturerMonitoringStats;
@@ -671,6 +708,32 @@ export async function getRaporDosenDetail(
     });
 
     const monitoringStats = await getLecturerMonitoringStats(dosenId, targetSemesterId);
+
+    // ── Dukungan Semester Lampau: Override jika monitoring kelas riil kosong
+    if (monitoringStats.totalKelas === 0 && existingRapor?.totalKelasOverride) {
+      monitoringStats.totalKelas = existingRapor.totalKelasOverride;
+      monitoringStats.totalSesiHadirSemua =
+        existingRapor.rerataSesiHadir != null
+          ? Math.round(existingRapor.rerataSesiHadir * monitoringStats.totalKelas)
+          : 0;
+
+      const totalSksEstimasi = existingRapor.totalSksOverride || (existingRapor.totalKelasOverride * 2);
+      const defaultSksPerKelas = Math.max(1, Math.round(totalSksEstimasi / existingRapor.totalKelasOverride));
+
+      monitoringStats.kelasList = Array.from({ length: existingRapor.totalKelasOverride }).map((_, i) => ({
+        kelasId: `legacy-cls-${i + 1}`,
+        kodeKelas: `Kelas ${i + 1}`,
+        mataKuliahNama: `Mata Kuliah ${i + 1}`,
+        mataKuliahKode: `MK${i + 1}`,
+        sks: i === 0 ? totalSksEstimasi - (defaultSksPerKelas * (existingRapor.totalKelasOverride! - 1)) : defaultSksPerKelas,
+        modePembelajaran: "LURING",
+        totalSesiHadir: Math.round(existingRapor.rerataSesiHadir || 16),
+        persenKehadiran: existingRapor.persenKehadiran || 100,
+        persenKonten: existingRapor.persenKonten || 100,
+        totalSkor3Pilar: Math.round(((existingRapor.persenKonten || 100) / 100) * 28),
+        maxSkor3Pilar: 28,
+      }));
+    }
 
     // Prioritaskan nilai tersimpan, jika belum ada ambil dari monitoring real-time
     const rerataSesiHadir = existingRapor?.rerataSesiHadir ?? monitoringStats.rerataSesiHadir;
@@ -755,6 +818,9 @@ export async function getRaporDosenDetail(
           narasiKesimpulan: existingRapor?.narasiKesimpulan ?? null,
           statusRapor: (existingRapor?.statusRapor as any) || "DRAFT",
           sumberImport: existingRapor?.sumberImport ?? null,
+          totalMatkulOverride: existingRapor?.totalMatkulOverride ?? null,
+          totalKelasOverride: existingRapor?.totalKelasOverride ?? null,
+          totalSksOverride: existingRapor?.totalSksOverride ?? null,
           catatanQau: existingRapor?.catatanQau ?? null,
           updatedAt: existingRapor?.updatedAt ?? null,
         },
@@ -813,6 +879,9 @@ export interface SaveRaporDosenPayload {
   responNegatifPct?: number | null;
   narasiKesimpulan?: string | null;
   statusRapor?: "DRAFT" | "FINAL";
+  totalMatkulOverride?: number | null;
+  totalKelasOverride?: number | null;
+  totalSksOverride?: number | null;
   catatanQau?: string | null;
   sumberImport?: string | null;
 }
@@ -888,6 +957,9 @@ export async function saveRaporDosen(
       responNegatifPct: payload.responNegatifPct !== undefined ? payload.responNegatifPct : (existing?.responNegatifPct ?? null),
       narasiKesimpulan: payload.narasiKesimpulan !== undefined ? payload.narasiKesimpulan : (existing?.narasiKesimpulan ?? null),
       statusRapor: payload.statusRapor || existing?.statusRapor || "DRAFT",
+      totalMatkulOverride: payload.totalMatkulOverride !== undefined ? payload.totalMatkulOverride : (existing?.totalMatkulOverride ?? null),
+      totalKelasOverride: payload.totalKelasOverride !== undefined ? payload.totalKelasOverride : (existing?.totalKelasOverride ?? null),
+      totalSksOverride: payload.totalSksOverride !== undefined ? payload.totalSksOverride : (existing?.totalSksOverride ?? null),
       catatanQau: payload.catatanQau !== undefined ? payload.catatanQau : (existing?.catatanQau ?? null),
       sumberImport: payload.sumberImport !== undefined ? payload.sumberImport : (existing?.sumberImport ?? null),
     };
@@ -931,6 +1003,15 @@ export async function syncLecturerFromMonitoring(
         dosenId_semesterId: { dosenId, semesterId },
       },
     });
+
+    // Guard Semester Lampau: Jika dosen tidak memiliki kelas riil di semester ini
+    // namun memiliki data override lampau (arsip), jangan timpa data kehadiran & konten dengan 0!
+    if (stats.totalKelas === 0 && (existing?.totalKelasOverride || existing?.totalMatkulOverride)) {
+      return {
+        success: false,
+        error: "Data semester lampau bersifat arsip tetap dari rekap Excel dan tidak dapat disinkronkan dari kelas monitoring aktif.",
+      };
+    }
 
     const savedRes = await saveRaporDosen({
       dosenId,
@@ -1600,11 +1681,12 @@ export async function sendRaporDosenEmailAction(payload: {
       getRaporConfig(payload.semesterId),
     ]);
 
+    const kelasCount = stats.totalKelas > 0 ? stats.totalKelas : (rapor?.totalKelasOverride || 0);
     const targetPerKelas = config?.targetSesi && config.targetSesi > 0 ? config.targetSesi : 16;
-    const totalTargetSesi = stats.totalKelas > 0 ? stats.totalKelas * targetPerKelas : 0;
+    const totalTargetSesi = kelasCount > 0 ? kelasCount * targetPerKelas : 0;
     const totalHadirSesi =
-      rapor?.rerataSesiHadir != null && stats.totalKelas > 0
-        ? Math.round(rapor.rerataSesiHadir * stats.totalKelas)
+      rapor?.rerataSesiHadir != null && kelasCount > 0
+        ? Math.round(rapor.rerataSesiHadir * kelasCount)
         : rapor?.persenKehadiran != null && totalTargetSesi > 0
         ? Math.round((rapor.persenKehadiran / 100) * totalTargetSesi)
         : stats.totalSesiHadirSemua;
@@ -1622,6 +1704,10 @@ export async function sendRaporDosenEmailAction(payload: {
         totalSkorPilar += k.totalSkor3Pilar || 0;
         totalMaxPilar += k.maxSkor3Pilar || 28;
       });
+    }
+    // Fallback semester lampau
+    if (totalMaxPilar === 0 && kelasCount > 0) {
+      totalMaxPilar = kelasCount * 28;
     }
 
     if (rapor?.persenKonten != null && totalMaxPilar > 0) {
@@ -1681,6 +1767,487 @@ export async function sendRaporDosenEmailAction(payload: {
     return {
       success: false,
       error: error?.message || "Gagal mengirim email rapor dosen.",
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. IMPORT TRIDHARMA LPPM (PENELITIAN & PKM)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function matchDosenInList(
+  allDosens: any[],
+  nipNidn?: string | null,
+  namaDosen?: string,
+  prodi?: string | null
+): any | null {
+  if (nipNidn && nipNidn.trim().length > 0) {
+    const cleanId = nipNidn.trim();
+    const found = allDosens.find((d) => d.nip === cleanId || d.nidn === cleanId);
+    if (found) return found;
+  }
+
+  if (namaDosen && namaDosen.trim().length > 0) {
+    const cleanSearchName = namaDosen.replace(/[^a-zA-Z\s]/g, "").trim().toLowerCase();
+
+    let candidates = allDosens.filter((d) => {
+      const dClean = d.nama.replace(/[^a-zA-Z\s]/g, "").trim().toLowerCase();
+      return dClean === cleanSearchName;
+    });
+
+    if (candidates.length === 1) return candidates[0];
+
+    if (candidates.length === 0) {
+      candidates = allDosens.filter((d) => {
+        const dClean = d.nama.replace(/[^a-zA-Z\s]/g, "").trim().toLowerCase();
+        return dClean.includes(cleanSearchName) || cleanSearchName.includes(dClean);
+      });
+    }
+
+    if (candidates.length === 1) return candidates[0];
+
+    if (candidates.length > 1 && prodi) {
+      const cleanProdi = prodi.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+      const byProdi = candidates.find((c) => {
+        const cProdi = (c.prodi?.nama || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        const cKode = (c.prodi?.kode || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        return cProdi.includes(cleanProdi) || cleanProdi.includes(cProdi) || cKode === cleanProdi;
+      });
+      if (byProdi) return byProdi;
+      return candidates[0];
+    }
+
+    if (candidates.length > 0) return candidates[0];
+  }
+
+  return null;
+}
+
+export interface PreviewTridharmaResult {
+  totalRows: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  items: TridharmaPreviewItem[];
+  fileName: string;
+}
+
+export async function previewTridharmaImportAction(
+  formData: FormData,
+  semesterId: string
+): Promise<{ success: boolean; data?: PreviewTridharmaResult; error?: string }> {
+  try {
+    const file = formData.get("file") as File;
+    if (!file) {
+      return { success: false, error: "Berkas Excel tidak ditemukan." };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parsedRows = parseTridharmaExcelBuffer(buffer);
+
+    const allDosens = await prisma.dosen.findMany({
+      include: {
+        prodi: true,
+        raporDosen: {
+          where: { semesterId },
+        },
+      },
+    });
+
+    const items: TridharmaPreviewItem[] = [];
+    let matchedCount = 0;
+    let unmatchedCount = 0;
+
+    for (const row of parsedRows) {
+      const matched = matchDosenInList(allDosens, row.nipNidn, row.namaDosen, row.prodi);
+      const isMatched = Boolean(matched);
+
+      if (isMatched) {
+        matchedCount++;
+        const existingRapor = matched.raporDosen?.[0] || null;
+        const penelitianLama = existingRapor?.jumlahPenelitian || 0;
+        const pengabdianLama = existingRapor?.jumlahPengabdian || 0;
+        const skorPenelitianBaru = calculateScoreTridharma(row.jumlahPenelitian);
+        const skorPengabdianBaru = calculateScoreTridharma(row.jumlahPengabdian);
+
+        items.push({
+          rowNumber: row.rowNumber,
+          dosenId: matched.id,
+          dosenNama: matched.nama,
+          nipNidn: matched.nip || matched.nidn || row.nipNidn || null,
+          prodiNama: matched.prodi?.nama || row.prodi || "-",
+          isMatched: true,
+          penelitianLama,
+          penelitianBaru: row.jumlahPenelitian,
+          pengabdianLama,
+          pengabdianBaru: row.jumlahPengabdian,
+          skorPenelitianBaru,
+          skorPengabdianBaru,
+        });
+      } else {
+        unmatchedCount++;
+        items.push({
+          rowNumber: row.rowNumber,
+          dosenId: null,
+          dosenNama: row.namaDosen,
+          nipNidn: row.nipNidn || null,
+          prodiNama: row.prodi || "-",
+          isMatched: false,
+          penelitianLama: 0,
+          penelitianBaru: row.jumlahPenelitian,
+          pengabdianLama: 0,
+          pengabdianBaru: row.jumlahPengabdian,
+          skorPenelitianBaru: calculateScoreTridharma(row.jumlahPenelitian),
+          skorPengabdianBaru: calculateScoreTridharma(row.jumlahPengabdian),
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        totalRows: parsedRows.length,
+        matchedCount,
+        unmatchedCount,
+        items,
+        fileName: file.name,
+      },
+    };
+  } catch (error: any) {
+    console.error("Error previewTridharmaImportAction:", error);
+    return {
+      success: false,
+      error: error?.message || "Gagal memproses file Excel Tridharma LPPM.",
+    };
+  }
+}
+
+export async function saveTridharmaImportAction(payload: {
+  semesterId: string;
+  items: Array<{
+    dosenId: string;
+    jumlahPenelitian: number;
+    jumlahPengabdian: number;
+  }>;
+  fileName?: string;
+}): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const config = await getRaporConfig(payload.semesterId);
+    let updatedCount = 0;
+
+    for (const item of payload.items) {
+      if (!item.dosenId) continue;
+
+      const existing = await prisma.raporDosen.findUnique({
+        where: {
+          dosenId_semesterId: {
+            dosenId: item.dosenId,
+            semesterId: payload.semesterId,
+          },
+        },
+      });
+
+      const stats = await getLecturerMonitoringStats(item.dosenId, payload.semesterId);
+
+      const rerataHadir = existing?.rerataSesiHadir ?? (stats.totalKelas > 0 ? stats.rerataSesiHadir : null);
+      const persenHadir = existing?.persenKehadiran ?? (stats.totalKelas > 0 ? stats.persenKehadiran : null);
+      const persenKont = existing?.persenKonten ?? (stats.totalKelas > 0 ? stats.persenKonten : null);
+
+      const calc = calculateRaporFull(
+        {
+          nilaiKuesioner: existing?.nilaiKuesioner ?? null,
+          totalResponden: existing?.totalResponden ?? null,
+          targetResponden: existing?.targetResponden ?? null,
+          rerataSesiHadir: rerataHadir,
+          persenKehadiran: persenHadir,
+          persenKonten: persenKont,
+          jumlahPenelitian: item.jumlahPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+        },
+        config
+      );
+
+      await prisma.raporDosen.upsert({
+        where: {
+          dosenId_semesterId: {
+            dosenId: item.dosenId,
+            semesterId: payload.semesterId,
+          },
+        },
+        create: {
+          dosenId: item.dosenId,
+          semesterId: payload.semesterId,
+          jumlahPenelitian: item.jumlahPenelitian,
+          skorPenelitian: calc.skorPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+          skorPengabdian: calc.skorPengabdian,
+          nilaiAkhir: calc.nilaiAkhir,
+          predikat: calc.predikat.kode,
+          statusRapor: "DRAFT",
+          sumberImport: payload.fileName || "rekap_lppm_tridharma.xlsx",
+        },
+        update: {
+          jumlahPenelitian: item.jumlahPenelitian,
+          skorPenelitian: calc.skorPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+          skorPengabdian: calc.skorPengabdian,
+          nilaiAkhir: calc.nilaiAkhir,
+          predikat: calc.predikat.kode,
+        },
+      });
+
+      updatedCount++;
+    }
+
+    safeRevalidatePath("/laporan/rapor-dosen");
+    return { success: true, count: updatedCount };
+  } catch (error: any) {
+    console.error("Error saveTridharmaImportAction:", error);
+    return {
+      success: false,
+      count: 0,
+      error: error?.message || "Gagal menyimpan data Tridharma LPPM.",
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. IMPORT REKAP SEMESTER LAMPAU (2025/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PreviewRekapLampauResult {
+  totalRows: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  items: RekapLampauPreviewItem[];
+  fileName: string;
+}
+
+export async function previewRekapLampauImportAction(
+  formData: FormData,
+  semesterId: string
+): Promise<{ success: boolean; data?: PreviewRekapLampauResult; error?: string }> {
+  try {
+    const file = formData.get("file") as File;
+    if (!file) {
+      return { success: false, error: "Berkas Excel tidak ditemukan." };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parsedRows = parseRekapLampauExcelBuffer(buffer);
+    const config = await getRaporConfig(semesterId);
+
+    const allDosens = await prisma.dosen.findMany({
+      include: {
+        prodi: true,
+        raporDosen: {
+          where: { semesterId },
+        },
+      },
+    });
+
+    const items: RekapLampauPreviewItem[] = [];
+    let matchedCount = 0;
+    let unmatchedCount = 0;
+
+    for (const row of parsedRows) {
+      const matched = matchDosenInList(allDosens, row.nipNidn, row.namaDosen, row.prodi);
+      const isMatched = Boolean(matched);
+      const existingRapor = matched?.raporDosen?.[0] || null;
+
+      // Gabungkan kuesioner dari database jika di berkas rekap kosong
+      const effectiveRow = {
+        ...row,
+        nilaiKuesioner: row.nilaiKuesioner ?? (existingRapor?.nilaiKuesioner ?? null),
+        totalResponden: row.totalResponden ?? (existingRapor?.totalResponden ?? null),
+      };
+
+      const norm = normalizeRekapLampauRow(effectiveRow, config.targetSesi || 16);
+
+      if (isMatched) {
+        matchedCount++;
+        items.push({
+          rowNumber: row.rowNumber,
+          dosenId: matched.id,
+          dosenNama: matched.nama,
+          nipNidn: matched.nip || matched.nidn || row.nipNidn || null,
+          prodiNama: matched.prodi?.nama || row.prodi || "-",
+          isMatched: true,
+          jumlahMatkul: norm.jumlahMatkul,
+          jumlahKelas: norm.jumlahKelas,
+          totalResponden: norm.totalResponden,
+          nilaiKuesioner: norm.nilaiKuesioner,
+          totalSesiHadir: norm.totalSesiHadir,
+          totalSesiBeban: norm.totalSesiBeban,
+          persenKehadiran: norm.persenKehadiran,
+          skorKehadiran: norm.skorKehadiran,
+          totalSkorKonten: norm.totalSkorKonten,
+          maxSkorKonten: norm.maxSkorKonten,
+          persenKonten: norm.persenKonten,
+          skorKonten: norm.skorKonten,
+          jumlahPenelitian: norm.jumlahPenelitian,
+          jumlahPengabdian: norm.jumlahPengabdian,
+          estimasiNilaiAkhir: norm.nilaiAkhir,
+          predikatKode: norm.predikatKode,
+          predikatLabel: norm.predikatLabel,
+        });
+      } else {
+        unmatchedCount++;
+        items.push({
+          rowNumber: row.rowNumber,
+          dosenId: null,
+          dosenNama: row.namaDosen,
+          nipNidn: row.nipNidn || null,
+          prodiNama: row.prodi || "-",
+          isMatched: false,
+          jumlahMatkul: norm.jumlahMatkul,
+          jumlahKelas: norm.jumlahKelas,
+          totalResponden: norm.totalResponden,
+          nilaiKuesioner: norm.nilaiKuesioner,
+          totalSesiHadir: norm.totalSesiHadir,
+          totalSesiBeban: norm.totalSesiBeban,
+          persenKehadiran: norm.persenKehadiran,
+          skorKehadiran: norm.skorKehadiran,
+          totalSkorKonten: norm.totalSkorKonten,
+          maxSkorKonten: norm.maxSkorKonten,
+          persenKonten: norm.persenKonten,
+          skorKonten: norm.skorKonten,
+          jumlahPenelitian: norm.jumlahPenelitian,
+          jumlahPengabdian: norm.jumlahPengabdian,
+          estimasiNilaiAkhir: norm.nilaiAkhir,
+          predikatKode: norm.predikatKode,
+          predikatLabel: norm.predikatLabel,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        totalRows: parsedRows.length,
+        matchedCount,
+        unmatchedCount,
+        items,
+        fileName: file.name,
+      },
+    };
+  } catch (error: any) {
+    console.error("Error previewRekapLampauImportAction:", error);
+    return {
+      success: false,
+      error: error?.message || "Gagal memproses file Excel Rekap Semester Lampau.",
+    };
+  }
+}
+
+export async function saveRekapLampauImportAction(payload: {
+  semesterId: string;
+  items: Array<RekapLampauPreviewItem>;
+  fileName?: string;
+}): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const config = await getRaporConfig(payload.semesterId);
+    let savedCount = 0;
+
+    for (const item of payload.items) {
+      if (!item.dosenId || !item.isMatched) continue;
+
+      const existing = await prisma.raporDosen.findUnique({
+        where: {
+          dosenId_semesterId: {
+            dosenId: item.dosenId,
+            semesterId: payload.semesterId,
+          },
+        },
+      });
+
+      const totalSksOverride = item.jumlahKelas * 2;
+      const finalNilaiKuesioner = item.nilaiKuesioner ?? (existing?.nilaiKuesioner ?? null);
+      const finalTotalResponden = item.totalResponden ?? (existing?.totalResponden ?? null);
+      const finalRerataHadir =
+        item.totalSesiHadir != null && item.jumlahKelas > 0
+          ? item.totalSesiHadir / item.jumlahKelas
+          : (existing?.rerataSesiHadir ?? null);
+      const finalPersenHadir = item.persenKehadiran ?? (existing?.persenKehadiran ?? null);
+      const finalPersenKonten = item.persenKonten ?? (existing?.persenKonten ?? null);
+
+      // Hitung ulang nilai akhir & predikat terbobot utuh jika ada nilai kuesioner gabungan
+      const fullCalc = calculateRaporFull(
+        {
+          nilaiKuesioner: finalNilaiKuesioner,
+          totalResponden: finalTotalResponden,
+          targetResponden: null,
+          rerataSesiHadir: finalRerataHadir,
+          persenKehadiran: finalPersenHadir,
+          persenKonten: finalPersenKonten,
+          jumlahPenelitian: item.jumlahPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+        },
+        config
+      );
+
+      await prisma.raporDosen.upsert({
+        where: {
+          dosenId_semesterId: {
+            dosenId: item.dosenId,
+            semesterId: payload.semesterId,
+          },
+        },
+        create: {
+          dosenId: item.dosenId,
+          semesterId: payload.semesterId,
+          totalMatkulOverride: item.jumlahMatkul,
+          totalKelasOverride: item.jumlahKelas,
+          totalSksOverride,
+          totalResponden: finalTotalResponden,
+          nilaiKuesioner: finalNilaiKuesioner,
+          skorKuesioner: fullCalc.skorKuesioner,
+          rerataSesiHadir: finalRerataHadir,
+          persenKehadiran: finalPersenHadir,
+          skorKehadiran: fullCalc.skorKehadiran,
+          persenKonten: finalPersenKonten,
+          skorKonten: fullCalc.skorKonten,
+          jumlahPenelitian: item.jumlahPenelitian,
+          skorPenelitian: fullCalc.skorPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+          skorPengabdian: fullCalc.skorPengabdian,
+          nilaiAkhir: fullCalc.nilaiAkhir,
+          predikat: fullCalc.predikat.kode,
+          statusRapor: "DRAFT",
+          sumberImport: payload.fileName || "rekap_semester_lampau.xlsx",
+        },
+        update: {
+          totalMatkulOverride: item.jumlahMatkul,
+          totalKelasOverride: item.jumlahKelas,
+          totalSksOverride,
+          totalResponden: finalTotalResponden,
+          nilaiKuesioner: finalNilaiKuesioner,
+          skorKuesioner: fullCalc.skorKuesioner,
+          rerataSesiHadir: finalRerataHadir,
+          persenKehadiran: finalPersenHadir,
+          skorKehadiran: fullCalc.skorKehadiran,
+          persenKonten: finalPersenKonten,
+          skorKonten: fullCalc.skorKonten,
+          jumlahPenelitian: item.jumlahPenelitian,
+          skorPenelitian: fullCalc.skorPenelitian,
+          jumlahPengabdian: item.jumlahPengabdian,
+          skorPengabdian: fullCalc.skorPengabdian,
+          nilaiAkhir: fullCalc.nilaiAkhir,
+          predikat: fullCalc.predikat.kode,
+          sumberImport: payload.fileName || "rekap_semester_lampau.xlsx",
+        },
+      });
+
+      savedCount++;
+    }
+
+    safeRevalidatePath("/laporan/rapor-dosen");
+    return { success: true, count: savedCount };
+  } catch (error: any) {
+    console.error("Error saveRekapLampauImportAction:", error);
+    return {
+      success: false,
+      count: 0,
+      error: error?.message || "Gagal menyimpan data Rekap Semester Lampau.",
     };
   }
 }
