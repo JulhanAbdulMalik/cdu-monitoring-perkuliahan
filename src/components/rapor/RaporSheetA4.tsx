@@ -70,7 +70,14 @@ export default function RaporSheetA4({
   // Perhitungan total sesi mengajar dan target sesi semester
   const targetPerKelas = (data.config?.targetSesi && data.config.targetSesi > 0) ? data.config.targetSesi : 16;
   const totalTargetSesi = monitoringStats.totalKelas > 0 ? monitoringStats.totalKelas * targetPerKelas : 0;
-  const totalHadirSesi = monitoringStats.totalSesiHadirSemua;
+  
+  // Prioritaskan nilai kehadiran dari rapor (hasil edit manual), jika belum ada gunakan monitoring real-time
+  const totalHadirSesi =
+    rapor?.rerataSesiHadir != null && monitoringStats.totalKelas > 0
+      ? Math.round(rapor.rerataSesiHadir * monitoringStats.totalKelas)
+      : rapor?.persenKehadiran != null && totalTargetSesi > 0
+      ? Math.round((rapor.persenKehadiran / 100) * totalTargetSesi)
+      : monitoringStats.totalSesiHadirSemua;
 
   // Perhitungan total skor 3 pilar konten dan total max skor pilar untuk seluruh kelas reguler
   let totalSkorPilar = 0;
@@ -87,6 +94,11 @@ export default function RaporSheetA4({
       totalSkorPilar += k.totalSkor3Pilar || 0;
       totalMaxPilar += k.maxSkor3Pilar || 28;
     });
+  }
+
+  // Prioritaskan nilai konten dari rapor (hasil edit manual) jika ada
+  if (rapor?.persenKonten != null && totalMaxPilar > 0) {
+    totalSkorPilar = Math.round((rapor.persenKonten / 100) * totalMaxPilar);
   }
 
   // Format Capaian (misal Kuesioner: '4.48', Kehadiran: '24 / 96 Sesi', Konten: '39 / 140 Poin', Penelitian/PkM: '3')

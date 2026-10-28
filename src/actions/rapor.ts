@@ -908,6 +908,7 @@ export async function saveRaporDosen(
     });
 
     safeRevalidatePath("/laporan/rapor-dosen");
+    safeRevalidatePath(`/laporan/rapor-dosen/${payload.dosenId}`);
     return { success: true, data: saved };
   } catch (error: any) {
     console.error("Error saveRaporDosen:", error);
@@ -1601,7 +1602,12 @@ export async function sendRaporDosenEmailAction(payload: {
 
     const targetPerKelas = config?.targetSesi && config.targetSesi > 0 ? config.targetSesi : 16;
     const totalTargetSesi = stats.totalKelas > 0 ? stats.totalKelas * targetPerKelas : 0;
-    const totalHadirSesi = stats.totalSesiHadirSemua;
+    const totalHadirSesi =
+      rapor?.rerataSesiHadir != null && stats.totalKelas > 0
+        ? Math.round(rapor.rerataSesiHadir * stats.totalKelas)
+        : rapor?.persenKehadiran != null && totalTargetSesi > 0
+        ? Math.round((rapor.persenKehadiran / 100) * totalTargetSesi)
+        : stats.totalSesiHadirSemua;
 
     let totalSkorPilar = 0;
     let totalMaxPilar = 0;
@@ -1616,6 +1622,10 @@ export async function sendRaporDosenEmailAction(payload: {
         totalSkorPilar += k.totalSkor3Pilar || 0;
         totalMaxPilar += k.maxSkor3Pilar || 28;
       });
+    }
+
+    if (rapor?.persenKonten != null && totalMaxPilar > 0) {
+      totalSkorPilar = Math.round((rapor.persenKonten / 100) * totalMaxPilar);
     }
 
     const persenKehadiranVal = rapor?.persenKehadiran ?? stats.persenKehadiran;

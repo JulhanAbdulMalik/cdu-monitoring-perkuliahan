@@ -338,9 +338,17 @@ export default function ImportSiakadModal({
                         Analisis Sentimen & Kesimpulan
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                      Positif {previewData.aiAnalysis.analisisSentimen?.positifPct}% • Netral {previewData.aiAnalysis.analisisSentimen?.netralPct}% • Negatif {previewData.aiAnalysis.analisisSentimen?.negatifPct}%
-                    </span>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold">
+                        Positif {previewData.aiAnalysis.analisisSentimen?.positifPct}%
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-semibold">
+                        Netral {previewData.aiAnalysis.analisisSentimen?.netralPct}%
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 font-semibold">
+                        Negatif {previewData.aiAnalysis.analisisSentimen?.negatifPct}%
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xs text-slate-700 italic bg-white p-2.5 rounded-lg border border-slate-200 leading-relaxed">
                     &ldquo;{previewData.narasiKesimpulan}&rdquo;

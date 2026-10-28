@@ -401,7 +401,6 @@ enum StatusEdlinkCek {
   GAGAL
 }
 
-<<<<<<< HEAD
 // ─────────────────────────────────────────
 // RAPOR DOSEN (Evaluasi Tridharma Dosen QAU & CDU)
 // ─────────────────────────────────────────
@@ -501,9 +500,10 @@ model RaporDosen {
 enum StatusRaporDosen {
   DRAFT
   FINAL
-=======
+
+}
+
 enum SumberLms {
   EDLINK // Konten dipantau dari Edlink
   NUSAPUTRA_APP // Konten dipantau dari LMS nusaputra.app
->>>>>>> 7590d6ff72c604556d823e1af3ca0e2486f3ec5a
 }
