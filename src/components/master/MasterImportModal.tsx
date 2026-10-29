@@ -3,7 +3,7 @@
 // Universal Master Data Excel Import Modal with Interactive Preview & In-Line Edit
 // Plus Jakarta Sans & #a80063 Theme
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
@@ -22,8 +22,6 @@ import {
   Search,
   RotateCcw,
   Check,
-  ArrowRight,
-  Filter,
 } from "lucide-react";
 import { generateTemplate } from "@/lib/template-generator";
 import { ImportPreviewResult, ImportPreviewRow } from "@/actions/master-import";
@@ -121,6 +119,20 @@ export default function MasterImportModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Filter daftar baris (useMemo sebelum if (!isOpen || !mounted))
+  const filteredPreviewList = useMemo(() => {
+    if (!previewResult?.previewList) return [];
+    return previewResult.previewList.filter((r) => {
+      if (statusFilter === "valid" && !r.isValid) return false;
+      if (statusFilter === "invalid" && r.isValid) return false;
+
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const dataString = JSON.stringify(r.data).toLowerCase();
+      return dataString.includes(q);
+    });
+  }, [previewResult, statusFilter, searchQuery]);
 
   if (!isOpen || !mounted) return null;
 
@@ -335,55 +347,38 @@ export default function MasterImportModal({
     onClose();
   }
 
-  // Filter daftar baris
-  const filteredPreviewList = (previewResult?.previewList || []).filter((r) => {
-    if (statusFilter === "valid" && !r.isValid) return false;
-    if (statusFilter === "invalid" && r.isValid) return false;
-
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const dataString = JSON.stringify(r.data).toLowerCase();
-    return dataString.includes(q);
-  });
-
   return createPortal(
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget && !committing) handleClose();
       }}
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in ${
-        previewResult ? "p-1 sm:p-2 md:p-3" : "p-3 md:p-6"
-      }`}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
     >
       <div
-        className={`w-full bg-white rounded-2xl shadow-2xl border border-slate-200 relative flex flex-col transition-all duration-300 ${
-          previewResult
-            ? "w-[99vw] max-w-[99vw] 2xl:max-w-[1920px] h-[96vh] p-3 sm:p-5"
-            : "max-w-xl max-h-[90vh] p-5 md:p-6"
+        className={`w-full bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[94vh] flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+          previewResult ? "max-w-5xl lg:max-w-6xl xl:max-w-7xl" : "max-w-xl"
         }`}
       >
         {/* Close Button */}
         <button
           onClick={handleClose}
           disabled={committing}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30"
-          title="Tutup Modal"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-30 transition-colors"
+          title="Tutup Modal (ESC)"
         >
           <X size={18} />
         </button>
 
-        {/* Header */}
-        <div className="pb-3 border-b border-slate-100 mb-3 shrink-0">
-          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#fdf2f8] text-[#a80063] flex items-center justify-center shrink-0">
-              <FileSpreadsheet size={18} />
-            </div>
+        {/* Modal Header Standar CDU Portal */}
+        <div className="mb-4 shrink-0">
+          <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+            <FileSpreadsheet size={16} className="text-[#a80063]" />
             <span>{title}</span>
           </h3>
-          <p className="text-xs text-slate-500 font-normal mt-0.5 ml-10">
+          <p className="text-xs text-slate-500 font-normal">
             {previewResult
-              ? "Periksa dan sesuaikan data pratinjau sebelum menyetujui impor ke database master."
-              : "Unggah file extention (.xlsx, .xls, .csv). Format gabungan SIAKAD otomatis terbaca."}
+              ? "Pratinjau Data Master • Silakan tinjau dan koreksi data sebelum disimpan ke database"
+              : "Format berkas .xlsx, .xls, atau .csv • Mendukung ekspor tabel SIAKAD maupun template bawaan"}
           </p>
         </div>
 
@@ -391,41 +386,15 @@ export default function MasterImportModal({
         <div className="flex-1 overflow-hidden flex flex-col">
           {!previewResult ? (
             /* ── VIEW 1: UPLOAD & DOWNLOAD TEMPLATE ────────────────────────── */
-            <div className="space-y-4 overflow-y-auto pr-1 py-1">
-              {/* Download Template Banner */}
-              <div className="p-3.5 rounded-xl bg-[#fdf2f8] border border-[#fbcfe8] flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold text-[#a80063]">
-                    Ingin menggunakan format template standar?
-                  </p>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Unggah tabel mentah ekspor SIAKAD Anda
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-[#a80063] border border-[#fbcfe8] text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer"
-                >
-                  <Download size={13} />
-                  <span>Download Template</span>
-                </button>
-              </div>
-
+            <div className="space-y-3.5 overflow-y-auto pr-1 py-1">
+              
               {/* Semester Destination Selector (Khusus Data Perkuliahan) */}
               {type === "kelas" && semesterList && semesterList.length > 0 && (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#fdf2f8] text-[#a80063] flex items-center justify-center shrink-0">
-                      <Calendar size={14} />
-                    </div>
+                    <Calendar size={15} className="text-[#a80063]" />
                     <div>
-                      <p className="text-xs font-bold text-slate-800">
-                        Semester Tujuan Impor
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Semua data perkuliahan akan otomatis ditautkan ke semester ini
-                      </p>
+                      <p className="text-xs font-semibold text-slate-800">Semester Tujuan Impor</p>
                     </div>
                   </div>
                   <select
@@ -446,11 +415,11 @@ export default function MasterImportModal({
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                  file
-                    ? "border-emerald-300 bg-emerald-50/20"
-                    : "border-slate-200 hover:border-[#a80063]/40 hover:bg-slate-50/60"
+                onClick={() => !parsing && fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                  parsing
+                    ? "border-slate-300 bg-slate-50 cursor-wait"
+                    : "border-slate-300 hover:border-[#a80063]/50 hover:bg-slate-50/60 cursor-pointer"
                 }`}
               >
                 <input
@@ -458,51 +427,96 @@ export default function MasterImportModal({
                   type="file"
                   accept=".xlsx, .xls, .csv"
                   className="hidden"
+                  disabled={parsing}
                   onChange={(e) => {
                     if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
                   }}
                 />
 
                 {parsing ? (
-                  <div className="flex flex-col items-center justify-center py-4">
-                    <Loader2 size={32} className="text-[#a80063] animate-spin mb-2" />
+                  <div className="py-4 flex flex-col items-center justify-center space-y-3">
+                    <Loader2 size={32} className="animate-spin text-[#a80063]" />
                     <p className="text-xs font-bold text-slate-800">
-                      Menganalisis & membaca file Excel...
+                      Menganalisis & membaca berkas Excel...
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Smart parser sedang mengekstrak Kode MK, Jadwal, Dosen & Prodi
+                    <p className="text-[11px] text-slate-500">
+                      Smart parser sedang mengekstrak Kode MK, Jadwal, Dosen & Prodi.
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-2">
-                    <div className="w-12 h-12 rounded-2xl bg-[#fdf2f8] text-[#a80063] flex items-center justify-center mb-3 shadow-xs">
-                      <UploadCloud size={24} />
+                  <>
+                    <div className="w-11 h-11 rounded-xl bg-[#fdf2f8] text-[#a80063] flex items-center justify-center mx-auto mb-3">
+                      <UploadCloud size={22} />
                     </div>
-                    <p className="text-sm font-bold text-slate-800">
-                      Tarik file Excel ke sini, atau klik untuk memilih
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Mendukung format .xlsx, .xls, .csv (SIAKAD maupun Template Bawaan)
-                    </p>
-                  </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-800">
+                        Pilih atau Seret Berkas {title} ke Sini
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Format berkas <strong>.xlsx</strong>, <strong>.xls</strong>, atau <strong>.csv</strong> (SIAKAD maupun Template Bawaan)
+                      </p>
+                    </div>
+                  </>
                 )}
+              </div>
+
+              {/* Template Download Banner */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet size={15} className="text-[#a80063]" />
+                  <span className="text-xs text-slate-700">Belum memiliki format berkas yang sesuai?</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Download size={12} />
+                  <span>Unduh Template {type.toUpperCase()}</span>
+                </button>
+              </div>
+
+              {/* Info Ekstraksi Ringkas */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px] text-slate-500">
+                <Sparkles size={13} className="text-[#a80063] shrink-0" />
+                <span>
+                  Dilengkapi smart parser: mendeteksi otomatis kolom header, mencocokkan data relasi, dan memvalidasi sebelum disimpan.
+                </span>
               </div>
             </div>
           ) : (
             /* ── VIEW 2: INTERACTIVE PREVIEW & EDIT TABLE ───────────────────── */
-            <div className="flex-1 flex flex-col overflow-hidden space-y-3">
-              {/* Summary Bar & Filters */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                {/* File Info & Status Badges */}
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-slate-700">
-                    <FileCheck size={14} className="text-emerald-600" />
-                    <span className="font-bold truncate max-w-[200px]">{file?.name}</span>
+            <div className="flex-1 flex flex-col overflow-hidden space-y-3.5 animate-fade-in">
+              {/* Baris Kontrol: Search, Filter & Badges Status (Compact 1 Baris) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <div className="relative flex-1">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari data di preview..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:border-[#a80063] transition-colors"
+                    />
                   </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    className="py-1.5 px-2.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-[#a80063] cursor-pointer"
+                  >
+                    <option value="all">Semua ({previewResult.totalRows})</option>
+                    <option value="valid">Siap ({previewResult.validRows})</option>
+                    {previewResult.invalidRows > 0 && (
+                      <option value="invalid">Bermasalah ({previewResult.invalidRows})</option>
+                    )}
+                  </select>
+                </div>
 
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 shrink-0">
                   {type === "kelas" && semesterList && semesterList.length > 0 && (
-                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-xs">
-                      <Calendar size={13} className="text-[#a80063]" />
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                      <Calendar size={12} className="text-[#a80063]" />
                       <span className="text-slate-500 text-[11px]">Semester:</span>
                       <select
                         value={selectedSemesterId}
@@ -517,61 +531,24 @@ export default function MasterImportModal({
                       </select>
                     </div>
                   )}
-
-                  <span className="text-xs font-bold bg-slate-200/70 text-slate-700 px-2.5 py-1 rounded-lg">
-                    Total: {previewResult.totalRows} Baris
-                  </span>
-
-                  <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle2 size={12} /> {previewResult.validRows} Siap Import
-                  </span>
-
-                  {previewResult.invalidRows > 0 && (
-                    <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1">
-                      <AlertTriangle size={12} /> {previewResult.invalidRows} Perlu Diperiksa
-                    </span>
-                  )}
-                </div>
-
-                {/* Search & Filter Controls */}
-                <div className="flex items-center gap-2 ml-auto">
-                  <div className="relative">
-                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari kelas, MK, dosen..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-[#a80063] w-48"
-                    />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
+                    <span>Total: <strong>{previewResult.totalRows} Baris</strong></span>
                   </div>
-
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="py-1 px-2.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium focus:outline-none focus:border-[#a80063]"
-                  >
-                    <option value="all">Semua Status ({previewResult.totalRows})</option>
-                    <option value="valid">Siap Import ({previewResult.validRows})</option>
-                    {previewResult.invalidRows > 0 && (
-                      <option value="invalid">Bermasalah ({previewResult.invalidRows})</option>
-                    )}
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={handleResetFile}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 text-xs font-medium cursor-pointer transition-colors"
-                    title="Ganti Berkas Excel"
-                  >
-                    <RotateCcw size={12} />
-                    <span>Ganti File</span>
-                  </button>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
+                    <CheckCircle2 size={12} className="text-emerald-600" />
+                    <span>Siap: <strong>{previewResult.validRows}</strong></span>
+                  </div>
+                  {previewResult.invalidRows > 0 && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
+                      <AlertTriangle size={12} className="text-rose-600" />
+                      <span>Perlu Periksa: <strong>{previewResult.invalidRows}</strong></span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Interactive Table Container */}
-              <div className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-white shadow-inner">
+              <div className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-white shadow-2xs max-h-[55vh] lg:max-h-[60vh]">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-100/80 sticky top-0 z-10 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
                     <tr>
@@ -758,42 +735,58 @@ export default function MasterImportModal({
                   </tbody>
                 </table>
               </div>
+
+              {/* Catatan Kaki Standar */}
+              <p className="text-[11px] text-amber-700 italic pt-1">
+                * Catatan: Baris yang siap import (bertanda hijau) akan disimpan ke database master. Anda dapat melakukan koreksi baris atau menghapus data sebelum menyetujui.
+              </p>
             </div>
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-3 shrink-0">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={committing}
-            className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer disabled:opacity-40"
-          >
-            Batal
-          </button>
-
-          {previewResult && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 hidden sm:inline">
-                {previewResult.validRows} dari {previewResult.totalRows} baris siap dimasukkan
-              </span>
+        {/* Modal Footer Actions */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4 shrink-0">
+          {previewResult ? (
+            /* State: Sedang Preview (Belum Disimpan) */
+            <>
+              <button
+                type="button"
+                onClick={handleResetFile}
+                disabled={committing}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+              >
+                <RotateCcw size={12} />
+                <span>Batal / Ganti Berkas</span>
+              </button>
               <button
                 type="button"
                 onClick={handleCommit}
                 disabled={committing || previewResult.validRows === 0}
-                className="btn-brand inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {committing ? (
-                  <Loader2 size={14} className="animate-spin" />
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Menyimpan ke Database...</span>
+                  </>
                 ) : (
-                  <Sparkles size={14} />
+                  <>
+                    <Sparkles size={13} />
+                    <span>Simpan ke Database ({previewResult.validRows} Baris)</span>
+                  </>
                 )}
-                <span>
-                  Setujui & Import {previewResult.validRows} Data Perkuliahan
-                </span>
               </button>
-            </div>
+            </>
+          ) : (
+            /* State: Belum Diproses */
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={parsing}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+            >
+              Batal
+            </button>
           )}
         </div>
 

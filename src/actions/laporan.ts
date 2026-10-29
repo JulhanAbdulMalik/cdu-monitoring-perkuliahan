@@ -3,6 +3,7 @@
 // Server Actions untuk Rekapitulasi Monitoring, Laporan Dosen & Laporan Prodi (3-Pillar & Mode-Aware)
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
 import {
   getWeekDates,
@@ -1488,6 +1489,14 @@ export async function getLaporanFakultas(
   jenisKelas?: string
 ): Promise<LaporanFakultasResponse> {
   try {
+    const session = await auth();
+    if ((session?.user as any)?.role === "DOSEN") {
+      return {
+        success: false,
+        error: "Akses ditolak. Laporan tingkat Fakultas hanya dapat diakses oleh Admin QAU atau Super Admin.",
+      };
+    }
+
     const isSesiMode = Boolean(sesiNumber && sesiNumber >= 1 && sesiNumber <= 16);
     const targetSesi = isSesiMode ? (sesiNumber as number) : null;
     const isAllTime = !isSesiMode && !startDate && !endDate;

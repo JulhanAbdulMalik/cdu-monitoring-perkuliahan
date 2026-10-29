@@ -66,6 +66,8 @@ export default async function RaporDosenPage({ searchParams }: RaporDosenPagePro
       semesters={semesters}
       currentSemester={currentSemester}
       prodiList={filteredProdiList}
+      userRole={userRole}
+      isDosen={isDosen}
       initialFilters={{
         semesterId: currentSemester.id,
         prodiId: targetProdiId || "ALL",

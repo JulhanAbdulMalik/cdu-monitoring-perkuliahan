@@ -18,6 +18,7 @@ import {
   Search,
   Archive,
   Info,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -51,6 +52,19 @@ export default function ImportRekapLampauModal({
   const [searchFilter, setSearchFilter] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter pencarian pada data preview
+  const filteredItems = useMemo(() => {
+    if (!previewData) return [];
+    if (!searchFilter.trim()) return previewData.items;
+    const q = searchFilter.toLowerCase().trim();
+    return previewData.items.filter(
+      (item) =>
+        item.dosenNama.toLowerCase().includes(q) ||
+        (item.nipNidn && item.nipNidn.toLowerCase().includes(q)) ||
+        item.prodiNama.toLowerCase().includes(q)
+    );
+  }, [previewData, searchFilter]);
 
   if (!isOpen) return null;
 
@@ -215,19 +229,6 @@ export default function ImportRekapLampauModal({
     }
   };
 
-  // Filter pencarian pada data preview
-  const filteredItems = useMemo(() => {
-    if (!previewData) return [];
-    if (!searchFilter.trim()) return previewData.items;
-    const q = searchFilter.toLowerCase().trim();
-    return previewData.items.filter(
-      (item) =>
-        item.dosenNama.toLowerCase().includes(q) ||
-        (item.nipNidn && item.nipNidn.toLowerCase().includes(q)) ||
-        item.prodiNama.toLowerCase().includes(q)
-    );
-  }, [previewData, searchFilter]);
-
   const isBusy = isLoadingPreview || isSaving;
 
   return (
@@ -239,7 +240,11 @@ export default function ImportRekapLampauModal({
       }}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
     >
-      <div className="w-full max-w-3xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col overflow-hidden">
+      <div
+        className={`w-full bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[94vh] flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+          previewData ? "max-w-5xl lg:max-w-6xl xl:max-w-7xl" : "max-w-xl"
+        }`}
+      >
         {/* Tombol Tutup Silang */}
         <button
           type="button"
@@ -284,112 +289,111 @@ export default function ImportRekapLampauModal({
           {previewData ? (
             /* ── TAMPILAN PREVIEW TABULAR SEBELUM SIMPAN ───────────────────────── */
             <div className="space-y-3">
-              {/* Ringkasan Status Pencocokan */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
-                    Total Baris Excel
-                  </span>
-                  <span className="text-base font-black text-slate-800">
-                    {previewData.totalRows} Dosen
-                  </span>
+              {/* Baris Pencarian & Ringkasan Status Compact (Standar CDU Portal) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                {/* Kolom Search di Kiri */}
+                <div className="relative flex-1">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama dosen, NIP/NIDN, atau prodi di preview..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-[#a80063] focus:bg-white transition-colors"
+                  />
+                  {searchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchFilter("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </div>
-                <div className="bg-emerald-50/60 border border-emerald-200/60 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">
-                    Dosen Teridentifikasi
+
+                {/* Ringkasan Status Compact di Kanan */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-medium border border-slate-200/80">
+                    <Users size={12} className="text-slate-500" />
+                    <span>Total: <strong className="font-bold text-slate-900">{previewData.totalRows}</strong> Dosen</span>
                   </span>
-                  <span className="text-base font-black text-emerald-700">
-                    {previewData.matchedCount} Dosen
+
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200/80">
+                    <CheckCircle2 size={12} className="text-emerald-600" />
+                    <span>Cocok: <strong className="font-bold text-emerald-900">{previewData.matchedCount}</strong></span>
                   </span>
-                </div>
-                <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider block">
-                    Belum Terdaftar
-                  </span>
-                  <span className="text-base font-black text-amber-700">
-                    {previewData.unmatchedCount}
-                  </span>
+
+                  {previewData.unmatchedCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200/80">
+                      <AlertCircle size={12} className="text-amber-600" />
+                      <span>Belum Terdaftar: <strong className="font-bold text-amber-900">{previewData.unmatchedCount}</strong></span>
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Banner Informasi Formula Normalisasi */}
-              <div className="p-2.5 rounded-xl bg-violet-50/60 border border-violet-200/60 text-violet-900 text-[11px] flex items-start gap-2">
-                <Info size={14} className="text-violet-600 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  <span className="font-semibold block">Normalisasi Otomatis Formula Lama:</span>
-                  <span>
-                    Kehadiran dikonversi ke total sesi mengajar (target 16 sesi/kelas), Konten LMS diskalakan dari 1-6 ke skala 5 dan persentase baku 28 poin/kelas, serta responden diekstrak angka murninya.
-                  </span>
-                </div>
-              </div>
-
-              {/* Baris Pencarian Cepat di Preview */}
-              <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama dosen atau program studi di preview..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50/60 border border-slate-200 rounded-lg focus:outline-none focus:border-[#a80063]"
-                />
-              </div>
+              {/* Keterangan Normalisasi Ringkas 1 Baris */}
+              <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <Info size={13} className="text-[#a80063] shrink-0" />
+                <span>Kehadiran otomatis dinormalisasi ke basis 16 sesi/kelas, konten LMS ke 28 poin/kelas, dan responden diekstrak angka murninya.</span>
+              </p>
 
               {/* Tabel Preview Baris */}
-              <div className="border border-slate-200/80 rounded-xl overflow-hidden max-h-64 overflow-y-auto bg-white">
+              <div className="border border-slate-200/80 rounded-xl overflow-hidden max-h-[60vh] lg:max-h-[64vh] overflow-y-auto bg-white shadow-2xs">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-200 z-10">
                     <tr>
-                      <th className="py-2 px-3 w-8 text-center">#</th>
-                      <th className="py-2 px-3">Dosen & Prodi</th>
-                      <th className="py-2 px-2.5 text-center">Beban</th>
-                      <th className="py-2 px-2.5 text-center">Responden</th>
-                      <th className="py-2 px-3 text-center">Kehadiran (Sesi)</th>
-                      <th className="py-2 px-3 text-center">Konten (Poin)</th>
-                      <th className="py-2 px-2.5 text-center">Tridharma</th>
-                      <th className="py-2 px-2.5 text-center">Kuesioner</th>
-                      <th className="py-2 px-2.5 text-center">Status</th>
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
+                      <th className="py-2.5 px-3">Dosen & Prodi</th>
+                      <th className="py-2.5 px-3 text-center w-24">Beban</th>
+                      <th className="py-2.5 px-3 text-center w-24">Responden</th>
+                      <th className="py-2.5 px-3 text-center">Kehadiran (Sesi)</th>
+                      <th className="py-2.5 px-3 text-center">Konten (Poin)</th>
+                      <th className="py-2.5 px-3 text-center w-28">Tridharma</th>
+                      <th className="py-2.5 px-3 text-center w-24">Kuesioner</th>
+                      <th className="py-2.5 px-3 text-center w-24">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
                           {item.rowNumber}
                         </td>
-                        <td className="py-2 px-3 min-w-[170px]">
+                        <td className="py-2.5 px-3">
                           <span className="font-semibold text-slate-900 block truncate">
                             {item.dosenNama}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono block truncate">
+                          <span className="text-[10px] text-slate-500 font-mono block truncate">
                             {item.nipNidn ? `NIP/NIDN: ${item.nipNidn} • ` : ""}
                             {item.prodiNama}
                           </span>
                         </td>
-                        <td className="py-2 px-2.5 text-center whitespace-nowrap">
-                          <span className="font-bold text-slate-800 text-[11px]">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="font-bold text-slate-900 text-xs">
                             {item.jumlahKelas} Kls
                           </span>
                           <span className="text-[10px] text-slate-400 block font-mono">
                             {item.jumlahMatkul} Matkul
                           </span>
                         </td>
-                        <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.totalResponden != null ? (
-                            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-slate-800">
+                            <span className="font-bold text-slate-900 text-xs">
                               {item.totalResponden} Mhs
                             </span>
                           ) : (
                             <span className="text-slate-300">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.totalSesiHadir != null && item.totalSesiBeban != null ? (
                             <>
-                              <span className="font-bold text-slate-900 text-[11px]">
+                              <span className="font-bold text-slate-900 text-xs">
                                 {item.totalSesiHadir} / {item.totalSesiBeban} Sesi
                               </span>
-                              <span className="text-[10px] text-slate-400 block font-mono">
+                              <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
                                 ({item.persenKehadiran?.toFixed(1)}% &bull; Skor {item.skorKehadiran?.toFixed(2)})
                               </span>
                             </>
@@ -397,13 +401,13 @@ export default function ImportRekapLampauModal({
                             <span className="text-slate-300">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.totalSkorKonten != null && item.maxSkorKonten != null ? (
                             <>
-                              <span className="font-bold text-slate-900 text-[11px]">
+                              <span className="font-bold text-slate-900 text-xs">
                                 {item.totalSkorKonten} / {item.maxSkorKonten} Poin
                               </span>
-                              <span className="text-[10px] text-slate-400 block font-mono">
+                              <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
                                 ({item.persenKonten?.toFixed(1)}% &bull; Skor {item.skorKonten?.toFixed(2)})
                               </span>
                             </>
@@ -411,14 +415,14 @@ export default function ImportRekapLampauModal({
                             <span className="text-slate-300">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-2.5 text-center whitespace-nowrap text-[11px]">
-                          <span className="text-slate-700 font-mono">
-                            L:{item.jumlahPenelitian} &bull; P:{item.jumlahPengabdian}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap text-xs">
+                          <span className="font-semibold text-slate-800">
+                            {item.jumlahPenelitian} L &bull; {item.jumlahPengabdian} P
                           </span>
                         </td>
-                        <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.nilaiKuesioner != null ? (
-                            <span className="font-bold text-slate-900 text-[11px]">
+                            <span className="font-bold text-slate-900 text-xs">
                               {item.nilaiKuesioner.toFixed(2)}
                             </span>
                           ) : (
@@ -427,7 +431,7 @@ export default function ImportRekapLampauModal({
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.isMatched ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                               <CheckCircle2 size={10} />
@@ -448,7 +452,7 @@ export default function ImportRekapLampauModal({
 
               {previewData.unmatchedCount > 0 && (
                 <p className="text-[11px] text-amber-600 italic">
-                  * Catatan: Terdapat {previewData.unmatchedCount} dosen yang belum terdaftar di Master Dosen dan akan dilewati otomatis saat disimpan.
+                  * Catatan: Terdapat {previewData.unmatchedCount} dosen yang belum terdaftar di Master Dosen dan akan dilewati secara otomatis saat simpan.
                 </p>
               )}
             </div>
@@ -519,28 +523,14 @@ export default function ImportRekapLampauModal({
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-[#a80063] hover:border-[#fbcfe8] text-xs font-semibold transition-all cursor-pointer shadow-2xs"
                 >
                   <Download size={12} />
-                  <span>Unduh Template Rekap Lampau</span>
+                  <span>Unduh Template</span>
                 </button>
               </div>
 
-              {/* Catatan Penjelas Cerdas */}
-              <div className="space-y-1 text-[11px] text-slate-500 leading-relaxed bg-slate-50/50 p-3 rounded-xl border border-slate-200/60">
-                <p className="font-semibold text-slate-700">Aturan Pemrosesan Data Lampau:</p>
-                <ul className="list-disc pl-4 space-y-0.5">
-                  <li>
-                    <strong>Kehadiran:</strong> Rata-rata sesi lama dikonversikan menjadi format baku <code>(Hadir / Target Sesi)</code> berdasarkan jumlah kelas (target 16 pertemuan/kelas).
-                  </li>
-                  <li>
-                    <strong>Konten LMS:</strong> Nilai rata-rata skala 1–6 dikonversikan ke skala 5 dan persentase baku <code>(Skor / Max Poin)</code> dengan basis 28 poin per kelas.
-                  </li>
-                  <li>
-                    <strong>Responden:</strong> Kolom responden dapat berisi teks (misal &quot;191 dari 274&quot;), sistem secara otomatis mengambil angka partisipan murni (<code>191 Responden</code>).
-                  </li>
-                  <li>
-                    <strong>Kuesioner:</strong> Nilai kuesioner pada berkas ini bersifat opsional. Anda tetap dapat mengunggah rincian P1-P5 dan K1-K5 melalui tombol <em>Import Kuesioner Mahasiswa (SIAKAD)</em> kapan saja.
-                  </li>
-                </ul>
-              </div>
+              {/* Catatan Penjelas Singkat Standar CDU Portal */}
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Berkas Excel Rekap Lampau akan menormalisasi kehadiran ke basis 16 sesi/kelas, konten LMS ke skala 28 poin/kelas, dan mengekstrak jumlah responden secara otomatis tanpa mengubah data perkuliahan aktif.
+              </p>
             </div>
           )}
         </div>

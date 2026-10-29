@@ -67,6 +67,8 @@ interface RaporDosenClientProps {
   semesters: SemesterOption[];
   currentSemester: SemesterOption;
   prodiList: ProdiOption[];
+  userRole?: string;
+  isDosen?: boolean;
   initialFilters: {
     semesterId: string;
     prodiId: string;
@@ -134,6 +136,8 @@ export default function RaporDosenClient({
   semesters,
   currentSemester,
   prodiList,
+  userRole,
+  isDosen = false,
   initialFilters,
 }: RaporDosenClientProps) {
   const router = useRouter();
@@ -521,145 +525,145 @@ export default function RaporDosenClient({
             <span>Export Excel</span>
           </a>
 
-          <button
-            type="button"
-            onClick={() => setIsConfigModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer"
-            title="Konfigurasi Bobot Penilaian, Target Sesi & Pengesahan TTD QAU"
-          >
-            <Sliders size={13} className="text-[#a80063]" />
-            <span>Bobot & Pengesahan</span>
-          </button>
+          {!isDosen && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsConfigModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition-all shadow-xs cursor-pointer"
+                title="Konfigurasi Bobot Penilaian, Target Sesi & Pengesahan TTD QAU"
+              >
+                <Sliders size={13} className="text-[#a80063]" />
+                <span>Bobot & Pengesahan</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handleSyncAll}
-            disabled={isSyncingAll || isPastSemester}
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-semibold transition-all shadow-xs ${
-              isPastSemester
-                ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
-                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 cursor-pointer disabled:opacity-50"
-            }`}
-            title={
-              isPastSemester
-                ? "Sinkronisasi CDU dinonaktifkan pada semester lampau karena data bersumber dari arsip Excel"
-                : `Sinkronkan data sesi & konten LMS dari kelas monitoring${lastSyncLabel ? ` (Terakhir: ${lastSyncLabel})` : ""}`
-            }
-          >
-            {isSyncingAll ? (
-              <Loader2 size={13} className="animate-spin text-blue-600 shrink-0" />
-            ) : (
-              <RotateCcw size={13} className={isPastSemester ? "text-slate-400 shrink-0" : "text-blue-600 shrink-0"} />
-            )}
-            <div className="flex flex-col text-left">
-              <span className="font-semibold text-xs leading-tight">Sinkron CDU</span>
-              <span className="text-[9px] font-normal leading-none mt-0.5">
-                {isPastSemester ? "Arsip Historis" : lastSyncLabel ? `Terakhir: ${lastSyncLabel}` : "Belum pernah"}
-              </span>
-            </div>
-          </button>
+              <button
+                type="button"
+                onClick={handleSyncAll}
+                disabled={isSyncingAll || isPastSemester}
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-semibold transition-all shadow-xs ${
+                  isPastSemester
+                    ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 cursor-pointer disabled:opacity-50"
+                }`}
+                title={
+                  isPastSemester
+                    ? "Sinkronisasi CDU dinonaktifkan pada semester lampau karena data bersumber dari arsip Excel"
+                    : `Sinkronkan data sesi & konten LMS dari kelas monitoring${lastSyncLabel ? ` (Terakhir: ${lastSyncLabel})` : ""}`
+                }
+              >
+                {isSyncingAll ? (
+                  <Loader2 size={13} className="animate-spin text-blue-600 shrink-0" />
+                ) : (
+                  <RotateCcw size={13} className={isPastSemester ? "text-slate-400 shrink-0" : "text-blue-600 shrink-0"} />
+                )}
+                <div className="flex flex-col text-left">
+                  <span className="font-semibold text-xs leading-tight">Sinkron CDU</span>
+                  <span className="text-[9px] font-normal leading-none mt-0.5">
+                    {isPastSemester ? "Arsip Historis" : lastSyncLabel ? `Terakhir: ${lastSyncLabel}` : "Belum pernah"}
+                  </span>
+                </div>
+              </button>
 
-          {/* Dropdown Menu Import Data Terpadu */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsImportMenuOpen((prev) => !prev)}
-              className="btn-brand inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs cursor-pointer hover:shadow-sm"
-              title="Menu Import Data Rapor (SIAKAD, Tridharma LPPM, Rekap Lampau)"
-            >
-              <Upload size={13} />
-              <span>Import Data</span>
-              <ChevronDown
-                size={13}
-                className={`transition-transform duration-200 ${isImportMenuOpen ? "rotate-180" : ""}`}
-              />
-            </button>
+              {/* Dropdown Menu Import Data Terpadu */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsImportMenuOpen((prev) => !prev)}
+                  className="btn-brand inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs cursor-pointer hover:shadow-sm"
+                  title="Menu Import Data Rapor (SIAKAD, Tridharma, Rekap Lampau)"
+                >
+                  <Upload size={13} />
+                  <span>Import Data</span>
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform duration-200 ${isImportMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-            {isImportMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setIsImportMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in slide-in-from-top-1">
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                    Pilih Jenis Data Import
-                  </div>
-
-                  {/* 1. Kuesioner Mahasiswa (SIAKAD) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsImportMenuOpen(false);
-                      setIsImportModalOpen(true);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-start gap-2.5 group cursor-pointer"
-                  >
-                    <div className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] group-hover:bg-[#fce7f3] transition-colors mt-0.5 shrink-0">
-                      <FileSpreadsheet size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 group-hover:text-[#a80063] transition-colors">
-                        Kuesioner Mahasiswa (SIAKAD)
+                {isImportMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setIsImportMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in slide-in-from-top-1">
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-[#a80063] uppercase tracking-wider border-b border-slate-100">
+                        Pilih Jenis Data Import
                       </div>
-                      <div className="text-[11px] text-slate-500 leading-snug">
-                        Upload rekap angket, skor kuesioner, P1-P5 &amp; K1-K5
-                      </div>
-                    </div>
-                  </button>
 
-                  {/* 2. Tridharma LPPM (Penelitian & PkM) - Aktif untuk semua semester */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsImportMenuOpen(false);
-                      setIsImportTridharmaModalOpen(true);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-start gap-2.5 group cursor-pointer"
-                  >
-                    <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors mt-0.5 shrink-0">
-                      <FlaskConical size={15} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
-                        <span>Tridharma (Penelitian &amp; PkM)</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700">LPPM</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 leading-snug">
-                        Upload rekap luaran penelitian &amp; pengabdian dosen
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* 3. Rekap Semester Lampau - Otomatis muncul pada semester lampau */}
-                  {isPastSemester && (
-                    <div className="border-t border-slate-100 mt-1 pt-1">
+                      {/* 1. Kuesioner Mahasiswa (SIAKAD) */}
                       <button
                         type="button"
                         onClick={() => {
                           setIsImportMenuOpen(false);
-                          setIsImportRekapLampauModalOpen(true);
+                          setIsImportModalOpen(true);
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-amber-50/60 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                        className="w-full text-left px-3 py-2 hover:bg-[#fdf2f8]/40 transition-colors flex items-start gap-2.5 group cursor-pointer"
                       >
-                        <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-200 transition-colors mt-0.5 shrink-0">
-                          <Archive size={15} />
+                        <div className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] group-hover:bg-[#fce7f3] transition-colors mt-0.5 shrink-0">
+                          <FileSpreadsheet size={15} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold text-amber-900 group-hover:text-amber-800 transition-colors flex items-center justify-between">
-                            <span>Rekap Semester Lampau</span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-800">
-                              Arsip
-                            </span>
+                          <div className="text-xs font-semibold text-slate-800 group-hover:text-[#a80063] transition-colors">
+                            Kuesioner Mahasiswa (SIAKAD)
                           </div>
-                          <div className="text-[11px] text-amber-700 leading-snug">
-                            Import terpadu &amp; normalisasi formula 2025/2026
+                          <div className="text-[11px] text-slate-500 leading-snug">
+                            Upload rekap angket.
                           </div>
                         </div>
                       </button>
+
+                      {/* 2. Tridharma (Penelitian & PkM) - Aktif untuk semua semester */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportMenuOpen(false);
+                          setIsImportTridharmaModalOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-[#fdf2f8]/40 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] group-hover:bg-[#fce7f3] transition-colors mt-0.5 shrink-0">
+                          <FlaskConical size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-800 group-hover:text-[#a80063] transition-colors flex items-center gap-1.5">
+                            <span>Tridharma (Penelitian &amp; PkM)</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 leading-snug">
+                            Upload rekap penelitian &amp; PkM dosen
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* 3. Rekap Semester Lampau - Otomatis muncul pada semester lampau */}
+                      {isPastSemester && (
+                        <div className="border-t border-slate-100 mt-1 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsImportMenuOpen(false);
+                              setIsImportRekapLampauModalOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-[#fdf2f8]/40 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                          >
+                            <div className="p-1.5 rounded-lg bg-[#fdf2f8] text-[#a80063] group-hover:bg-[#fce7f3] transition-colors mt-0.5 shrink-0">
+                              <Archive size={15} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 group-hover:text-[#a80063] transition-colors flex items-center justify-between">
+                                <span>Rekap Semester Lampau</span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 leading-snug">
+                                Import data semester lama.
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -816,14 +820,19 @@ export default function RaporDosenClient({
                 setFilterProdi(e.target.value);
                 setCurrentPage(1);
               }}
-              className={`px-2 py-1 text-[11px] rounded-lg border outline-none cursor-pointer font-medium transition-all max-w-[150px] truncate ${
-                filterProdi !== "ALL"
-                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold"
-                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+              disabled={isDosen && prodiList.length <= 1}
+              className={`px-2 py-1 text-[11px] rounded-lg border outline-none font-medium transition-all max-w-[150px] truncate ${
+                isDosen && prodiList.length <= 1
+                  ? "bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                  : filterProdi !== "ALL"
+                  ? "bg-[#fdf2f8] border-[#fbcfe8] text-[#a80063] font-semibold cursor-pointer"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
               }`}
               title="Filter Program Studi"
             >
-              <option value="ALL">Semua Prodi</option>
+              {(!isDosen || prodiList.length > 1) && (
+                <option value="ALL">Semua Prodi</option>
+              )}
               {prodiList.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nama}
@@ -1201,42 +1210,45 @@ export default function RaporDosenClient({
                       {/* Aksi (Format Standar /master/semester: Rapih & Simple) */}
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <div className="inline-flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setEditingItem(item)}
-                            className="w-7 h-7 rounded-md bg-slate-50 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Edit Nilai & Analisis AI"
-                          >
-                            <Edit2 size={13} />
-                          </button>
+                          {!isDosen && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingItem(item)}
+                              className="w-7 h-7 rounded-md bg-slate-50 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              title="Edit Nilai & Analisis AI"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                          )}
                           <Link
                             href={`/laporan/rapor-dosen/${item.dosenId}?semesterId=${selectedSemester}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title={`Preview`}
+                            title="Preview & Cetak Lembar Rapor A4"
                           >
                             <Printer size={13} />
                           </Link>
 
-                          {/* Tombol Send Email Rapor */}
-                          <button
-                            type="button"
-                            disabled={!item.email}
-                            onClick={() => {
-                              if (item.email) {
-                                setEmailTargetItem(item);
-                              }
-                            }}
-                            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all ${
-                              item.email
-                                ? "bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border-slate-200/80 text-slate-400 hover:text-[#a80063] cursor-pointer active:scale-95 shadow-2xs"
-                                : "bg-slate-100/70 border-slate-200/60 text-slate-300 cursor-not-allowed opacity-50"
-                            }`}
-                            title={item.email ? `Kirim Email Rapor ke ${item.email}` : "Email belum diisi."}
-                          >
-                            <Mail size={13} />
-                          </button>
+                          {!isDosen && (
+                            <button
+                              type="button"
+                              disabled={!item.email}
+                              onClick={() => {
+                                if (item.email) {
+                                  setEmailTargetItem(item);
+                                }
+                              }}
+                              className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all ${
+                                item.email
+                                  ? "bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border-slate-200/80 text-slate-400 hover:text-[#a80063] cursor-pointer active:scale-95 shadow-2xs"
+                                  : "bg-slate-100/70 border-slate-200/60 text-slate-300 cursor-not-allowed opacity-50"
+                              }`}
+                              title={item.email ? `Kirim Email Rapor ke ${item.email}` : "Email belum diisi."}
+                            >
+                              <Mail size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1283,65 +1295,70 @@ export default function RaporDosenClient({
               title={`Buka Preview & Cetak Lembar Rapor untuk ${selectedDosenIds.size} Dosen Terpilih di Tab Baru`}
             >
               <Printer size={13} />
-              <span>Preview ({selectedDosenIds.size})</span>
+              <span>Preview &amp; Cetak ({selectedDosenIds.size})</span>
             </Link>
 
-            {/* Tombol Batch Kirim Email (Aktif jika <= 10 Dosen) */}
-            <button
-              type="button"
-              id="btn-trigger-batch-email"
-              disabled={selectedDosenIds.size > 10 || isBatchUpdating}
-              onClick={() => setIsBatchEmailModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                selectedDosenIds.size <= 10
-                  ? "bg-[#a80063] hover:bg-[#8b0052] text-white cursor-pointer active:scale-95"
-                  : "bg-slate-800 text-slate-500 cursor-not-allowed opacity-50"
-              }`}
-              title={
-                selectedDosenIds.size <= 10
-                  ? `Kirim Email Rapor ke ${selectedDosenIds.size} Dosen Terpilih`
-                  : "Maksimal 10 dosen per pengiriman email"
-              }
-            >
-              <Mail size={13} />
-              <span>Kirim Email ({selectedDosenIds.size})</span>
-            </button>
+            {/* Aksi Administratif Khusus Super Admin & Admin QAU */}
+            {!isDosen && (
+              <>
+                {/* Tombol Batch Kirim Email (Aktif jika <= 10 Dosen) */}
+                <button
+                  type="button"
+                  id="btn-trigger-batch-email"
+                  disabled={selectedDosenIds.size > 10 || isBatchUpdating}
+                  onClick={() => setIsBatchEmailModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                    selectedDosenIds.size <= 10
+                      ? "bg-[#a80063] hover:bg-[#8b0052] text-white cursor-pointer active:scale-95"
+                      : "bg-slate-800 text-slate-500 cursor-not-allowed opacity-50"
+                  }`}
+                  title={
+                    selectedDosenIds.size <= 10
+                      ? `Kirim Email Rapor ke ${selectedDosenIds.size} Dosen Terpilih`
+                      : "Maksimal 10 dosen per pengiriman email"
+                  }
+                >
+                  <Mail size={13} />
+                  <span>Kirim Email ({selectedDosenIds.size})</span>
+                </button>
 
-            <button
-              type="button"
-              id="btn-trigger-set-final"
-              onClick={() =>
-                setBulkStatusConfirm({
-                  isOpen: true,
-                  targetStatus: "FINAL",
-                  count: selectedDosenIds.size,
-                })
-              }
-              disabled={isBatchUpdating}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
-              title={`Ubah status menjadi FINAL untuk ${selectedDosenIds.size} dosen`}
-            >
-              {isBatchUpdating ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-              <span>Set Final</span>
-            </button>
+                <button
+                  type="button"
+                  id="btn-trigger-set-final"
+                  onClick={() =>
+                    setBulkStatusConfirm({
+                      isOpen: true,
+                      targetStatus: "FINAL",
+                      count: selectedDosenIds.size,
+                    })
+                  }
+                  disabled={isBatchUpdating}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                  title={`Ubah status menjadi FINAL untuk ${selectedDosenIds.size} dosen`}
+                >
+                  {isBatchUpdating ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                  <span>Set Final</span>
+                </button>
 
-            <button
-              type="button"
-              id="btn-trigger-set-draft"
-              onClick={() =>
-                setBulkStatusConfirm({
-                  isOpen: true,
-                  targetStatus: "DRAFT",
-                  count: selectedDosenIds.size,
-                })
-              }
-              disabled={isBatchUpdating}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
-              title={`Ubah status menjadi DRAFT untuk ${selectedDosenIds.size} dosen`}
-            >
-              <Clock size={13} />
-              <span>Set Draft</span>
-            </button>
+                <button
+                  type="button"
+                  id="btn-trigger-set-draft"
+                  onClick={() =>
+                    setBulkStatusConfirm({
+                      isOpen: true,
+                      targetStatus: "DRAFT",
+                      count: selectedDosenIds.size,
+                    })
+                  }
+                  disabled={isBatchUpdating}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                  title={`Ubah status menjadi DRAFT untuk ${selectedDosenIds.size} dosen`}
+                >
+                  <Clock size={13} />
+                  <span>Set Draft</span>
+                </button>
+              </>
+            )}
 
             <button
               type="button"
@@ -1386,7 +1403,7 @@ export default function RaporDosenClient({
         semesterId={selectedSemester}
         semesterLabel={`${activeSelectedSemester?.tahunAkademik} ${activeSelectedSemester?.periode}`}
         onSuccess={() => {
-          toast.success("Data luaran Tridharma LPPM berhasil diperbarui.");
+          toast.success("Data luaran Tridharma berhasil diperbarui.");
           router.refresh();
         }}
       />

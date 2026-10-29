@@ -2,6 +2,8 @@
 // Halaman Laporan Performa Fakultas per Periode Tanggal / Sesi
 
 import { Metadata } from "next";
+import Link from "next/link";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getLaporanFakultas } from "@/actions/laporan";
 import { getWeekDates } from "@/lib/utils";
@@ -30,8 +32,29 @@ export default async function LaporanFakultasPage({
 }: LaporanFakultasPageProps) {
   const session = await auth();
   const userRole = (session?.user as any)?.role;
-  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
   const isDosen = userRole === "DOSEN";
+
+  // Proteksi Akses: Halaman Laporan Fakultas dikhususkan untuk SUPER_ADMIN & ADMIN (QAU)
+  if (isDosen) {
+    return (
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 shadow-sm text-center">
+        <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-800">Akses Ditolak</h2>
+        <p className="text-xs text-slate-500 mt-1 mb-6">
+          Halaman Laporan Performa per Fakultas dikhususkan untuk Pimpinan Institusi dan Tim Penjaminan Mutu (QAU). Untuk monitoring evaluasi Program Studi Anda, silakan akses Laporan per Prodi.
+        </p>
+        <Link
+          href="/laporan/prodi"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#a80063] hover:bg-[#8c0052] text-white rounded-xl text-xs font-bold transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Buka Laporan per Prodi
+        </Link>
+      </div>
+    );
+  }
 
   const resolvedSearchParams = await searchParams;
 
@@ -70,7 +93,7 @@ export default async function LaporanFakultasPage({
     resolvedSearchParams.semesterId,
     targetStartDate,
     targetEndDate,
-    isDosen ? userProdiIds : undefined,
+    undefined,
     parsedSesi,
     targetJenisKelas
   );

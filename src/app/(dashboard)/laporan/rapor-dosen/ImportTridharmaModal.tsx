@@ -1,6 +1,6 @@
 "use client";
 // src/app/(dashboard)/laporan/rapor-dosen/ImportTridharmaModal.tsx
-// Modal Unggah Rekap Data Tridharma (Penelitian & PkM) dari LPPM
+// Modal Unggah Rekap Data Tridharma (Penelitian & PkM)
 // Tampilan Standar CDU Portal Simple & Clean (Preview Interaktif Sebelum Simpan)
 // Resmi Quality Assurance Unit (QAU) & CDU Universitas Nusa Putra
 
@@ -16,6 +16,7 @@ import {
   Download,
   Search,
   FlaskConical,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -49,6 +50,19 @@ export default function ImportTridharmaModal({
   const [searchFilter, setSearchFilter] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter baris preview berdasarkan pencarian
+  const filteredItems = useMemo(() => {
+    if (!previewData) return [];
+    if (!searchFilter.trim()) return previewData.items;
+    const q = searchFilter.toLowerCase().trim();
+    return previewData.items.filter(
+      (item) =>
+        item.dosenNama.toLowerCase().includes(q) ||
+        (item.nipNidn && item.nipNidn.toLowerCase().includes(q)) ||
+        item.prodiNama.toLowerCase().includes(q)
+    );
+  }, [previewData, searchFilter]);
 
   if (!isOpen) return null;
 
@@ -108,7 +122,7 @@ export default function ImportTridharmaModal({
     }
   };
 
-  // Unduh Template Excel Resmi LPPM
+  // Unduh Template Excel Rekap Tridharma
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -149,8 +163,8 @@ export default function ImportTridharmaModal({
       { wch: 18 },
     ];
 
-    XLSX.utils.book_append_sheet(wb, ws, "Rekap Tridharma LPPM");
-    XLSX.writeFile(wb, "Template_Import_Tridharma_LPPM.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap Tridharma");
+    XLSX.writeFile(wb, "Template_Import_Tridharma.xlsx");
     toast.success("Template Excel berhasil diunduh.");
   };
 
@@ -176,7 +190,7 @@ export default function ImportTridharmaModal({
       const res = await saveTridharmaImportAction({
         semesterId,
         items: validItems,
-        fileName: file?.name || "rekap_lppm_tridharma.xlsx",
+        fileName: file?.name || "rekap_tridharma.xlsx",
       });
 
       if (res.success) {
@@ -195,19 +209,6 @@ export default function ImportTridharmaModal({
     }
   };
 
-  // Filter baris preview berdasarkan pencarian
-  const filteredItems = useMemo(() => {
-    if (!previewData) return [];
-    if (!searchFilter.trim()) return previewData.items;
-    const q = searchFilter.toLowerCase().trim();
-    return previewData.items.filter(
-      (item) =>
-        item.dosenNama.toLowerCase().includes(q) ||
-        (item.nipNidn && item.nipNidn.toLowerCase().includes(q)) ||
-        item.prodiNama.toLowerCase().includes(q)
-    );
-  }, [previewData, searchFilter]);
-
   const isBusy = isLoadingPreview || isSaving;
 
   return (
@@ -219,7 +220,11 @@ export default function ImportTridharmaModal({
       }}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in"
     >
-      <div className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col overflow-hidden">
+      <div
+        className={`w-full bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 relative max-h-[94vh] flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+          previewData ? "max-w-5xl lg:max-w-6xl xl:max-w-7xl" : "max-w-xl"
+        }`}
+      >
         {/* Tombol Tutup Silang */}
         <button
           type="button"
@@ -238,7 +243,7 @@ export default function ImportTridharmaModal({
             <span>Import Tridharma (Penelitian & PkM)</span>
           </h3>
           <p className="text-xs text-slate-500 font-normal">
-            Semester {semesterLabel || "Aktif"} &bull; Rekapitulasi Luaran LPPM Universitas Nusa Putra
+            Rekapitulasi Luaran Tridharma Universitas Nusa Putra &bull; Semester {semesterLabel || "Aktif"} 
           </p>
         </div>
 
@@ -264,96 +269,94 @@ export default function ImportTridharmaModal({
           {previewData ? (
             /* ── TAMPILAN PREVIEW TABULAR SEBELUM SIMPAN ───────────────────────── */
             <div className="space-y-3">
-              {/* Ringkasan Status Pencocokan */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
-                    Total Baris Excel
-                  </span>
-                  <span className="text-base font-black text-slate-800">
-                    {previewData.totalRows} Dosen
-                  </span>
+              {/* Baris Pencarian & Ringkasan Status Compact */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                {/* Kolom Search di Kiri */}
+                <div className="relative flex-1">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama dosen, NIP/NIDN, atau prodi di preview..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-[#a80063] focus:bg-white transition-colors"
+                  />
+                  {searchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchFilter("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </div>
-                <div className="bg-emerald-50/60 border border-emerald-200/60 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">
-                    Dosen Cocok
-                  </span>
-                  <span className="text-base font-black text-emerald-700">
-                    {previewData.matchedCount} Dosen
-                  </span>
-                </div>
-                <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-2.5 text-center">
-                  <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider block">
-                    Belum Terdaftar
-                  </span>
-                  <span className="text-base font-black text-amber-700">
-                    {previewData.unmatchedCount}
-                  </span>
-                </div>
-              </div>
 
-              {/* Baris Pencarian Cepat di Preview */}
-              <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama dosen atau program studi di preview..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50/60 border border-slate-200 rounded-lg focus:outline-none focus:border-[#a80063]"
-                />
+                {/* Ringkasan Status Compact di Kanan */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-medium border border-slate-200/80">
+                    <Users size={12} className="text-slate-500" />
+                    <span>Total: <strong className="font-bold text-slate-900">{previewData.totalRows}</strong> Dosen</span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200/80">
+                    <CheckCircle2 size={12} className="text-emerald-600" />
+                    <span>Cocok: <strong className="font-bold text-emerald-900">{previewData.matchedCount}</strong></span>
+                  </span>
+
+                  {previewData.unmatchedCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200/80">
+                      <AlertCircle size={12} className="text-amber-600" />
+                      <span>Belum Terdaftar: <strong className="font-bold text-amber-900">{previewData.unmatchedCount}</strong></span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Tabel Preview Baris */}
-              <div className="border border-slate-200/80 rounded-xl overflow-hidden max-h-60 overflow-y-auto bg-white">
+              <div className="border border-slate-200/80 rounded-xl overflow-hidden max-h-[60vh] lg:max-h-[64vh] overflow-y-auto bg-white shadow-2xs">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-200 z-10">
                     <tr>
-                      <th className="py-2 px-3 w-8 text-center">#</th>
-                      <th className="py-2 px-3">Nama Dosen & Prodi</th>
-                      <th className="py-2 px-3 text-center">Penelitian</th>
-                      <th className="py-2 px-3 text-center">Pengabdian</th>
-                      <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
+                      <th className="py-2.5 px-3">Nama Dosen & Prodi</th>
+                      <th className="py-2.5 px-3 text-center w-28">Penelitian</th>
+                      <th className="py-2.5 px-3 text-center w-28">Pengabdian</th>
+                      <th className="py-2.5 px-3 text-center w-28">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
                           {item.rowNumber}
                         </td>
-                        <td className="py-2 px-3 min-w-[200px]">
+                        <td className="py-2.5 px-3">
                           <span className="font-semibold text-slate-900 block truncate">
                             {item.dosenNama}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-slate-500 font-mono">
                             {item.nipNidn ? `NIP/NIDN: ${item.nipNidn} • ` : ""}
                             {item.prodiNama}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
-                          <span className="text-slate-400 line-through mr-1 text-[11px]">
-                            {item.penelitianLama}
-                          </span>
-                          <span className="font-bold text-slate-900">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="font-bold text-slate-900 text-xs">
                             {item.penelitianBaru}
                           </span>
-                          <span className="text-[10px] text-slate-400 block font-mono">
+                          <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
                             Skor {item.skorPenelitianBaru.toFixed(2)}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
-                          <span className="text-slate-400 line-through mr-1 text-[11px]">
-                            {item.pengabdianLama}
-                          </span>
-                          <span className="font-bold text-slate-900">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className="font-bold text-slate-900 text-xs">
                             {item.pengabdianBaru}
                           </span>
-                          <span className="text-[10px] text-slate-400 block font-mono">
+                          <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
                             Skor {item.skorPengabdianBaru.toFixed(2)}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {item.isMatched ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                               <CheckCircle2 size={10} />
@@ -424,10 +427,10 @@ export default function ImportTridharmaModal({
                 ) : (
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-slate-800">
-                      Pilih atau Seret Berkas Excel Rekap LPPM ke Sini
+                      Pilih atau Seret Berkas Excel Rekap Tridharma ke Sini
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      Format <strong>.xlsx</strong> atau <strong>.xls</strong> resmi dari LPPM
+                      Format <strong>.xlsx</strong> atau <strong>.xls</strong> data luaran Tridharma
                     </p>
                   </div>
                 )}
@@ -445,13 +448,13 @@ export default function ImportTridharmaModal({
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-[#a80063] hover:border-[#fbcfe8] text-xs font-semibold transition-all cursor-pointer shadow-2xs"
                 >
                   <Download size={12} />
-                  <span>Unduh Template LPPM</span>
+                  <span>Unduh Template Tridharma</span>
                 </button>
               </div>
 
               {/* Catatan Penjelas */}
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Berkas Excel LPPM akan memperbarui kolom <strong>Penelitian</strong> dan <strong>Pengabdian Masyarakat (PkM)</strong>, lalu secara otomatis mengalkulasi ulang <strong>Nilai Akhir Terbobot</strong> dan <strong>Predikat Mutu</strong> tanpa mempengaruhi data perkuliahan atau kuesioner.
+                Berkas Excel Tridharma akan memperbarui kolom <strong>Penelitian</strong> dan <strong>Pengabdian Masyarakat (PkM)</strong>.
               </p>
             </div>
           )}

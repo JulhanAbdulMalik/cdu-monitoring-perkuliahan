@@ -93,6 +93,7 @@ const navGroups: NavGroup[] = [
         label: "Laporan per Fakultas",
         href: "/laporan/fakultas",
         icon: Landmark,
+        allowedRoles: ["SUPER_ADMIN", "ADMIN"],
       },
       {
         label: "Laporan per Dosen",

@@ -5,6 +5,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
+import { auth } from "@/lib/auth";
 import { getBatchRaporDosenDetails } from "@/actions/rapor";
 import PrintBatchClient from "./PrintBatchClient";
 
@@ -52,9 +53,19 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
     .map((id) => id.trim())
     .filter(Boolean);
 
+  const session = await auth();
+  const userRole = (session?.user as any)?.role;
+  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+  const isDosen = userRole === "DOSEN";
+
   const res = await getBatchRaporDosenDetails(dosenIds, semesterId);
 
-  if (!res.success || !res.data || res.data.length === 0) {
+  let validItems = res.data || [];
+  if (isDosen) {
+    validItems = validItems.filter((item) => item.dosen.prodi?.id && userProdiIds.includes(item.dosen.prodi.id));
+  }
+
+  if (!res.success || validItems.length === 0) {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 shadow-sm text-center">
         <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
@@ -62,7 +73,7 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
         </div>
         <h2 className="text-lg font-bold text-slate-800">Gagal Memuat Data Dosen</h2>
         <p className="text-xs text-slate-500 mt-1 mb-6">
-          {res.error || "Tidak ada data rapor yang dapat dimuat untuk dosen-dosen yang dipilih."}
+          {res.error || (isDosen ? "Dosen yang dipilih berada di luar Program Studi Anda." : "Tidak ada data rapor yang dapat dimuat untuk dosen-dosen yang dipilih.")}
         </p>
         <Link
           href={`/laporan/rapor-dosen${semesterId ? `?semesterId=${semesterId}` : ""}`}
@@ -75,7 +86,7 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
     );
   }
 
-  const activeSemesterId = semesterId || res.data[0].semester.id;
+  const activeSemesterId = semesterId || validItems[0].semester.id;
 
-  return <PrintBatchClient items={res.data} semesterId={activeSemesterId} />;
+  return <PrintBatchClient items={validItems} semesterId={activeSemesterId} />;
 }

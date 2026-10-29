@@ -77,6 +77,11 @@ export async function saveRaporConfig(
   payload: Partial<RaporConfigData>
 ): Promise<{ success: boolean; data?: RaporConfigData; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Konfigurasi bobot & pengesahan hanya dapat diatur oleh Admin QAU atau Super Admin." };
+    }
+
     const configData = {
       bobotKuesioner: payload.bobotKuesioner ?? DEFAULT_RAPOR_CONFIG.bobotKuesioner,
       bobotKehadiran: payload.bobotKehadiran ?? DEFAULT_RAPOR_CONFIG.bobotKehadiran,
@@ -890,6 +895,11 @@ export async function saveRaporDosen(
   payload: SaveRaporDosenPayload
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Pengeditan nilai rapor hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     const config = await getRaporConfig(payload.semesterId);
 
     // Hitung persenKehadiran otomatis jika rerataSesiHadir diubah namun persenKehadiran tidak diisi eksplisit
@@ -1057,6 +1067,11 @@ export async function syncAllLecturersFromMonitoring(
   semesterId: string
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Sinkronisasi data monitoring hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     // Ambil semua dosen yang memiliki kelas di semester ini
     const classes = await prisma.kelas.findMany({
       where: { semesterId },
@@ -1329,6 +1344,11 @@ export async function saveSiakadImportAction(
   payload: SaveSiakadImportPayload
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Fitur import angket SIAKAD hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     if (!payload.dosenId || !payload.semesterId) {
       return { success: false, error: "Dosen ID dan Semester ID wajib disertakan" };
     }
@@ -1479,6 +1499,11 @@ export async function analyzeRaporWithGeminiAction(
   rekomendasiPerbaikanTexts?: string[]
 ): Promise<{ success: boolean; data?: GeminiRaporAnalysisResult; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Analisis AI Gemini hanya dapat dijalankan oleh Admin QAU atau Super Admin." };
+    }
+
     const dosen = await prisma.dosen.findUnique({
       where: { id: dosenId },
       include: { prodi: true },
@@ -1585,6 +1610,11 @@ export async function deleteRaporDosen(
   semesterId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Penghapusan data rapor hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     await prisma.raporDosen.delete({
       where: {
         dosenId_semesterId: { dosenId, semesterId },
@@ -1608,6 +1638,11 @@ export async function batchUpdateStatusRapor(
   status: "DRAFT" | "FINAL"
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Validasi status rapor hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     const updated = await prisma.raporDosen.updateMany({
       where: {
         semesterId,
@@ -1638,8 +1673,8 @@ export async function sendRaporDosenEmailAction(payload: {
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized. Silakan login kembali." };
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, error: "Akses ditolak. Pengiriman email resmi rapor dosen hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
     }
 
     const dosen = await prisma.dosen.findUnique({
@@ -1772,7 +1807,7 @@ export async function sendRaporDosenEmailAction(payload: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. IMPORT TRIDHARMA LPPM (PENELITIAN & PKM)
+// 8. IMPORT TRIDHARMA (PENELITIAN & PKM)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function matchDosenInList(
@@ -1916,7 +1951,7 @@ export async function previewTridharmaImportAction(
     console.error("Error previewTridharmaImportAction:", error);
     return {
       success: false,
-      error: error?.message || "Gagal memproses file Excel Tridharma LPPM.",
+      error: error?.message || "Gagal memproses file Excel Tridharma.",
     };
   }
 }
@@ -1931,6 +1966,11 @@ export async function saveTridharmaImportAction(payload: {
   fileName?: string;
 }): Promise<{ success: boolean; count: number; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, count: 0, error: "Akses ditolak. Fitur import Tridharma hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     const config = await getRaporConfig(payload.semesterId);
     let updatedCount = 0;
 
@@ -1983,7 +2023,7 @@ export async function saveTridharmaImportAction(payload: {
           nilaiAkhir: calc.nilaiAkhir,
           predikat: calc.predikat.kode,
           statusRapor: "DRAFT",
-          sumberImport: payload.fileName || "rekap_lppm_tridharma.xlsx",
+          sumberImport: payload.fileName || "rekap_tridharma.xlsx",
         },
         update: {
           jumlahPenelitian: item.jumlahPenelitian,
@@ -2005,7 +2045,7 @@ export async function saveTridharmaImportAction(payload: {
     return {
       success: false,
       count: 0,
-      error: error?.message || "Gagal menyimpan data Tridharma LPPM.",
+      error: error?.message || "Gagal menyimpan data Tridharma.",
     };
   }
 }
@@ -2145,6 +2185,11 @@ export async function saveRekapLampauImportAction(payload: {
   fileName?: string;
 }): Promise<{ success: boolean; count: number; error?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role === "DOSEN") {
+      return { success: false, count: 0, error: "Akses ditolak. Fitur import rekap lampau hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
+    }
+
     const config = await getRaporConfig(payload.semesterId);
     let savedCount = 0;
 
