@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAuth, requireAdminOrSuper } from "@/lib/action-auth";
 
 const semesterSchema = z.object({
   tahunAkademik: z
@@ -19,6 +20,7 @@ const semesterSchema = z.object({
 
 export async function getSemesters() {
   try {
+    await requireAuth();
     const semesters = await prisma.semester.findMany({
       include: {
         hariLibur: {
@@ -38,6 +40,7 @@ export async function getSemesters() {
 
 export async function getActiveSemester() {
   try {
+    await requireAuth();
     let active = await prisma.semester.findFirst({
       where: { aktif: true },
       select: {
@@ -75,6 +78,7 @@ export async function createSemester(formData: {
   tanggalMulai?: string | Date | null;
 }) {
   try {
+    await requireAdminOrSuper();
     const parsed = semesterSchema.parse(formData);
 
     // Cek apakah semester dengan tahun dan periode yang sama sudah ada
@@ -139,6 +143,7 @@ export async function updateSemester(
   }
 ) {
   try {
+    await requireAdminOrSuper();
     const parsed = semesterSchema.parse(formData);
 
     // Cek duplikasi (kecuali dirinya sendiri)
@@ -196,6 +201,7 @@ export async function updateSemester(
 
 export async function toggleSemesterAktif(id: string) {
   try {
+    await requireAdminOrSuper();
     // Nonaktifkan semua semester lain
     await prisma.semester.updateMany({
       data: { aktif: false },
@@ -224,6 +230,7 @@ export async function toggleSemesterAktif(id: string) {
 
 export async function deleteSemester(id: string) {
   try {
+    await requireAdminOrSuper();
     // Cek apakah ada kelas terhubung
     const semester = await prisma.semester.findUnique({
       where: { id },
@@ -289,6 +296,7 @@ export async function createLiburSemester(data: {
   keterangan?: string | null;
 }) {
   try {
+    await requireAdminOrSuper();
     const parsed = liburSemesterSchema.parse(data);
 
     const tglMulai = new Date(`${parsed.tanggalMulai}T00:00:00.000Z`);
@@ -335,6 +343,7 @@ export async function updateLiburSemester(
   }
 ) {
   try {
+    await requireAdminOrSuper();
     const tglMulai = new Date(`${data.tanggalMulai}T00:00:00.000Z`);
     const tglSelesai = new Date(`${data.tanggalSelesai}T00:00:00.000Z`);
 
@@ -368,6 +377,7 @@ export async function updateLiburSemester(
 
 export async function deleteLiburSemester(id: string) {
   try {
+    await requireAdminOrSuper();
     await prisma.liburSemester.delete({
       where: { id },
     });

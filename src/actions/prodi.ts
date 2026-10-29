@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAuth, requireAdminOrSuper } from "@/lib/action-auth";
 
 const fakultasSchema = z.object({
   nama: z.string().min(1, "Nama fakultas wajib diisi"),
@@ -19,6 +20,7 @@ const prodiSchema = z.object({
 
 export async function getFakultasAndProdi() {
   try {
+    await requireAuth();
     const fakultas = await prisma.fakultas.findMany({
       include: {
         prodi: {
@@ -56,6 +58,7 @@ export async function getFakultasAndProdi() {
 
 export async function createFakultas(nama: string) {
   try {
+    await requireAdminOrSuper();
     const parsed = fakultasSchema.parse({ nama });
 
     const existing = await prisma.fakultas.findUnique({
@@ -82,6 +85,7 @@ export async function createFakultas(nama: string) {
 
 export async function updateFakultas(id: string, nama: string) {
   try {
+    await requireAdminOrSuper();
     const parsed = fakultasSchema.parse({ nama });
 
     const existing = await prisma.fakultas.findFirst({
@@ -109,6 +113,7 @@ export async function updateFakultas(id: string, nama: string) {
 
 export async function deleteFakultas(id: string) {
   try {
+    await requireAdminOrSuper();
     const fakultas = await prisma.fakultas.findUnique({
       where: { id },
       include: {
@@ -141,6 +146,7 @@ export async function createProdi(formData: {
   fakultasId: string;
 }) {
   try {
+    await requireAdminOrSuper();
     const parsed = prodiSchema.parse(formData);
 
     const existingKode = await prisma.prodi.findUnique({
@@ -186,6 +192,7 @@ export async function updateProdi(
   }
 ) {
   try {
+    await requireAdminOrSuper();
     const parsed = prodiSchema.parse(formData);
 
     const existingKode = await prisma.prodi.findFirst({
@@ -225,6 +232,7 @@ export async function updateProdi(
 
 export async function deleteProdi(id: string) {
   try {
+    await requireAdminOrSuper();
     const prodi = await prisma.prodi.findUnique({
       where: { id },
       include: {
@@ -261,6 +269,7 @@ export async function deleteProdi(id: string) {
 
 export async function toggleProdiStatus(id: string, isActive: boolean) {
   try {
+    await requireAdminOrSuper();
     const data = await prisma.prodi.update({
       where: { id },
       data: { isActive },

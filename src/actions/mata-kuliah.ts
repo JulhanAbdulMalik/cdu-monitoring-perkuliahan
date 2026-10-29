@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAuth, requireAdminOrSuper } from "@/lib/action-auth";
 
 const mataKuliahSchema = z.object({
   kode: z.string().min(1, "Kode mata kuliah wajib diisi").toUpperCase(),
@@ -16,6 +17,7 @@ const mataKuliahSchema = z.object({
 
 export async function getMataKuliahList() {
   try {
+    await requireAuth();
     const [mataKuliah, prodiList] = await Promise.all([
       prisma.mataKuliah.findMany({
         include: {
@@ -46,6 +48,7 @@ export async function createMataKuliah(formData: {
   prodiId: string;
 }) {
   try {
+    await requireAdminOrSuper();
     const parsed = mataKuliahSchema.parse(formData);
 
     const existing = await prisma.mataKuliah.findUnique({
@@ -102,6 +105,7 @@ export async function updateMataKuliah(
   }
 ) {
   try {
+    await requireAdminOrSuper();
     const parsed = mataKuliahSchema.parse(formData);
 
     const existing = await prisma.mataKuliah.findFirst({
@@ -150,6 +154,7 @@ export async function updateMataKuliah(
 
 export async function deleteMataKuliah(id: string) {
   try {
+    await requireAdminOrSuper();
     const mk = await prisma.mataKuliah.findUnique({
       where: { id },
       include: {

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAdminOrSuper } from "@/lib/action-auth";
 
 export interface ImportPreviewRow {
   rowIndex: number;
@@ -27,6 +28,7 @@ export interface ImportPreviewResult {
 
 export async function parseDosenExcel(formData: FormData): Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }> {
   try {
+    await requireAdminOrSuper();
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
 
@@ -97,6 +99,7 @@ export async function parseDosenExcel(formData: FormData): Promise<{ success: bo
 
 export async function commitDosenImport(rows: any[]): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    await requireAdminOrSuper();
     let count = 0;
     for (const r of rows) {
       if (!r.nama || !r.prodiId) continue;
@@ -191,6 +194,7 @@ export async function commitDosenImport(rows: any[]): Promise<{ success: boolean
 
 export async function parseMataKuliahExcel(formData: FormData): Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }> {
   try {
+    await requireAdminOrSuper();
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
 
@@ -256,6 +260,7 @@ export async function parseMataKuliahExcel(formData: FormData): Promise<{ succes
 
 export async function commitMataKuliahImport(rows: any[]): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    await requireAdminOrSuper();
     let count = 0;
     for (const r of rows) {
       if (!r.kode || !r.nama || !r.prodiId) continue;
@@ -382,6 +387,7 @@ function findBestDosenMatch(
 
 export async function parseKelasExcel(formData: FormData): Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }> {
   try {
+    await requireAdminOrSuper();
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
     const targetSemesterId = String(formData.get("semesterId") || "").trim();
@@ -658,6 +664,7 @@ export async function parseKelasExcel(formData: FormData): Promise<{ success: bo
 
 export async function commitKelasImport(rows: any[]): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    await requireAdminOrSuper();
     let count = 0;
 
     const allSemesters = await prisma.semester.findMany();
@@ -940,6 +947,7 @@ export async function commitKelasImport(rows: any[]): Promise<{ success: boolean
 
 export async function parseProdiExcel(formData: FormData): Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }> {
   try {
+    await requireAdminOrSuper();
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
 
@@ -989,6 +997,7 @@ export async function parseProdiExcel(formData: FormData): Promise<{ success: bo
 
 export async function commitProdiImport(rows: any[]): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    await requireAdminOrSuper();
     let count = 0;
 
     for (const r of rows) {
@@ -1041,6 +1050,7 @@ export async function commitProdiImport(rows: any[]): Promise<{ success: boolean
 
 export async function parseSemesterExcel(formData: FormData): Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }> {
   try {
+    await requireAdminOrSuper();
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "File tidak ditemukan" };
 
@@ -1094,6 +1104,7 @@ export async function parseSemesterExcel(formData: FormData): Promise<{ success:
 
 export async function commitSemesterImport(rows: any[]): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
+    await requireAdminOrSuper();
     let count = 0;
 
     for (const r of rows) {

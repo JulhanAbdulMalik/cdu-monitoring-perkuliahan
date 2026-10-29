@@ -3,10 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const secret =
-  process.env.AUTH_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  "cdu-monitoring-nusa-putra-secret-key-2026-change-in-production";
+const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
 export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;

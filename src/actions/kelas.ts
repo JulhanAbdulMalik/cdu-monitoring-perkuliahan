@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAuth, requireAdminOrSuper } from "@/lib/action-auth";
 
 const kelasSchema = z.object({
   kodeKelas: z.string().min(1, "Kode kelas wajib diisi").toUpperCase(),
@@ -19,6 +20,7 @@ const kelasSchema = z.object({
 
 export async function getKelasList(semesterId?: string) {
   try {
+    await requireAuth();
     // Optimasi Waterfall: Jalankan query data master secara paralel
     const [allSemesters, allMataKuliah, allDosen, allProdi] = await Promise.all([
       prisma.semester.findMany({
@@ -131,6 +133,7 @@ export interface UnifiedKelasPayload {
 
 export async function createKelas(formData: UnifiedKelasPayload) {
   try {
+    await requireAdminOrSuper();
     const kodeKelas = (formData.kodeKelas || "").trim().toUpperCase();
     if (!kodeKelas) {
       return { success: false, error: "Kode / Nama Kelas wajib diisi" };
@@ -310,6 +313,7 @@ export async function createKelas(formData: UnifiedKelasPayload) {
 
 export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
   try {
+    await requireAdminOrSuper();
     const kodeKelas = (formData.kodeKelas || "").trim().toUpperCase();
     if (!kodeKelas) {
       return { success: false, error: "Kode / Nama Kelas wajib diisi" };
@@ -475,6 +479,7 @@ export async function updateKelas(id: string, formData: UnifiedKelasPayload) {
 
 export async function deleteKelas(id: string) {
   try {
+    await requireAdminOrSuper();
     // Menghapus kelas akan otomatis menghapus 16 sesi monitoring (cascade onDelete)
     await prisma.kelas.delete({
       where: { id },
@@ -503,6 +508,7 @@ export async function getResetKelasStats(options: {
   prodiId?: string;
 }) {
   try {
+    await requireAdminOrSuper();
     const whereKelas: any = {};
     if (options.semesterId && options.semesterId !== "ALL") {
       whereKelas.semesterId = options.semesterId;
@@ -580,6 +586,7 @@ export async function resetKelasData(options: {
   cleanupEmptyMk?: boolean;
 }) {
   try {
+    await requireAdminOrSuper();
     const whereKelas: any = {};
     if (options.semesterId && options.semesterId !== "ALL") {
       whereKelas.semesterId = options.semesterId;

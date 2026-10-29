@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invalidateLaporanCache } from "@/actions/laporan";
+import { requireAuth, requireAdminOrSuper } from "@/lib/action-auth";
 
 const dosenSchema = z.object({
   nama: z.string().min(1, "Nama dosen wajib diisi"),
@@ -18,6 +19,7 @@ const dosenSchema = z.object({
 
 export async function getDosenList() {
   try {
+    await requireAuth();
     const [dosen, prodiList] = await Promise.all([
       prisma.dosen.findMany({
         include: {
@@ -50,6 +52,7 @@ export async function createDosen(formData: {
   prodiId: string;
 }) {
   try {
+    await requireAdminOrSuper();
     const parsed = dosenSchema.parse(formData);
 
     if (parsed.nidn && parsed.nidn.trim() !== "") {
@@ -117,6 +120,7 @@ export async function updateDosen(
   }
 ) {
   try {
+    await requireAdminOrSuper();
     const parsed = dosenSchema.parse(formData);
 
     if (parsed.nidn && parsed.nidn.trim() !== "") {
@@ -175,6 +179,7 @@ export async function updateDosen(
 
 export async function deleteDosen(id: string) {
   try {
+    await requireAdminOrSuper();
     const dosen = await prisma.dosen.findUnique({
       where: { id },
       include: {
@@ -215,6 +220,7 @@ export interface ResetDosenStats {
 
 export async function getResetDosenStats(options: { prodiId?: string }) {
   try {
+    await requireAdminOrSuper();
     const whereBase: any = {};
     if (options.prodiId && options.prodiId !== "ALL") {
       whereBase.prodiId = options.prodiId;
@@ -262,6 +268,7 @@ export async function resetDosenData(options: {
   onlyZeroClasses?: boolean;
 }) {
   try {
+    await requireAdminOrSuper();
     const whereFilter: any = {};
     if (options.prodiId && options.prodiId !== "ALL") {
       whereFilter.prodiId = options.prodiId;

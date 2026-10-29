@@ -7,10 +7,7 @@ import type { NextAuthConfig } from "next-auth";
 export const authConfig: NextAuthConfig = {
   basePath: "/api/auth",
   useSecureCookies: process.env.NODE_ENV === "production",
-  secret:
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "cdu-monitoring-nusa-putra-secret-key-2026-change-in-production",
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
   pages: {
     signIn: "/login",

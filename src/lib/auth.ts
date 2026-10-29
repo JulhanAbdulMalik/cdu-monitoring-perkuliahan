@@ -17,10 +17,7 @@ const loginSchema = z.object({
 import { getToken } from "next-auth/jwt";
 import { headers } from "next/headers";
 
-const secret =
-  process.env.AUTH_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  "cdu-monitoring-nusa-putra-secret-key-2026-change-in-production";
+const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
 export const { handlers, auth: rawAuth, signIn, signOut } = NextAuth({
   ...authConfig,
