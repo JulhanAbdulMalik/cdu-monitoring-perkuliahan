@@ -2,6 +2,9 @@
 // src/components/layout/Sidebar.tsx
 // Compact & Collapsible Mini / Full Sidebar with Plus Jakarta Sans & #a80063 Brand
 // Completely free from horizontal scrollbars (overflow-x-hidden)
+// PERF: prefetch dihilangkan dari semua menu agar browser tidak diam-diam
+// memuat ulang halaman Laporan yang berat setiap kali sidebar di-render.
+// Halaman tetap cepat dibuka karena loading.tsx shimmer sudah terpasang di setiap route.
 
 import { Fragment } from "react";
 import Link from "next/link";
@@ -199,7 +202,6 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
       >
         <Link
           href="/"
-          prefetch={true}
           className="flex items-center gap-2.5 min-w-0"
           title="CDU PORTAL - Nusa Putra University"
         >
@@ -263,7 +265,7 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
                     <div className="relative">
                     <Link
                       href={hasChildren ? item.children![0].href : item.href}
-                      prefetch={true}
+                      prefetch={false}
                       title={item.label}
                       className={cn(
                         "flex items-center rounded-lg text-xs transition-all duration-150 relative cursor-pointer overflow-hidden",
@@ -320,7 +322,7 @@ export default function Sidebar({ activeSemester }: SidebarProps = {}) {
                           <Link
                             key={child.href}
                             href={child.href}
-                            prefetch={true}
+                            prefetch={false}
                             className={cn(
                               "block px-2.5 py-1 rounded text-[11px] transition-colors truncate",
                               pathname === child.href

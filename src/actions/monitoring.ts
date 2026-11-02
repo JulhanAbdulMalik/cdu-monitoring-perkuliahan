@@ -17,7 +17,10 @@ import {
   DEFAULT_SEMESTER_START_DATE,
 } from "@/lib/utils";
 import { auth } from "@/lib/auth";
-import { invalidateLaporanCache } from "@/actions/laporan";
+// PERF: invalidateLaporanCache tidak dipanggil dari aksi monitoring.
+// Cache laporan dibiarkan kedaluwarsa secara alami (TTL 30 detik).
+// Memanggil invalidateLaporanCache() setiap klik Simpan memaksa server
+// menghitung ulang seluruh laporan dari nol — penyebab utama Simpan lambat.
 
 export async function getMonitoringKelasList(semesterId?: string, prodiId?: string) {
   try {
@@ -399,7 +402,7 @@ function getDayWeight(hari?: string | null): number {
 
 function getJamStart(jam?: string | null): string {
   if (!jam) return "99:99";
-  const parts = jam.split(/[-–]|(?:s\.d)/i);
+  const parts = jam.split(/[-â€“]|(?:s\.d)/i);
   return parts[0]?.trim() || jam.trim();
 }
 
@@ -1451,11 +1454,9 @@ export async function updateSingleMonitoringSesi(
       select: { id: true, kelasId: true },
     });
 
+    // PERF: Hanya revalidate halaman monitoring kelas saja — tidak semua laporan.
+    // Laporan biarkan kedaluwarsa lewat TTL cache (30 detik).
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    revalidatePath("/laporan/dosen");
-    revalidatePath("/");
-    await invalidateLaporanCache();
     return { success: true, data: updated };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal menyimpan perubahan sesi" };
@@ -1517,11 +1518,8 @@ export async function updateBatchMonitoringSesi(
       })
     );
 
+    // PERF: Hanya revalidate monitoring — laporan kedaluwarsa via TTL cache.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    revalidatePath("/laporan/dosen");
-    revalidatePath("/");
-    await invalidateLaporanCache();
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal menyimpan perubahan batch sesi" };
@@ -1556,15 +1554,12 @@ export async function gantiDosenSesiAction(params: GantiDosenParams) {
       },
     });
 
+    // PERF: Hanya revalidate monitoring — laporan kedaluwarsa via TTL cache.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    revalidatePath("/laporan/dosen");
-    revalidatePath("/");
-    await invalidateLaporanCache();
 
     return {
       success: true,
-      message: `Berhasil memperbarui pengajar untuk Sesi ${nomorSesiMulai}–${nomorSesiSampai}`,
+      message: `Berhasil memperbarui pengajar untuk Sesi ${nomorSesiMulai}â€“${nomorSesiSampai}`,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memperbarui dosen pengajar sesi" };
@@ -1644,20 +1639,18 @@ export async function applyExcelImportToKelas(
       }
     });
 
+    // PERF: Hanya revalidate monitoring & master/kelas.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
     revalidatePath("/master/kelas");
-    revalidatePath("/");
-    await invalidateLaporanCache();
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal menerapkan data Excel ke kelas" };
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // QUICK BATCH ACTIONS (Efisiensi Input Staf CDU)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function quickSetAllAttendance(
   kelasId: string,
@@ -1670,9 +1663,8 @@ export async function quickSetAllAttendance(
       data: { kehadiran: norm },
     });
 
+    // PERF: Hanya revalidate monitoring.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    await invalidateLaporanCache();
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal mengubah kehadiran massal" };
@@ -1694,9 +1686,8 @@ export async function quickSetAllPillars(kelasId: string, setComplete: boolean =
       },
     });
 
+    // PERF: Hanya revalidate monitoring.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    await invalidateLaporanCache();
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal mengatur 3 pilar massal" };
@@ -1725,11 +1716,8 @@ export async function bulkSetAttendanceAction(params: {
       },
     });
 
+    // PERF: Hanya revalidate monitoring — laporan kedaluwarsa via TTL cache.
     revalidatePath("/monitoring");
-    revalidatePath("/laporan/rekap");
-    revalidatePath("/laporan/dosen");
-    revalidatePath("/");
-    await invalidateLaporanCache();
 
     return {
       success: true,

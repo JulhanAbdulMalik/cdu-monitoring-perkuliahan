@@ -660,7 +660,7 @@ export default function MonitoringGridClient({
     });
   }
 
-  // ── Core Simpan Data ke Server ─────────────────────────────────────────────
+  // ── Core Simpan Data ke Server (dengan timeout guard & retry 1x otomatis) ──
   async function saveDataInternal(): Promise<boolean> {
     if (!currentKelas) return false;
 
@@ -697,6 +697,16 @@ export default function MonitoringGridClient({
 
     setSaving(true);
 
+    // Bungkus request dengan timeout 12 detik agar tidak menunggu selamanya
+    function callWithTimeout<T>(fn: () => Promise<T>, ms: number): Promise<T> {
+      return Promise.race([
+        fn(),
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), ms)
+        ),
+      ]);
+    }
+
     try {
       const semStartStr = currentKelas.semester?.tanggalMulai
         ? new Date(currentKelas.semester.tanggalMulai).toISOString().split("T")[0]
@@ -714,7 +724,6 @@ export default function MonitoringGridClient({
           ? (typeof s.tanggal === "string" ? s.tanggal.split("T")[0] : s.tanggal.toISOString().split("T")[0])
           : defDate;
         const finalTanggal = `${rawDateStr}T00:00:00.000Z`;
-
         return {
           id: s.id,
           kehadiran: s.kehadiran,
@@ -732,8 +741,39 @@ export default function MonitoringGridClient({
         };
       });
 
-      const res = await updateBatchMonitoringSesi(currentKelas.id, payload);
-      if (res.success) {
+      // Eksekusi dengan retry 1x otomatis jika timeout / error jaringan
+      let res: { success: boolean; error?: string } | null = null;
+      let attempts = 0;
+      while (attempts < 2) {
+        attempts++;
+        try {
+          res = await callWithTimeout(
+            () => updateBatchMonitoringSesi(currentKelas.id, payload),
+            12_000
+          );
+          if (res.success) break; // berhasil, hentikan loop
+          break; // error dari server (bukan timeout), langsung tampilkan pesan
+        } catch (err: any) {
+          if (attempts < 2) {
+            // Percobaan pertama gagal/timeout → coba sekali lagi otomatis
+            toast.loading("Koneksi lambat, mencoba ulang...", { id: "save-retry" });
+            await new Promise((r) => setTimeout(r, 800));
+            toast.dismiss("save-retry");
+          } else {
+            // Percobaan kedua juga gagal — data isian tetap aman
+            const isTimeout = err?.message === "TIMEOUT";
+            toast.error(
+              isTimeout
+                ? "Koneksi timeout. Data belum tersimpan — silakan coba lagi."
+                : "Gagal menyimpan. Periksa koneksi lalu klik Simpan kembali.",
+              { duration: 6000 }
+            );
+            return false;
+          }
+        }
+      }
+
+      if (res?.success) {
         // Sinkronkan baseline dengan data terbaru yang sudah berhasil disimpan
         const newBaselineMap: Record<string, MonitoringSesiData> = {};
         sesiList.forEach((s) => {
@@ -755,11 +795,16 @@ export default function MonitoringGridClient({
         } catch {}
         return true;
       } else {
-        toast.error(res.error || "Gagal menyimpan perubahan");
+        // Server menolak — data isian tetap aman di form, user bisa coba lagi
+        toast.error(res?.error || "Gagal menyimpan — data Anda aman, silakan coba lagi.", {
+          duration: 6000,
+        });
         return false;
       }
     } catch {
-      toast.error("Terjadi kesalahan sistem saat menyimpan");
+      toast.error("Kesalahan tidak terduga. Data Anda aman — silakan klik Simpan kembali.", {
+        duration: 6000,
+      });
       return false;
     } finally {
       setSaving(false);
