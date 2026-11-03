@@ -196,7 +196,7 @@ export async function getLecturerMonitoringStats(
 ): Promise<LecturerMonitoringStats> {
   const dosen = await prisma.dosen.findUnique({
     where: { id: dosenId },
-    select: { id: true, nama: true },
+    select: { id: true, nama: true, nidn: true, nip: true },
   });
 
   if (!dosen) {
@@ -210,17 +210,34 @@ export async function getLecturerMonitoringStats(
     };
   }
 
-  // Dapatkan seluruh ID dosen yang terkait (termasuk jika nama dosen digabung dalam kelas tandem)
-  const relatedDosens = await prisma.dosen.findMany({
-    where: {
-      OR: [
-        { id: dosenId },
-        { nama: { contains: dosen.nama.trim(), mode: "insensitive" } },
-      ],
-    },
-    select: { id: true },
-  });
-  const allDosenIds = Array.from(new Set([dosenId, ...relatedDosens.map((d) => d.id)]));
+  // Gabungkan ID dosen hanya jika ada duplikat data resmi berdasarkan NIDN/NIP yang identik.
+  // JANGAN PERNAH mencocokkan berdasarkan substring nama (contains), karena akan salah menarik kelas
+  // milik dosen lain yang namanya mirip (misal: "Ali" menarik kelas "Ali Ramdhani").
+  const targetIds = [dosenId];
+  const orConditions: Array<{ nidn: string } | { nip: string }> = [];
+
+  const cleanNidn = dosen.nidn?.trim();
+  const cleanNip = dosen.nip?.trim();
+
+  if (cleanNidn && cleanNidn.length > 0) {
+    orConditions.push({ nidn: cleanNidn });
+  }
+  if (cleanNip && cleanNip.length > 0) {
+    orConditions.push({ nip: cleanNip });
+  }
+
+  if (orConditions.length > 0) {
+    const duplicateRecords = await prisma.dosen.findMany({
+      where: {
+        id: { not: dosenId },
+        OR: orConditions,
+      },
+      select: { id: true },
+    });
+    duplicateRecords.forEach((d) => targetIds.push(d.id));
+  }
+
+  const allDosenIds = Array.from(new Set(targetIds));
 
   // Cari kelas di mana dosen adalah dosen utama atau dosen tandem
   const rawClasses = await prisma.kelas.findMany({
