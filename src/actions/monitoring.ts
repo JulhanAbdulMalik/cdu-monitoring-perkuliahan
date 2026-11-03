@@ -402,7 +402,7 @@ function getDayWeight(hari?: string | null): number {
 
 function getJamStart(jam?: string | null): string {
   if (!jam) return "99:99";
-  const parts = jam.split(/[-â€“]|(?:s\.d)/i);
+  const parts = jam.split(/[-–—]|(?:s\.d)/i);
   return parts[0]?.trim() || jam.trim();
 }
 
@@ -460,6 +460,42 @@ const LEAN_KELAS_SELECT = {
     orderBy: { nomorSesi: "asc" as const },
   },
 };
+
+/**
+ * Helper terpusat untuk menentukan apakah suatu sesi perkuliahan memerlukan pemeriksaan konten (Tab "Perlu Cek Konten"):
+ * - Sesi bukan UTS (8) atau UAS (16)
+ * - Mode pembelajaran bukan BIMBINGAN
+ * - Presensi dosen sudah diisi HADIR
+ * - Belum ada catatan dari admin / CDU (catatanCdu / catatan)
+ * - Skor 3 pilar pada sesi tersebut adalah 0 (konten kosong sesuai aturan mode pembelajaran)
+ */
+function isSessionNeedsContentCheck(
+  sesi: {
+    nomorSesi: number;
+    kehadiran?: string | null;
+    catatanCdu?: string | null;
+    catatan?: string | null;
+    lectureNote?: boolean | null;
+    slide?: boolean | null;
+    video?: boolean | null;
+    conference?: boolean | null;
+    tugas?: boolean | null;
+    kuis?: boolean | null;
+  } | null | undefined,
+  modePembelajaran: string
+): boolean {
+  if (!sesi) return false;
+  const isExam = sesi.nomorSesi === 8 || sesi.nomorSesi === 16;
+  if (isExam || modePembelajaran === "BIMBINGAN") return false;
+
+  const rawCatatan = (sesi.catatanCdu ?? sesi.catatan ?? "").trim();
+  if (rawCatatan.length > 0) return false;
+
+  if (sesi.kehadiran !== "HADIR") return false;
+
+  const pillars = calculateSessionPillars(sesi, modePembelajaran as any);
+  return pillars.score === 0;
+}
 
 function mapClassToProcessedItem(
   cls: any,
@@ -526,14 +562,7 @@ function mapClassToProcessedItem(
   const isExam = currentSesi === 8 || currentSesi === 16;
   const isBimbingan = cls.modePembelajaran === "BIMBINGAN";
   // Menandai kelas yang sudah diisi presensi HADIR tetapi bukti konten 3 pilar pada sesi tersebut masih 0 dan belum ada catatan admin
-  const targetSesiNeedsContentCheck = Boolean(
-    isMonitored &&
-      !isExam &&
-      !isBimbingan &&
-      targetSesiData?.kehadiran === "HADIR" &&
-      (!targetSesiPillars || targetSesiPillars.score === 0) &&
-      !hasCatatan
-  );
+  const targetSesiNeedsContentCheck = isSessionNeedsContentCheck(targetSesiData, cls.modePembelajaran);
 
   return {
     ...cls,
@@ -656,212 +685,94 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
     const isBimbinganOnly = params.filterMode === "BIMBINGAN";
 
     const sort = params.sortBy || "TERBARU";
-    const isCustomSortOrFilter =
-      params.monitoringTab !== "ALL" ||
-      Boolean(params.filterStatus && params.filterStatus !== "ALL") ||
-      sort === "KEHADIRAN_DESC" ||
-      sort === "KEHADIRAN_ASC" ||
-      sort === "PILAR_DESC" ||
-      sort === "PILAR_ASC" ||
-      sort === "JADWAL_ASC" ||
-      sort === "JADWAL_DESC";
+    // Pipeline terpadu: tarik data kelas dengan LEAN_KELAS_SELECT, lalu hitung tabCounts dan filter secara konsisten
+    const allMatchingClasses = await prisma.kelas.findMany({
+      where: baseWhere,
+      select: LEAN_KELAS_SELECT,
+    });
 
-    if (isCustomSortOrFilter) {
-      const allMatchingClasses = await prisma.kelas.findMany({
-        where: baseWhere,
-        select: LEAN_KELAS_SELECT,
+    const allProcessed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+
+    // Hitung seluruh tab counts dari satu sumber logika yang sama (Single Source of Truth)
+    const totalInBase = allProcessed.length;
+    const belumDimonitorCount = allProcessed.filter((c) => !c.isMonitored).length;
+    const perluCekKontenCount = allProcessed.filter((c) => c.targetSesiNeedsContentCheck).length;
+    const selesaiDimonitorCount = allProcessed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck).length;
+
+    let processed = allProcessed;
+
+    // Filter berdasarkan Tab Antrean Kerja (Workflow Pipeline)
+    if (params.monitoringTab === "BELUM") {
+      processed = processed.filter((c) => !c.isMonitored);
+    } else if (params.monitoringTab === "KONTEN") {
+      processed = processed.filter((c) => c.targetSesiNeedsContentCheck);
+    } else if (params.monitoringTab === "SELESAI" || params.monitoringTab === "SUDAH") {
+      processed = processed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck);
+    }
+
+    // Filter berdasarkan Dropdown Presensi Sesi Terpilih
+    if (params.filterStatus && params.filterStatus !== "ALL") {
+      processed = processed.filter((c) => {
+        const k = c.targetSesiData?.kehadiran;
+        if (params.filterStatus === "HADIR") return k === "HADIR";
+        if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
+        if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
+        if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
+        return true;
       });
-
-      const allProcessed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
-
-      const totalInBase = allProcessed.length;
-      const belumDimonitorCount = allProcessed.filter((c) => !c.isMonitored).length;
-      const perluCekKontenCount = allProcessed.filter((c) => c.targetSesiNeedsContentCheck).length;
-      const selesaiDimonitorCount = allProcessed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck).length;
-
-      let processed = allProcessed;
-
-      // Filter berdasarkan Tab Antrean Kerja (Workflow Pipeline)
-      if (params.monitoringTab === "BELUM") {
-        processed = processed.filter((c) => !c.isMonitored);
-      } else if (params.monitoringTab === "KONTEN") {
-        processed = processed.filter((c) => c.targetSesiNeedsContentCheck);
-      } else if (params.monitoringTab === "SELESAI" || params.monitoringTab === "SUDAH") {
-        processed = processed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck);
-      }
-
-      // Filter berdasarkan Dropdown Presensi Sesi Terpilih
-      if (params.filterStatus && params.filterStatus !== "ALL") {
-        processed = processed.filter((c) => {
-          const k = c.targetSesiData?.kehadiran;
-          if (params.filterStatus === "HADIR") return k === "HADIR";
-          if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
-          if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
-          if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
-          return true;
-        });
-      }
-
-      if (sort === "TERBARU") {
-        processed.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      } else if (sort === "TERLAMA") {
-        processed.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-      } else if (sort === "KODE_ASC") {
-        processed.sort((a, b) => a.kodeKelas.localeCompare(b.kodeKelas));
-      } else if (sort === "KODE_DESC") {
-        processed.sort((a, b) => b.kodeKelas.localeCompare(a.kodeKelas));
-      } else if (sort === "MK_ASC") {
-        processed.sort((a, b) => a.mataKuliah.nama.localeCompare(b.mataKuliah.nama));
-      } else if (sort === "MK_DESC") {
-        processed.sort((a, b) => b.mataKuliah.nama.localeCompare(a.mataKuliah.nama));
-      } else if (sort === "DOSEN_ASC") {
-        processed.sort((a, b) => a.dosen.nama.localeCompare(b.dosen.nama));
-      } else if (sort === "DOSEN_DESC") {
-        processed.sort((a, b) => b.dosen.nama.localeCompare(a.dosen.nama));
-      } else if (sort === "RUANG_ASC") {
-        processed.sort((a, b) => (a.ruangan || "").localeCompare(b.ruangan || ""));
-      } else if (sort === "RUANG_DESC") {
-        processed.sort((a, b) => (b.ruangan || "").localeCompare(a.ruangan || ""));
-      } else if (sort === "KEHADIRAN_DESC") {
-        processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
-      } else if (sort === "KEHADIRAN_ASC") {
-        processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
-      } else if (sort === "PILAR_DESC") {
-        processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
-      } else if (sort === "PILAR_ASC") {
-        processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
-      } else if (sort === "JADWAL_ASC") {
-        processed.sort((a, b) => {
-          const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
-          if (dayDiff !== 0) return dayDiff;
-          return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
-        });
-      } else if (sort === "JADWAL_DESC") {
-        processed.sort((a, b) => {
-          const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
-          if (dayDiff !== 0) return dayDiff;
-          return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
-        });
-      }
-
-      const totalFiltered = processed.length;
-      const paginated = processed.slice((page - 1) * pageSize, page * pageSize);
-
-      return {
-        success: true,
-        data: {
-          items: paginated,
-          totalCount: totalFiltered,
-          tabCounts: {
-            total: totalInBase,
-            belum: belumDimonitorCount,
-            konten: perluCekKontenCount,
-            selesai: selesaiDimonitorCount,
-            sudah: selesaiDimonitorCount,
-          },
-          page,
-          pageSize,
-          totalPages: Math.max(1, Math.ceil(totalFiltered / pageSize)),
-          defaultActiveSesi,
-        },
-      };
     }
 
-    // Direct 100% Database Pagination (Semua Kelas, no custom sort/filter)
-    let orderBy: any = [{ updatedAt: "desc" }];
+    // Pengurutan (Sorting)
     if (sort === "TERBARU") {
-      orderBy = [{ updatedAt: "desc" }];
+      processed.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     } else if (sort === "TERLAMA") {
-      orderBy = [{ updatedAt: "asc" }];
+      processed.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
     } else if (sort === "KODE_ASC") {
-      orderBy = [{ kodeKelas: "asc" }];
+      processed.sort((a, b) => a.kodeKelas.localeCompare(b.kodeKelas));
     } else if (sort === "KODE_DESC") {
-      orderBy = [{ kodeKelas: "desc" }];
+      processed.sort((a, b) => b.kodeKelas.localeCompare(a.kodeKelas));
     } else if (sort === "MK_ASC") {
-      orderBy = [{ mataKuliah: { nama: "asc" } }];
+      processed.sort((a, b) => a.mataKuliah.nama.localeCompare(b.mataKuliah.nama));
     } else if (sort === "MK_DESC") {
-      orderBy = [{ mataKuliah: { nama: "desc" } }];
+      processed.sort((a, b) => b.mataKuliah.nama.localeCompare(a.mataKuliah.nama));
     } else if (sort === "DOSEN_ASC") {
-      orderBy = [{ dosen: { nama: "asc" } }];
+      processed.sort((a, b) => a.dosen.nama.localeCompare(b.dosen.nama));
     } else if (sort === "DOSEN_DESC") {
-      orderBy = [{ dosen: { nama: "desc" } }];
+      processed.sort((a, b) => b.dosen.nama.localeCompare(a.dosen.nama));
     } else if (sort === "RUANG_ASC") {
-      orderBy = [{ ruangan: "asc" }];
+      processed.sort((a, b) => (a.ruangan || "").localeCompare(b.ruangan || ""));
     } else if (sort === "RUANG_DESC") {
-      orderBy = [{ ruangan: "desc" }];
+      processed.sort((a, b) => (b.ruangan || "").localeCompare(a.ruangan || ""));
+    } else if (sort === "KEHADIRAN_DESC") {
+      processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
+    } else if (sort === "KEHADIRAN_ASC") {
+      processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
+    } else if (sort === "PILAR_DESC") {
+      processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
+    } else if (sort === "PILAR_ASC") {
+      processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
+    } else if (sort === "JADWAL_ASC") {
+      processed.sort((a, b) => {
+        const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
+        if (dayDiff !== 0) return dayDiff;
+        return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
+      });
+    } else if (sort === "JADWAL_DESC") {
+      processed.sort((a, b) => {
+        const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
+        if (dayDiff !== 0) return dayDiff;
+        return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
+      });
     }
 
-    const perluCekKontenWhere: any = {
-      ...baseWhere,
-      modePembelajaran: { not: "BIMBINGAN" },
-      OR: [
-        {
-          modePembelajaran: "DARING",
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "HADIR",
-              OR: [{ catatanCdu: null }, { catatanCdu: "" }],
-              slide: { not: true },
-              lectureNote: { not: true },
-              tugas: { not: true },
-              kuis: { not: true },
-              video: { not: true },
-              conference: { not: true },
-            },
-          },
-        },
-        {
-          modePembelajaran: "LURING",
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "HADIR",
-              OR: [{ catatanCdu: null }, { catatanCdu: "" }],
-              slide: { not: true },
-              lectureNote: { not: true },
-              tugas: { not: true },
-              kuis: { not: true },
-            },
-          },
-        },
-      ],
-    };
-
-    const [totalInBase, belumDimonitorCount, perluCekKontenCount, rawClasses] = await Promise.all([
-      prisma.kelas.count({ where: baseWhere }),
-      prisma.kelas.count({
-        where: {
-          ...baseWhere,
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "BELUM_DIISI",
-              OR: [{ catatanCdu: null }, { catatanCdu: "" }],
-            },
-          },
-        },
-      }),
-      (isExam || isBimbinganOnly)
-        ? Promise.resolve(0)
-        : prisma.kelas.count({ where: perluCekKontenWhere }),
-      prisma.kelas.findMany({
-        where: baseWhere,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: LEAN_KELAS_SELECT,
-        orderBy,
-      }),
-    ]);
-
-    const selesaiDimonitorCount = Math.max(0, totalInBase - belumDimonitorCount - perluCekKontenCount);
-    const items = rawClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+    const totalFiltered = processed.length;
+    const paginated = processed.slice((page - 1) * pageSize, page * pageSize);
 
     return {
       success: true,
       data: {
-        items,
-        totalCount: totalInBase,
+        items: paginated,
+        totalCount: totalFiltered,
         tabCounts: {
           total: totalInBase,
           belum: belumDimonitorCount,
@@ -871,7 +782,7 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         },
         page,
         pageSize,
-        totalPages: Math.max(1, Math.ceil(totalInBase / pageSize)),
+        totalPages: Math.max(1, Math.ceil(totalFiltered / pageSize)),
         defaultActiveSesi,
       },
     };
@@ -1559,7 +1470,7 @@ export async function gantiDosenSesiAction(params: GantiDosenParams) {
 
     return {
       success: true,
-      message: `Berhasil memperbarui pengajar untuk Sesi ${nomorSesiMulai}â€“${nomorSesiSampai}`,
+      message: `Berhasil memperbarui pengajar untuk Sesi ${nomorSesiMulai}–${nomorSesiSampai}`,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memperbarui dosen pengajar sesi" };
@@ -1648,9 +1559,9 @@ export async function applyExcelImportToKelas(
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -----------------------------------------------------------------------------
 // QUICK BATCH ACTIONS (Efisiensi Input Staf CDU)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -----------------------------------------------------------------------------
 
 export async function quickSetAllAttendance(
   kelasId: string,
