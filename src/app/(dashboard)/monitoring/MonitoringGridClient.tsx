@@ -68,7 +68,8 @@ const CATATAN_PRESETS = [
   "Dinas luar",
   "Cuti",
   "Sakit",
-  "Online"
+  "Online",
+  "Praktikum"
 ] as const;
 
 interface MonitoringSesiData {
