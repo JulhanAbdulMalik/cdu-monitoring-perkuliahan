@@ -213,6 +213,8 @@ export function isDateInLibur(dateStr: string, hariLiburList: HariLiburItem[] = 
   return false;
 }
 
+const estimatedDatesGlobalCache = new Map<string, Date[]>();
+
 // Menghitung seluruh tanggal kalender perkuliahan sesi 1 s/d totalSesi dengan memperhitungkan hari libur
 export function getAllEstimatedSessionDates(
   totalSesi: number = 16,
@@ -220,8 +222,15 @@ export function getAllEstimatedSessionDates(
   semesterStartDateStr: string = DEFAULT_SEMESTER_START_DATE,
   hariLiburList: HariLiburItem[] = []
 ): Date[] {
-  const start = new Date(`${semesterStartDateStr}T00:00:00.000Z`);
   const dayName = (jadwalHari || "Senin").toUpperCase().trim();
+  const liburKey = hariLiburList.length === 0 ? "none" : hariLiburList.map((h) => `${toDateStr(h.tanggalMulai)}_${toDateStr(h.tanggalSelesai)}`).join(",");
+  const cacheKey = `${totalSesi}_${dayName}_${semesterStartDateStr}_${liburKey}`;
+  const cached = estimatedDatesGlobalCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const start = new Date(`${semesterStartDateStr}T00:00:00.000Z`);
   const dayOffset = HARI_MAP[dayName] !== undefined ? HARI_MAP[dayName] : 0;
 
   // Tanggal awal perkuliahan untuk hari yang dipilih pada minggu sesi 1
@@ -246,6 +255,7 @@ export function getAllEstimatedSessionDates(
     results.push(new Date(candidate));
   }
 
+  estimatedDatesGlobalCache.set(cacheKey, results);
   return results;
 }
 
@@ -257,7 +267,7 @@ export function getEstimatedSessionDate(
   hariLiburList: HariLiburItem[] = []
 ): Date {
   if (nomorSesi < 1) nomorSesi = 1;
-  const dates = getAllEstimatedSessionDates(nomorSesi, jadwalHari, semesterStartDateStr, hariLiburList);
+  const dates = getAllEstimatedSessionDates(16, jadwalHari, semesterStartDateStr, hariLiburList);
   return dates[nomorSesi - 1] || dates[dates.length - 1];
 }
 

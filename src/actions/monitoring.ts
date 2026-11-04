@@ -111,7 +111,7 @@ export async function getMonitoringKelasList(semesterId?: string, prodiId?: stri
           orderBy: { nomorSesi: "asc" },
         },
       },
-      orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
+      orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }, { id: "asc" }],
     });
 
     return {
@@ -170,7 +170,7 @@ export async function getSimpleKelasList(semesterId?: string, prodiId?: string) 
           },
         },
       },
-      orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }],
+      orderBy: [{ mataKuliah: { prodi: { nama: "asc" } } }, { kodeKelas: "asc" }, { id: "asc" }],
     });
 
     return {
@@ -931,7 +931,9 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         if (dayDiff !== 0) return sort === "JADWAL_ASC" ? dayDiff : -dayDiff;
         const ja = getJamStart(a.jadwalJam);
         const jb = getJamStart(b.jadwalJam);
-        return sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
+        const jamDiff = sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
+        if (jamDiff !== 0) return jamDiff;
+        return a.id.localeCompare(b.id);
       });
 
       const pageIds = lightweightRows.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
@@ -944,51 +946,67 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
         rawClasses = pageIds.map((id) => map.get(id)).filter(Boolean) as any[];
       }
     } else if (sort === "KEHADIRAN_DESC" || sort === "KEHADIRAN_ASC" || sort === "PILAR_DESC" || sort === "PILAR_ASC") {
-      const allMatching = await prisma.kelas.findMany({
+      // Optimasi Two-Pass: Hanya ambil data minimal untuk skor, hitung urutan, dan ambil baris lengkap halaman ini
+      const lightweightRows = await prisma.kelas.findMany({
         where: targetWhere,
-        select: LEAN_KELAS_SELECT,
-      });
-      const processed = allMatching.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
-      if (sort === "KEHADIRAN_DESC") {
-        processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
-      } else if (sort === "KEHADIRAN_ASC") {
-        processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
-      } else if (sort === "PILAR_DESC") {
-        processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
-      } else if (sort === "PILAR_ASC") {
-        processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
-      }
-      const paginatedItems = processed.slice((page - 1) * pageSize, page * pageSize);
-      return {
-        success: true,
-        data: {
-          items: paginatedItems,
-          totalCount: totalFiltered,
-          tabCounts: {
-            total: totalInBase,
-            belum: belumDimonitorCount,
-            konten: perluCekKontenCount,
-            selesai: selesaiDimonitorCount,
-            sudah: selesaiDimonitorCount,
+        select: {
+          id: true,
+          modePembelajaran: true,
+          monitoringSesi: {
+            select: {
+              nomorSesi: true,
+              kehadiran: true,
+              slide: true,
+              lectureNote: true,
+              tugas: true,
+              kuis: true,
+              video: true,
+              conference: true,
+            },
           },
-          page,
-          pageSize,
-          totalPages: Math.max(1, Math.ceil(totalFiltered / pageSize)),
-          defaultActiveSesi,
         },
-      };
+      });
+
+      const scored = lightweightRows.map((cls) => {
+        const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran as any);
+        return {
+          id: cls.id,
+          persenKehadiran: summary.persenKehadiran,
+          totalSkor3Pilar: summary.totalSkor3Pilar,
+        };
+      });
+
+      if (sort === "KEHADIRAN_DESC") {
+        scored.sort((a, b) => (b.persenKehadiran - a.persenKehadiran) || a.id.localeCompare(b.id));
+      } else if (sort === "KEHADIRAN_ASC") {
+        scored.sort((a, b) => (a.persenKehadiran - b.persenKehadiran) || a.id.localeCompare(b.id));
+      } else if (sort === "PILAR_DESC") {
+        scored.sort((a, b) => (b.totalSkor3Pilar - a.totalSkor3Pilar) || a.id.localeCompare(b.id));
+      } else if (sort === "PILAR_ASC") {
+        scored.sort((a, b) => (a.totalSkor3Pilar - b.totalSkor3Pilar) || a.id.localeCompare(b.id));
+      }
+
+      const pageIds = scored.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
+      if (pageIds.length > 0) {
+        const fetched = await prisma.kelas.findMany({
+          where: { id: { in: pageIds } },
+          select: LEAN_KELAS_SELECT,
+        });
+        const map = new Map(fetched.map((f) => [f.id, f]));
+        rawClasses = pageIds.map((id) => map.get(id)).filter(Boolean) as any[];
+      }
     } else {
-      let orderBy: any = [{ updatedAt: "desc" }];
-      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }];
-      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }];
-      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }];
-      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }];
-      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }];
-      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }];
-      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }];
-      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }];
-      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }];
-      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }];
+      let orderBy: any = [{ updatedAt: "desc" }, { id: "asc" }];
+      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }, { id: "asc" }];
+      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }, { id: "asc" }];
+      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }, { id: "asc" }];
+      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }, { id: "asc" }];
+      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }, { id: "asc" }];
+      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }, { id: "asc" }];
+      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }, { id: "asc" }];
+      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }, { id: "asc" }];
+      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }, { id: "asc" }];
+      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }, { id: "asc" }];
 
       // NATIVE DATABASE PAGINATION: Hanya ambil baris yang dibutuhkan halaman ini
       rawClasses = await prisma.kelas.findMany({
@@ -1220,14 +1238,36 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
     if (sort === "KEHADIRAN_DESC" || sort === "KEHADIRAN_ASC" || sort === "PILAR_DESC" || sort === "PILAR_ASC") {
       const allMatching = await prisma.kelas.findMany({
         where: seqTargetWhere,
-        select: LEAN_KELAS_SELECT,
+        select: {
+          ...SIMPLE_KELAS_SELECT,
+          modePembelajaran: true,
+          monitoringSesi: {
+            select: {
+              nomorSesi: true,
+              kehadiran: true,
+              slide: true,
+              lectureNote: true,
+              tugas: true,
+              kuis: true,
+              video: true,
+              conference: true,
+            },
+          },
+        },
       });
-      let processed = allMatching.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
-      if (sort === "KEHADIRAN_DESC") processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
-      else if (sort === "KEHADIRAN_ASC") processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
-      else if (sort === "PILAR_DESC") processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
-      else if (sort === "PILAR_ASC") processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
-      resultList = processed.map((c) => ({
+      const processed = allMatching.map((cls) => {
+        const summary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran as any);
+        return {
+          cls,
+          persenKehadiran: summary.persenKehadiran,
+          totalSkor3Pilar: summary.totalSkor3Pilar,
+        };
+      });
+      if (sort === "KEHADIRAN_DESC") processed.sort((a, b) => (b.persenKehadiran - a.persenKehadiran) || a.cls.id.localeCompare(b.cls.id));
+      else if (sort === "KEHADIRAN_ASC") processed.sort((a, b) => (a.persenKehadiran - b.persenKehadiran) || a.cls.id.localeCompare(b.cls.id));
+      else if (sort === "PILAR_DESC") processed.sort((a, b) => (b.totalSkor3Pilar - a.totalSkor3Pilar) || a.cls.id.localeCompare(b.cls.id));
+      else if (sort === "PILAR_ASC") processed.sort((a, b) => (a.totalSkor3Pilar - b.totalSkor3Pilar) || a.cls.id.localeCompare(b.cls.id));
+      resultList = processed.map(({ cls: c }) => ({
         id: c.id,
         kodeKelas: c.kodeKelas,
         mataKuliah: {
@@ -1250,7 +1290,9 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         if (dayDiff !== 0) return sort === "JADWAL_ASC" ? dayDiff : -dayDiff;
         const ja = getJamStart(a.jadwalJam);
         const jb = getJamStart(b.jadwalJam);
-        return sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
+        const jamDiff = sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
+        if (jamDiff !== 0) return jamDiff;
+        return a.id.localeCompare(b.id);
       });
       resultList = rawClasses.map((c) => ({
         id: c.id,
@@ -1266,17 +1308,17 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         jadwalJam: c.jadwalJam,
       }));
     } else {
-      let orderBy: any = [{ updatedAt: "desc" }];
-      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }];
-      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }];
-      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }];
-      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }];
-      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }];
-      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }];
-      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }];
-      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }];
-      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }];
-      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }];
+      let orderBy: any = [{ updatedAt: "desc" }, { id: "asc" }];
+      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }, { id: "asc" }];
+      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }, { id: "asc" }];
+      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }, { id: "asc" }];
+      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }, { id: "asc" }];
+      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }, { id: "asc" }];
+      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }, { id: "asc" }];
+      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }, { id: "asc" }];
+      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }, { id: "asc" }];
+      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }, { id: "asc" }];
+      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }, { id: "asc" }];
 
       const rawClasses = await prisma.kelas.findMany({
         where: seqTargetWhere,
