@@ -861,13 +861,364 @@ export async function getBatchRaporDosenDetails(
   semesterId?: string
 ): Promise<{ success: boolean; data?: RaporDosenDetailData[]; error?: string }> {
   try {
-    const results: RaporDosenDetailData[] = [];
-    for (const id of dosenIds) {
-      const res = await getRaporDosenDetail(id, semesterId);
-      if (res.success && res.data) {
-        results.push(res.data);
+    if (!dosenIds || dosenIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // 1. Tentukan target semester dan ambil konfigurasi bobot (1x query untuk semua dosen)
+    let targetSemesterId = semesterId;
+    if (!targetSemesterId) {
+      const activeSem =
+        (await prisma.semester.findFirst({ where: { aktif: true } })) ||
+        (await prisma.semester.findFirst({
+          orderBy: [{ tahunAkademik: "desc" }, { periode: "desc" }],
+        }));
+      targetSemesterId = activeSem?.id;
+    }
+
+    if (!targetSemesterId) {
+      return { success: false, error: "Semester tidak ditemukan" };
+    }
+
+    const [semester, config] = await Promise.all([
+      prisma.semester.findUnique({ where: { id: targetSemesterId } }),
+      getRaporConfig(targetSemesterId),
+    ]);
+
+    if (!semester) {
+      return { success: false, error: "Semester tidak ditemukan" };
+    }
+
+    // 2. Ambil seluruh data Dosen beserta Prodi dalam 1 bulk query
+    const dosens = await prisma.dosen.findMany({
+      where: { id: { in: dosenIds } },
+      include: { prodi: true },
+    });
+
+    const dosenMap = new Map<string, (typeof dosens)[0]>();
+    dosens.forEach((d) => dosenMap.set(d.id, d));
+
+    // 3. Deteksi duplicate records (Twin Dosen) berdasarkan NIDN/NIP yang identik secara massal
+    const cleanNidns = new Set<string>();
+    const cleanNips = new Set<string>();
+    const lecturerTwinIdsMap = new Map<string, Set<string>>();
+
+    dosens.forEach((d) => {
+      lecturerTwinIdsMap.set(d.id, new Set([d.id]));
+      const nidn = d.nidn?.trim();
+      const nip = d.nip?.trim();
+      if (nidn) cleanNidns.add(nidn);
+      if (nip) cleanNips.add(nip);
+    });
+
+    const orConditions: Array<{ nidn: string } | { nip: string }> = [];
+    cleanNidns.forEach((nidn) => orConditions.push({ nidn }));
+    cleanNips.forEach((nip) => orConditions.push({ nip }));
+
+    const allTargetDosenIds = new Set<string>(dosens.map((d) => d.id));
+
+    if (orConditions.length > 0) {
+      const duplicateRecords = await prisma.dosen.findMany({
+        where: { OR: orConditions },
+        select: { id: true, nidn: true, nip: true },
+      });
+
+      for (const d of dosens) {
+        const dNidn = d.nidn?.trim();
+        const dNip = d.nip?.trim();
+        const set = lecturerTwinIdsMap.get(d.id)!;
+        for (const dup of duplicateRecords) {
+          const dupNidn = dup.nidn?.trim();
+          const dupNip = dup.nip?.trim();
+          if ((dNidn && dupNidn && dNidn === dupNidn) || (dNip && dupNip && dNip === dupNip)) {
+            set.add(dup.id);
+            allTargetDosenIds.add(dup.id);
+          }
+        }
       }
     }
+
+    // 4. Ambil seluruh record RaporDosen yang tersimpan dalam 1 bulk query
+    const existingRapors = await prisma.raporDosen.findMany({
+      where: {
+        semesterId: targetSemesterId,
+        dosenId: { in: Array.from(allTargetDosenIds) },
+      },
+    });
+
+    const existingRaporMap = new Map<string, (typeof existingRapors)[0]>();
+    existingRapors.forEach((r) => existingRaporMap.set(r.dosenId, r));
+
+    // 5. Ambil seluruh Kelas & MonitoringSesi (dengan kolom ramping/proyeksi terpilih) dalam 1 bulk query
+    const rawClasses = await prisma.kelas.findMany({
+      where: {
+        semesterId: targetSemesterId,
+        OR: [
+          { dosenId: { in: Array.from(allTargetDosenIds) } },
+          { dosen2Id: { in: Array.from(allTargetDosenIds) } },
+        ],
+      },
+      select: {
+        id: true,
+        kodeKelas: true,
+        modePembelajaran: true,
+        dosenId: true,
+        dosen2Id: true,
+        mataKuliah: {
+          select: {
+            id: true,
+            nama: true,
+            kode: true,
+            sks: true,
+          },
+        },
+        monitoringSesi: {
+          select: {
+            nomorSesi: true,
+            kehadiran: true,
+            lectureNote: true,
+            slide: true,
+            video: true,
+            conference: true,
+            tugas: true,
+            kuis: true,
+          },
+          orderBy: { nomorSesi: "asc" },
+        },
+      },
+    });
+
+    // 6. Pre-calculate ringkasan kelas di memori (0 ms CPU)
+    type RawClassItem = (typeof rawClasses)[0];
+    const classSummaryMap = new Map<
+      string,
+      { summary: ReturnType<typeof calculateClassSummary>; cls: RawClassItem }
+    >();
+
+    for (const k of rawClasses) {
+      const summary = calculateClassSummary(
+        k.monitoringSesi.map((s) => ({
+          nomorSesi: s.nomorSesi,
+          kehadiran: s.kehadiran,
+          lectureNote: s.lectureNote,
+          slide: s.slide,
+          video: s.video,
+          conference: s.conference,
+          tugas: s.tugas,
+          kuis: s.kuis,
+        })),
+        k.modePembelajaran as any
+      );
+      classSummaryMap.set(k.id, { summary, cls: k });
+    }
+
+    // 7. Agregasi dan rakit RaporDosenDetailData untuk setiap dosen dalam urutan asli dosenIds
+    const results: RaporDosenDetailData[] = [];
+
+    for (const id of dosenIds) {
+      const dosen = dosenMap.get(id);
+      if (!dosen) continue;
+
+      const twinIds = lecturerTwinIdsMap.get(id) || new Set([id]);
+
+      // Ambil kelas yang diajar dosen ini (baik utama maupun tandem), deduplikasi ID kelas
+      const dosenClasses: RawClassItem[] = [];
+      const seenClassIds = new Set<string>();
+
+      for (const k of rawClasses) {
+        const isMain = k.dosenId && twinIds.has(k.dosenId);
+        const isTandem = k.dosen2Id && twinIds.has(k.dosen2Id);
+        if ((isMain || isTandem) && !seenClassIds.has(k.id)) {
+          seenClassIds.add(k.id);
+          dosenClasses.push(k);
+        }
+      }
+
+      // Hitung metrik monitoring perkuliahan kelas
+      const kelasList: LecturerClassMonitoringStat[] = [];
+      let totalHadirSemua = 0;
+      let totalPersenKonten = 0;
+      let regularClassCount = 0;
+
+      for (const k of dosenClasses) {
+        const { summary } = classSummaryMap.get(k.id)!;
+        kelasList.push({
+          kelasId: k.id,
+          kodeKelas: k.kodeKelas,
+          mataKuliahNama: k.mataKuliah.nama,
+          mataKuliahKode: k.mataKuliah.kode,
+          sks: k.mataKuliah.sks,
+          modePembelajaran: k.modePembelajaran as any,
+          totalSesiHadir: summary.totalHadir,
+          persenKehadiran: summary.persenKehadiran,
+          persenKonten: summary.persenKonten,
+          totalSkor3Pilar: summary.totalSkor3Pilar,
+          maxSkor3Pilar: k.modePembelajaran === "LURING" ? 28 : 42,
+        });
+
+        totalHadirSemua += summary.totalHadir;
+        if (k.modePembelajaran !== "BIMBINGAN") {
+          totalPersenKonten += summary.persenKonten;
+          regularClassCount++;
+        }
+      }
+
+      const totalKelas = kelasList.length;
+      const rerataSesiHadirCalc = totalKelas > 0 ? Math.round((totalHadirSemua / totalKelas) * 10) / 10 : 0;
+      const persenKehadiranCalc = totalKelas > 0 ? Math.round((rerataSesiHadirCalc / 16) * 1000) / 10 : 0;
+      const persenKontenCalc =
+        regularClassCount > 0
+          ? Math.round((totalPersenKonten / regularClassCount) * 10) / 10
+          : totalKelas > 0
+          ? 100
+          : 0;
+
+      const monitoringStats: LecturerMonitoringStats = {
+        totalKelas,
+        totalSesiHadirSemua: totalHadirSemua,
+        rerataSesiHadir: rerataSesiHadirCalc,
+        persenKehadiran: persenKehadiranCalc,
+        persenKonten: persenKontenCalc,
+        kelasList,
+      };
+
+      // Ambil existing rapor
+      let existingRapor = existingRaporMap.get(id);
+      if (!existingRapor) {
+        for (const tid of twinIds) {
+          if (existingRaporMap.has(tid)) {
+            existingRapor = existingRaporMap.get(tid);
+            break;
+          }
+        }
+      }
+
+      // Dukungan Semester Lampau: Override jika monitoring kelas riil kosong
+      if (monitoringStats.totalKelas === 0 && existingRapor?.totalKelasOverride) {
+        monitoringStats.totalKelas = existingRapor.totalKelasOverride;
+        monitoringStats.totalSesiHadirSemua =
+          existingRapor.rerataSesiHadir != null
+            ? Math.round(existingRapor.rerataSesiHadir * monitoringStats.totalKelas)
+            : 0;
+
+        const totalSksEstimasi =
+          existingRapor.totalSksOverride || existingRapor.totalKelasOverride * 2;
+        const defaultSksPerKelas = Math.max(
+          1,
+          Math.round(totalSksEstimasi / existingRapor.totalKelasOverride)
+        );
+
+        monitoringStats.kelasList = Array.from({
+          length: existingRapor.totalKelasOverride,
+        }).map((_, i) => ({
+          kelasId: `legacy-cls-${i + 1}`,
+          kodeKelas: `Kelas ${i + 1}`,
+          mataKuliahNama: `Mata Kuliah ${i + 1}`,
+          mataKuliahKode: `MK${i + 1}`,
+          sks:
+            i === 0
+              ? totalSksEstimasi - defaultSksPerKelas * (existingRapor.totalKelasOverride! - 1)
+              : defaultSksPerKelas,
+          modePembelajaran: "LURING",
+          totalSesiHadir: Math.round(existingRapor.rerataSesiHadir || 16),
+          persenKehadiran: existingRapor.persenKehadiran || 100,
+          persenKonten: existingRapor.persenKonten || 100,
+          totalSkor3Pilar: Math.round(((existingRapor.persenKonten || 100) / 100) * 28),
+          maxSkor3Pilar: 28,
+        }));
+      }
+
+      // Prioritaskan nilai tersimpan, jika belum ada ambil dari monitoring real-time
+      const rerataSesiHadir = existingRapor?.rerataSesiHadir ?? monitoringStats.rerataSesiHadir;
+      const persenKehadiran = existingRapor?.persenKehadiran ?? monitoringStats.persenKehadiran;
+      const persenKonten = existingRapor?.persenKonten ?? monitoringStats.persenKonten;
+
+      const rawInput = {
+        nilaiKuesioner: existingRapor?.nilaiKuesioner ?? null,
+        totalResponden: existingRapor?.totalResponden ?? null,
+        targetResponden: existingRapor?.targetResponden ?? null,
+        rerataSesiHadir,
+        persenKehadiran,
+        persenKonten,
+        jumlahPenelitian: existingRapor?.jumlahPenelitian ?? 0,
+        jumlahPengabdian: existingRapor?.jumlahPengabdian ?? 0,
+      };
+
+      const calculation = calculateRaporFull(rawInput, config);
+
+      let rekomendasiPerbaikan: string[] = [];
+      if (existingRapor?.rekomendasiPerbaikan) {
+        rekomendasiPerbaikan = Array.isArray(existingRapor.rekomendasiPerbaikan)
+          ? (existingRapor.rekomendasiPerbaikan as string[])
+          : [];
+      }
+
+      let komentarMahasiswa: string[] = [];
+      if (existingRapor?.komentarMahasiswa) {
+        komentarMahasiswa = Array.isArray(existingRapor.komentarMahasiswa)
+          ? (existingRapor.komentarMahasiswa as string[])
+          : [];
+      }
+
+      let rawKomentarMahasiswa: string[] = [];
+      if (existingRapor?.rawKomentarMahasiswa) {
+        rawKomentarMahasiswa = Array.isArray(existingRapor.rawKomentarMahasiswa)
+          ? (existingRapor.rawKomentarMahasiswa as string[])
+          : [];
+      }
+
+      results.push({
+        dosen: {
+          id: dosen.id,
+          nama: dosen.nama,
+          nip: dosen.nip,
+          nidn: dosen.nidn,
+          email: dosen.email,
+          prodi: {
+            id: dosen.prodi.id,
+            nama: dosen.prodi.nama,
+            kode: dosen.prodi.kode,
+          },
+        },
+        semester: {
+          id: semester.id,
+          tahunAkademik: semester.tahunAkademik,
+          periode: semester.periode,
+        },
+        config,
+        rapor: {
+          id: existingRapor?.id,
+          nilaiKuesioner: existingRapor?.nilaiKuesioner ?? null,
+          totalResponden: existingRapor?.totalResponden ?? null,
+          targetResponden: existingRapor?.targetResponden ?? null,
+          rerataSesiHadir,
+          persenKehadiran,
+          persenKonten,
+          jumlahPenelitian: existingRapor?.jumlahPenelitian ?? 0,
+          jumlahPengabdian: existingRapor?.jumlahPengabdian ?? 0,
+          rekomendasiPerbaikan,
+          komentarMahasiswa,
+          rawKomentarMahasiswa,
+          responPositifCount: existingRapor?.responPositifCount ?? null,
+          responNetralCount: existingRapor?.responNetralCount ?? null,
+          responNegatifCount: existingRapor?.responNegatifCount ?? null,
+          responPositifPct: existingRapor?.responPositifPct ?? null,
+          responNetralPct: existingRapor?.responNetralPct ?? null,
+          responNegatifPct: existingRapor?.responNegatifPct ?? null,
+          narasiKesimpulan: existingRapor?.narasiKesimpulan ?? null,
+          statusRapor: ((existingRapor?.statusRapor as any) || "DRAFT") as "DRAFT" | "FINAL",
+          sumberImport: existingRapor?.sumberImport ?? null,
+          totalMatkulOverride: existingRapor?.totalMatkulOverride ?? null,
+          totalKelasOverride: existingRapor?.totalKelasOverride ?? null,
+          totalSksOverride: existingRapor?.totalSksOverride ?? null,
+          catatanQau: existingRapor?.catatanQau ?? null,
+          updatedAt: existingRapor?.updatedAt ?? null,
+        },
+        monitoringStats,
+        calculation,
+      });
+    }
+
     return { success: true, data: results };
   } catch (error: any) {
     console.error("Error getBatchRaporDosenDetails:", error);
@@ -1089,26 +1440,268 @@ export async function syncAllLecturersFromMonitoring(
       return { success: false, error: "Akses ditolak. Sinkronisasi data monitoring hanya dapat dilakukan oleh Admin QAU atau Super Admin." };
     }
 
-    // Ambil semua dosen yang memiliki kelas di semester ini
-    const classes = await prisma.kelas.findMany({
+    // 1. Ambil konfigurasi rapor (bobot, target sesi) 1x di awal
+    const config = await getRaporConfig(semesterId);
+
+    // 2. Ambil seluruh kelas di semester ini beserta sesi (proyeksi ramping) dalam 1 bulk query
+    const allClasses = await prisma.kelas.findMany({
       where: { semesterId },
-      select: { dosenId: true, dosen2Id: true },
+      select: {
+        id: true,
+        kodeKelas: true,
+        modePembelajaran: true,
+        dosenId: true,
+        dosen2Id: true,
+        monitoringSesi: {
+          select: {
+            nomorSesi: true,
+            kehadiran: true,
+            lectureNote: true,
+            slide: true,
+            video: true,
+            conference: true,
+            tugas: true,
+            kuis: true,
+          },
+          orderBy: { nomorSesi: "asc" },
+        },
+      },
     });
 
-    const dosenIdSet = new Set<string>();
-    classes.forEach((c) => {
-      if (c.dosenId) dosenIdSet.add(c.dosenId);
-      if (c.dosen2Id) dosenIdSet.add(c.dosen2Id);
+    const distinctDosenIds = new Set<string>();
+    allClasses.forEach((c) => {
+      if (c.dosenId) distinctDosenIds.add(c.dosenId);
+      if (c.dosen2Id) distinctDosenIds.add(c.dosen2Id);
     });
 
-    let count = 0;
-    for (const dId of dosenIdSet) {
-      await syncLecturerFromMonitoring(dId, semesterId);
-      count++;
+    if (distinctDosenIds.size === 0) {
+      return { success: true, count: 0 };
     }
 
+    // 3. Deteksi duplicate records (Twin Dosen) berdasarkan NIDN/NIP yang identik secara massal
+    const dosens = await prisma.dosen.findMany({
+      where: { id: { in: Array.from(distinctDosenIds) } },
+      select: { id: true, nidn: true, nip: true },
+    });
+
+    const cleanNidns = new Set<string>();
+    const cleanNips = new Set<string>();
+    const lecturerTwinIdsMap = new Map<string, Set<string>>();
+
+    dosens.forEach((d) => {
+      lecturerTwinIdsMap.set(d.id, new Set([d.id]));
+      const nidn = d.nidn?.trim();
+      const nip = d.nip?.trim();
+      if (nidn) cleanNidns.add(nidn);
+      if (nip) cleanNips.add(nip);
+    });
+
+    const orConditions: Array<{ nidn: string } | { nip: string }> = [];
+    cleanNidns.forEach((nidn) => orConditions.push({ nidn }));
+    cleanNips.forEach((nip) => orConditions.push({ nip }));
+
+    if (orConditions.length > 0) {
+      const duplicateRecords = await prisma.dosen.findMany({
+        where: { OR: orConditions },
+        select: { id: true, nidn: true, nip: true },
+      });
+
+      for (const d of dosens) {
+        const dNidn = d.nidn?.trim();
+        const dNip = d.nip?.trim();
+        const set = lecturerTwinIdsMap.get(d.id)!;
+        for (const dup of duplicateRecords) {
+          const dupNidn = dup.nidn?.trim();
+          const dupNip = dup.nip?.trim();
+          if ((dNidn && dupNidn && dNidn === dupNidn) || (dNip && dupNip && dNip === dupNip)) {
+            set.add(dup.id);
+          }
+        }
+      }
+    }
+
+    // 4. Ambil seluruh record RaporDosen yang ada untuk seluruh dosen ini dalam 1 bulk query
+    const existingRapors = await prisma.raporDosen.findMany({
+      where: {
+        semesterId,
+        dosenId: { in: Array.from(distinctDosenIds) },
+      },
+    });
+
+    const existingRaporMap = new Map<string, (typeof existingRapors)[0]>();
+    existingRapors.forEach((r) => existingRaporMap.set(r.dosenId, r));
+
+    // 5. Pre-calculate ringkasan setiap kelas di memori (0 ms CPU)
+    type SesiSummary = ReturnType<typeof calculateClassSummary>;
+    const classSummaryMap = new Map<string, SesiSummary>();
+    for (const k of allClasses) {
+      const summary = calculateClassSummary(
+        k.monitoringSesi.map((s) => ({
+          nomorSesi: s.nomorSesi,
+          kehadiran: s.kehadiran,
+          lectureNote: s.lectureNote,
+          slide: s.slide,
+          video: s.video,
+          conference: s.conference,
+          tugas: s.tugas,
+          kuis: s.kuis,
+        })),
+        k.modePembelajaran as any
+      );
+      classSummaryMap.set(k.id, summary);
+    }
+
+    // 6. Indeks kelas berdasarkan ID dosen untuk pencarian O(1)
+    const classesByLecturer = new Map<string, typeof allClasses>();
+    for (const k of allClasses) {
+      if (k.dosenId) {
+        if (!classesByLecturer.has(k.dosenId)) classesByLecturer.set(k.dosenId, []);
+        classesByLecturer.get(k.dosenId)!.push(k);
+      }
+      if (k.dosen2Id && k.dosen2Id !== k.dosenId) {
+        if (!classesByLecturer.has(k.dosen2Id)) classesByLecturer.set(k.dosen2Id, []);
+        classesByLecturer.get(k.dosen2Id)!.push(k);
+      }
+    }
+
+    // 7. Agregasi metrik di memori & susun payload upsert
+    const upsertPayloads: Array<{
+      dosenId: string;
+      semesterId: string;
+      dataToSave: any;
+    }> = [];
+
+    for (const dId of distinctDosenIds) {
+      const twinIds = lecturerTwinIdsMap.get(dId) || new Set([dId]);
+
+      // Kumpulkan seluruh kelas dosen ini (termasuk kelas tandem dan twin dosen)
+      const lecturerClasses: typeof allClasses = [];
+      const seenClsIds = new Set<string>();
+
+      for (const tid of twinIds) {
+        const clsList = classesByLecturer.get(tid);
+        if (clsList) {
+          for (const c of clsList) {
+            if (!seenClsIds.has(c.id)) {
+              seenClsIds.add(c.id);
+              lecturerClasses.push(c);
+            }
+          }
+        }
+      }
+
+      let totalHadirSemua = 0;
+      let totalPersenKonten = 0;
+      let regularClassCount = 0;
+
+      for (const k of lecturerClasses) {
+        const summary = classSummaryMap.get(k.id)!;
+        totalHadirSemua += summary.totalHadir;
+        if (k.modePembelajaran !== "BIMBINGAN") {
+          totalPersenKonten += summary.persenKonten;
+          regularClassCount++;
+        }
+      }
+
+      const totalKelas = lecturerClasses.length;
+      const rerataSesiHadir = totalKelas > 0 ? Math.round((totalHadirSemua / totalKelas) * 10) / 10 : 0;
+      const persenKehadiran = totalKelas > 0 ? Math.round((rerataSesiHadir / 16) * 1000) / 10 : 0;
+      const persenKonten =
+        regularClassCount > 0
+          ? Math.round((totalPersenKonten / regularClassCount) * 10) / 10
+          : totalKelas > 0
+          ? 100
+          : 0;
+
+      const existing = existingRaporMap.get(dId);
+
+      // Guard Semester Lampau: Jangan timpa arsip tetap dengan 0
+      if (totalKelas === 0 && (existing?.totalKelasOverride || existing?.totalMatkulOverride)) {
+        continue;
+      }
+
+      const calc = calculateRaporFull(
+        {
+          nilaiKuesioner: existing?.nilaiKuesioner ?? null,
+          totalResponden: existing?.totalResponden ?? null,
+          targetResponden: existing?.targetResponden ?? null,
+          rerataSesiHadir,
+          persenKehadiran,
+          persenKonten,
+          jumlahPenelitian: existing?.jumlahPenelitian ?? 0,
+          jumlahPengabdian: existing?.jumlahPengabdian ?? 0,
+        },
+        config
+      );
+
+      const dataToSave = {
+        nilaiKuesioner: existing?.nilaiKuesioner ?? null,
+        totalResponden: existing?.totalResponden ?? null,
+        targetResponden: existing?.targetResponden ?? null,
+        skorKuesioner: calc.skorKuesioner,
+        rerataSesiHadir,
+        persenKehadiran,
+        skorKehadiran: calc.skorKehadiran,
+        persenKonten,
+        skorKonten: calc.skorKonten,
+        jumlahPenelitian: existing?.jumlahPenelitian ?? 0,
+        skorPenelitian: calc.skorPenelitian,
+        jumlahPengabdian: existing?.jumlahPengabdian ?? 0,
+        skorPengabdian: calc.skorPengabdian,
+        nilaiAkhir: calc.nilaiAkhir,
+        predikat: calc.predikat.kode,
+        rekomendasiPerbaikan: (existing?.rekomendasiPerbaikan as any) || [],
+        komentarMahasiswa: (existing?.komentarMahasiswa as any) || [],
+        rawKomentarMahasiswa: (existing?.rawKomentarMahasiswa as any) || undefined,
+        responPositifCount: existing?.responPositifCount ?? null,
+        responNetralCount: existing?.responNetralCount ?? null,
+        responNegatifCount: existing?.responNegatifCount ?? null,
+        responPositifPct: existing?.responPositifPct ?? null,
+        responNetralPct: existing?.responNetralPct ?? null,
+        responNegatifPct: existing?.responNegatifPct ?? null,
+        narasiKesimpulan: existing?.narasiKesimpulan ?? null,
+        statusRapor: existing?.statusRapor || "DRAFT",
+        totalMatkulOverride: existing?.totalMatkulOverride ?? null,
+        totalKelasOverride: existing?.totalKelasOverride ?? null,
+        totalSksOverride: existing?.totalSksOverride ?? null,
+        catatanQau: existing?.catatanQau ?? null,
+        sumberImport: existing?.sumberImport ?? null,
+      };
+
+      upsertPayloads.push({
+        dosenId: dId,
+        semesterId,
+        dataToSave,
+      });
+    }
+
+    // 8. Eksekusi batch write dengan bounded concurrency (chunks of 15 parallel upserts)
+    const BATCH_SIZE = 15;
+    for (let i = 0; i < upsertPayloads.length; i += BATCH_SIZE) {
+      const chunk = upsertPayloads.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        chunk.map((item) =>
+          prisma.raporDosen.upsert({
+            where: {
+              dosenId_semesterId: {
+                dosenId: item.dosenId,
+                semesterId: item.semesterId,
+              },
+            },
+            create: {
+              dosenId: item.dosenId,
+              semesterId: item.semesterId,
+              ...item.dataToSave,
+            },
+            update: item.dataToSave,
+          })
+        )
+      );
+    }
+
+    // 9. Revalidasi cache Next.js 1x saja di akhir
     safeRevalidatePath("/laporan/rapor-dosen");
-    return { success: true, count };
+    return { success: true, count: upsertPayloads.length };
   } catch (error: any) {
     console.error("Error syncAllLecturersFromMonitoring:", error);
     return { success: false, error: error.message || "Gagal sinkronisasi seluruh dosen" };
@@ -2313,4 +2906,3 @@ export async function saveRekapLampauImportAction(payload: {
     };
   }
 }
-

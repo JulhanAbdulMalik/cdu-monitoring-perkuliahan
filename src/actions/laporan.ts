@@ -934,7 +934,9 @@ export async function getLaporanProdi(
         where: { isActive: true },
         include: {
           fakultas: true,
-          dosen: true,
+          _count: {
+            select: { dosen: true },
+          },
         },
         orderBy: { nama: "asc" },
       }),
@@ -1174,7 +1176,7 @@ export async function getLaporanProdi(
           const r = prodiRowMap.get(p.id);
           const totalKelas = r ? r.total_kelas : 0;
           const totalKelasNonBimbingan = r ? r.total_kelas_non_bimbingan : 0;
-          const totalDosen = p.dosen.length;
+          const totalDosen = p._count.dosen;
 
           const totalSesiRentang = r ? r.total_sesi_rentang : 0;
           const totalHadirRentang = r ? r.total_hadir : 0;
@@ -1387,7 +1389,7 @@ export async function getLaporanProdi(
         fakultasNama: p.fakultas?.nama,
         totalKelas: 0,
         totalKelasNonBimbingan: 0,
-        totalDosen: p.dosen.length,
+        totalDosen: p._count.dosen,
 
         // Range stats
         totalSesiRentang: 0,
@@ -1908,9 +1910,6 @@ export async function getLaporanFakultas(
         include: {
           prodi: {
             where: { isActive: true },
-            include: {
-              dosen: true,
-            },
             orderBy: { nama: "asc" },
           },
         },
