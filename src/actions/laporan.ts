@@ -1933,7 +1933,7 @@ export async function getLaporanFakultas(
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
     const cacheKey = `fakultas_${targetSemesterId}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
 
-    const responseData = await fetchWithSingleFlightCache<any>(cacheKey, async () => {
+    const responseData = await fetchWithSingleFlightCache<NonNullable<LaporanFakultasResponse["data"]>>(cacheKey, async () => {
       // Reuse getLaporanProdi result (memanfaatkan shared cache & SQL aggregation)
       const prodiRes = await getLaporanProdi(
         semesterId,
@@ -1961,7 +1961,7 @@ export async function getLaporanFakultas(
       let globalTotalGantiHariRentang = 0;
       let globalTotalProdi = 0;
 
-      const fakultasReportList = allFakultas.map((f) => {
+      const fakultasReportList: FakultasReportItem[] = allFakultas.map((f) => {
         const prodisInF = prodiList.filter((p) => f.prodi.some((fp) => fp.id === p.id));
         const totalKelas = prodisInF.reduce((acc, p) => acc + p.totalKelas, 0);
         const totalKelasNonBimbingan = prodisInF.reduce((acc, p) => acc + (p.totalKelasNonBimbingan || 0), 0);
@@ -1980,6 +1980,10 @@ export async function getLaporanFakultas(
         const totalConfRentang = prodisInF.reduce((acc, p) => acc + p.totalConfRentang, 0);
         const totalDosen = prodisInF.reduce((acc, p) => acc + p.totalDosen, 0);
 
+        const totalDosenAktifRentang = prodisInF.reduce((acc, p) => acc + (p.totalDosenAktifRentang || 0), 0);
+        const totalKelasAktifRentang = prodisInF.reduce((acc, p) => acc + (p.totalKelasAktifRentang || 0), 0);
+        const fakultasKendalaList = prodisInF.flatMap((p) => p.kendalaList || []);
+
         const prodiPerhatianCount = prodisInF.filter((p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN").length;
         const prodiSehatCount = prodisInF.filter((p) => p.statusKinerjaRentang === "SANGAT_BAIK" || p.statusKinerjaRentang === "BAIK").length;
         const prodiBelumAdaKelasCount = prodisInF.filter((p) => p.totalKelas === 0).length;
@@ -1994,6 +1998,31 @@ export async function getLaporanFakultas(
         const avgKontenRentang = maxSkor3PilarRentang > 0
           ? Math.round((totalSkor3PilarRentang / maxSkor3PilarRentang) * 1000) / 10
           : hasKelas ? (totalKelasNonBimbingan === 0 ? 100 : 0) : null;
+
+        // Rata-rata semester terbobot kelas
+        const prodisWithClasses = prodisInF.filter((p) => p.totalKelas > 0 && p.avgKehadiranSemester !== null);
+        const totalClassesInF = prodisWithClasses.reduce((acc, p) => acc + p.totalKelas, 0);
+        const avgKehadiranSemester = totalClassesInF > 0
+          ? Math.round(
+              (prodisWithClasses.reduce((acc, p) => acc + (p.avgKehadiranSemester! * p.totalKelas), 0) /
+                totalClassesInF) *
+                10
+            ) / 10
+          : hasKelas
+          ? 0
+          : null;
+
+        const prodisWithContent = prodisInF.filter((p) => p.totalKelas > 0 && p.avgKontenSemester !== null);
+        const totalContentClassesInF = prodisWithContent.reduce((acc, p) => acc + p.totalKelas, 0);
+        const avgKontenSemester = totalContentClassesInF > 0
+          ? Math.round(
+              (prodisWithContent.reduce((acc, p) => acc + (p.avgKontenSemester! * p.totalKelas), 0) /
+                totalContentClassesInF) *
+                10
+            ) / 10
+          : hasKelas
+          ? (totalKelasNonBimbingan === 0 ? 100 : 0)
+          : null;
 
         let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS" = "SANGAT_BAIK";
         if (!hasKelas) {
@@ -2025,11 +2054,14 @@ export async function getLaporanFakultas(
         globalTotalGantiHariRentang += totalGantiHariRentang;
         globalTotalProdi += f.prodi.length;
 
-        const prodiListDetailed = prodisInF.map((p) => ({
+        const prodiBreakdownList: FakultasProdiBreakdownItem[] = prodisInF.map((p) => ({
           id: p.id,
           nama: p.nama,
           kode: p.kode,
           totalKelas: p.totalKelas,
+          totalKelasAktifRentang: p.totalKelasAktifRentang || 0,
+          totalDosen: p.totalDosen,
+          totalDosenAktifRentang: p.totalDosenAktifRentang || 0,
           totalSesiRentang: p.totalSesiRentang,
           totalHadirRentang: p.totalHadirRentang,
           totalAlphaRentang: p.totalAlphaRentang,
@@ -2064,11 +2096,16 @@ export async function getLaporanFakultas(
           totalPilar2Rentang,
           totalPilar3Rentang,
           totalConfRentang,
+          totalDosenAktifRentang,
+          totalKelasAktifRentang,
           totalDosen,
           totalKelas,
           totalKelasNonBimbingan,
           statusKinerjaRentang,
-          prodiList: prodiListDetailed,
+          prodiBreakdownList,
+          kendalaList: fakultasKendalaList,
+          avgKehadiranSemester,
+          avgKontenSemester,
         };
       });
 
