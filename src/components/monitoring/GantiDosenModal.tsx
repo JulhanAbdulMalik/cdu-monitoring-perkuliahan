@@ -14,7 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { gantiDosenSesiAction } from "@/actions/monitoring";
+import { gantiDosenSesiAction, getDosenOptionsAction } from "@/actions/monitoring";
 
 export interface DosenItemOption {
   id: string;
@@ -26,6 +26,10 @@ export interface DosenItemOption {
     kode: string;
   } | null;
 }
+
+// In-memory module cache di sisi client agar daftar dosen hanya diambil 1x per sesi browser
+let clientCachedDosenList: DosenItemOption[] | null = null;
+let clientCachedDosenPromise: Promise<DosenItemOption[]> | null = null;
 
 interface GantiDosenModalProps {
   isOpen: boolean;
@@ -43,7 +47,7 @@ interface GantiDosenModalProps {
     nama: string;
     nidn?: string | null;
   } | null;
-  dosenList: DosenItemOption[];
+  dosenList?: DosenItemOption[];
   initialTargetMode?: "SINGLE" | "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM";
   initialSesiNomor?: number;
   initialDosenPengajarId?: string | null;
@@ -75,6 +79,52 @@ export default function GantiDosenModal({
   initialCatatan = "",
   onSuccess,
 }: GantiDosenModalProps) {
+  // Lazy Loading Dosen on-demand dengan client-side cache
+  const [loadedDosenList, setLoadedDosenList] = useState<DosenItemOption[]>(
+    dosenList && dosenList.length > 0 ? dosenList : (clientCachedDosenList || [])
+  );
+  const [loadingDosen, setLoadingDosen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (dosenList && dosenList.length > 0) {
+      setLoadedDosenList(dosenList);
+      clientCachedDosenList = dosenList;
+      return;
+    }
+
+    if (clientCachedDosenList && clientCachedDosenList.length > 0) {
+      setLoadedDosenList(clientCachedDosenList);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingDosen(true);
+
+    if (!clientCachedDosenPromise) {
+      clientCachedDosenPromise = getDosenOptionsAction()
+        .then((res) => {
+          if (res.success && res.data) {
+            clientCachedDosenList = res.data;
+            return res.data;
+          }
+          return [];
+        })
+        .catch(() => []);
+    }
+
+    clientCachedDosenPromise.then((data) => {
+      if (isMounted) {
+        setLoadedDosenList(data);
+        setLoadingDosen(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, dosenList]);
   // Mode Target Sesi
   const [targetMode, setTargetMode] = useState<"SINGLE" | "RANGE_S1_8" | "RANGE_S9_16" | "CUSTOM">(
     initialTargetMode
@@ -159,18 +209,18 @@ export default function GantiDosenModal({
     }
   }, [targetMode, sesiNomor, customSesiMulai, customSesiSampai]);
 
-  // Filter Dosen List
+  // Filter Dosen List (menggunakan loadedDosenList)
   const filteredDosen = useMemo(() => {
-    if (!searchDosenQuery.trim()) return dosenList;
+    if (!searchDosenQuery.trim()) return loadedDosenList;
     const q = searchDosenQuery.toLowerCase();
-    return dosenList.filter(
+    return loadedDosenList.filter(
       (d) =>
         d.nama.toLowerCase().includes(q) ||
         (d.nidn && d.nidn.includes(q)) ||
         (d.prodi?.nama && d.prodi.nama.toLowerCase().includes(q)) ||
         (d.prodi?.kode && d.prodi.kode.toLowerCase().includes(q))
     );
-  }, [dosenList, searchDosenQuery]);
+  }, [loadedDosenList, searchDosenQuery]);
 
   const isKembaliKeUtama = selectedDosenId === dosenUtama.id;
   const isDosenTandem = Boolean(dosenTandem && selectedDosenId === dosenTandem.id);
@@ -181,7 +231,7 @@ export default function GantiDosenModal({
       ? dosenUtama
       : isDosenTandem
       ? dosenTandem
-      : dosenList.find((d) => d.id === selectedDosenId) || null;
+      : loadedDosenList.find((d) => d.id === selectedDosenId) || null;
 
   if (!isOpen) return null;
 
@@ -524,7 +574,7 @@ export default function GantiDosenModal({
                 Pilih Dosen Pengajar:
               </label>
               <span className="text-[10px] text-slate-400">
-                Total {dosenList.length} Dosen Terdaftar
+                {loadingDosen ? "Memuat dosen..." : `Total ${loadedDosenList.length} Dosen Terdaftar`}
               </span>
             </div>
 
@@ -641,11 +691,16 @@ export default function GantiDosenModal({
                   );
                 })}
 
-              {filteredDosen.length === 0 && (
+              {loadingDosen ? (
+                <div className="p-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#a80063] border-t-transparent rounded-full animate-spin" />
+                  <span>Memuat daftar seluruh dosen...</span>
+                </div>
+              ) : filteredDosen.length === 0 ? (
                 <div className="p-4 text-center text-slate-400 text-xs">
                   Tidak ada dosen yang cocok dengan pencarian.
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 

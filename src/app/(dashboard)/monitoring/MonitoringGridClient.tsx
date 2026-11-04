@@ -334,7 +334,7 @@ export default function MonitoringGridClient({
       prev.map((s) => {
         const t = sesiTerbaru.find((x) => x.id === s.id);
         if (!t) return s;
-        return {
+        const updated = {
           ...s,
           tanggal: t.tanggal ?? s.tanggal,
           kehadiran: t.kehadiran as MonitoringSesiData["kehadiran"],
@@ -345,6 +345,10 @@ export default function MonitoringGridClient({
           tugas: t.tugas,
           kuis: t.kuis,
         };
+        if (savedBaselineRef.current[s.id]) {
+          savedBaselineRef.current[s.id] = { ...updated };
+        }
+        return updated;
       })
     );
     try {
@@ -357,7 +361,6 @@ export default function MonitoringGridClient({
         }
       }
     } catch {}
-    router.refresh();
   }
 
   // Prompt warning if user tries to close/navigate away with unsaved changes
@@ -458,7 +461,6 @@ export default function MonitoringGridClient({
         return s;
       })
     );
-    router.refresh();
 
     // Notifikasi cross-tab real-time ke halaman /monitoring
     try {
@@ -2026,7 +2028,6 @@ export default function MonitoringGridClient({
           mataKuliahNama={currentKelas.mataKuliah.nama}
           dosenUtama={currentKelas.dosen}
           dosenTandem={currentKelas.dosen2}
-          dosenList={currentKelas.dosenList || []}
           initialTargetMode={gantiDosenModal.targetMode}
           initialSesiNomor={gantiDosenModal.sesiNomor}
           initialDosenPengajarId={gantiDosenModal.initialDosenId}

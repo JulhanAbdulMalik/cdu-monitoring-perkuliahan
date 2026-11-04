@@ -497,6 +497,157 @@ function isSessionNeedsContentCheck(
   return pillars.score === 0;
 }
 
+/**
+ * Membangun kondisi WHERE Prisma untuk filter Tab Antrean Kerja (Workflow Pipeline):
+ * - BELUM: Presensi BELUM_DIISI dan belum ada catatan CDU
+ * - KONTEN: Bukan bimbingan & bukan UTS/UAS, presensi HADIR, catatan CDU kosong, dan seluruh 3 pilar bernilai false (0 skor)
+ * - SELESAI / SUDAH: Kelas yang sudah dimonitor dan tidak masuk antrean pemeriksaan konten
+ */
+function buildMonitoringTabWhere(
+  monitoringTab: string | undefined,
+  currentSesi: number
+): any {
+  const isExam = currentSesi === 8 || currentSesi === 16;
+  if (!monitoringTab || monitoringTab === "ALL") return null;
+
+  if (monitoringTab === "BELUM") {
+    return {
+      monitoringSesi: {
+        some: {
+          nomorSesi: currentSesi,
+          kehadiran: "BELUM_DIISI" as any,
+          AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+        },
+      },
+    };
+  }
+
+  if (monitoringTab === "KONTEN") {
+    if (isExam) {
+      return { id: "__NO_MATCH__" };
+    }
+    return {
+      modePembelajaran: { not: "BIMBINGAN" as any },
+      OR: [
+        {
+          modePembelajaran: "LURING" as any,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "HADIR" as any,
+              AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+              slide: { not: true },
+              lectureNote: { not: true },
+              tugas: { not: true },
+              kuis: { not: true },
+            },
+          },
+        },
+        {
+          modePembelajaran: "DARING" as any,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "HADIR" as any,
+              AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+              slide: { not: true },
+              lectureNote: { not: true },
+              tugas: { not: true },
+              kuis: { not: true },
+              video: { not: true },
+              conference: { not: true },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  if (monitoringTab === "SELESAI" || monitoringTab === "SUDAH") {
+    return {
+      OR: [
+        {
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              catatanCdu: { not: null },
+              NOT: [{ catatanCdu: "" }],
+            },
+          },
+        },
+        {
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: { in: ["TIDAK_HADIR" as any, "HADIR_TIDAK_LENGKAP" as any] },
+            },
+          },
+        },
+        {
+          modePembelajaran: "BIMBINGAN" as any,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: { not: "BELUM_DIISI" as any },
+            },
+          },
+        },
+        {
+          modePembelajaran: "LURING" as any,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "HADIR" as any,
+              OR: [
+                { slide: true },
+                { lectureNote: true },
+                { tugas: true },
+                { kuis: true },
+              ],
+            },
+          },
+        },
+        {
+          modePembelajaran: "DARING" as any,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "HADIR" as any,
+              OR: [
+                { slide: true },
+                { lectureNote: true },
+                { tugas: true },
+                { kuis: true },
+                { video: true },
+                { conference: true },
+              ],
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  return null;
+}
+
+function buildStatusWhere(filterStatus: string | undefined, currentSesi: number): any {
+  if (!filterStatus || filterStatus === "ALL") return null;
+  if (filterStatus === "HADIR") {
+    return { monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "HADIR" as any } } };
+  }
+  if (filterStatus === "HTL") {
+    return { monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "HADIR_TIDAK_LENGKAP" as any } } };
+  }
+  if (filterStatus === "ALPHA") {
+    return { monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "TIDAK_HADIR" as any } } };
+  }
+  if (filterStatus === "BELUM_DIISI") {
+    return { monitoringSesi: { some: { nomorSesi: currentSesi, kehadiran: "BELUM_DIISI" as any } } };
+  }
+  return null;
+}
+
 function mapClassToProcessedItem(
   cls: any,
   currentSesi: number,
@@ -685,88 +836,171 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
     const isBimbinganOnly = params.filterMode === "BIMBINGAN";
 
     const sort = params.sortBy || "TERBARU";
-    // Pipeline terpadu: tarik data kelas dengan LEAN_KELAS_SELECT, lalu hitung tabCounts dan filter secara konsisten
-    const allMatchingClasses = await prisma.kelas.findMany({
-      where: baseWhere,
-      select: LEAN_KELAS_SELECT,
-    });
+    // 1. Hitung seluruh tab counts langsung di database (Single Source of Truth, paralel cepat)
+    const [totalInBase, belumDimonitorCount, perluCekKontenCount] = await Promise.all([
+      prisma.kelas.count({ where: baseWhere }),
+      prisma.kelas.count({
+        where: {
+          ...baseWhere,
+          monitoringSesi: {
+            some: {
+              nomorSesi: currentSesi,
+              kehadiran: "BELUM_DIISI",
+              AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+            },
+          },
+        },
+      }),
+      (isExam || isBimbinganOnly)
+        ? Promise.resolve(0)
+        : prisma.kelas.count({
+            where: {
+              ...baseWhere,
+              modePembelajaran: { not: "BIMBINGAN" },
+              OR: [
+                {
+                  modePembelajaran: "LURING",
+                  monitoringSesi: {
+                    some: {
+                      nomorSesi: currentSesi,
+                      kehadiran: "HADIR",
+                      AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+                      slide: { not: true },
+                      lectureNote: { not: true },
+                      tugas: { not: true },
+                      kuis: { not: true },
+                    },
+                  },
+                },
+                {
+                  modePembelajaran: "DARING",
+                  monitoringSesi: {
+                    some: {
+                      nomorSesi: currentSesi,
+                      kehadiran: "HADIR",
+                      AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
+                      slide: { not: true },
+                      lectureNote: { not: true },
+                      tugas: { not: true },
+                      kuis: { not: true },
+                      video: { not: true },
+                      conference: { not: true },
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+    ]);
 
-    const allProcessed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+    const selesaiDimonitorCount = Math.max(0, totalInBase - belumDimonitorCount - perluCekKontenCount);
 
-    // Hitung seluruh tab counts dari satu sumber logika yang sama (Single Source of Truth)
-    const totalInBase = allProcessed.length;
-    const belumDimonitorCount = allProcessed.filter((c) => !c.isMonitored).length;
-    const perluCekKontenCount = allProcessed.filter((c) => c.targetSesiNeedsContentCheck).length;
-    const selesaiDimonitorCount = allProcessed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck).length;
+    // 2. Bangun targetWhere di database untuk tab dan status
+    const tabWhere = buildMonitoringTabWhere(params.monitoringTab, currentSesi);
+    const statusWhere = buildStatusWhere(params.filterStatus, currentSesi);
 
-    let processed = allProcessed;
+    const conditions: any[] = [];
+    if (tabWhere) conditions.push(tabWhere);
+    if (statusWhere) conditions.push(statusWhere);
 
-    // Filter berdasarkan Tab Antrean Kerja (Workflow Pipeline)
-    if (params.monitoringTab === "BELUM") {
-      processed = processed.filter((c) => !c.isMonitored);
-    } else if (params.monitoringTab === "KONTEN") {
-      processed = processed.filter((c) => c.targetSesiNeedsContentCheck);
-    } else if (params.monitoringTab === "SELESAI" || params.monitoringTab === "SUDAH") {
-      processed = processed.filter((c) => c.isMonitored && !c.targetSesiNeedsContentCheck);
+    const targetWhere = conditions.length > 0 ? { AND: [baseWhere, ...conditions] } : baseWhere;
+
+    // Tentukan totalFiltered untuk paginasi (instan tanpa query tambahan jika hanya ganti tab)
+    let totalFiltered = totalInBase;
+    if (params.monitoringTab === "BELUM" && (!params.filterStatus || params.filterStatus === "ALL")) {
+      totalFiltered = belumDimonitorCount;
+    } else if (params.monitoringTab === "KONTEN" && (!params.filterStatus || params.filterStatus === "ALL")) {
+      totalFiltered = perluCekKontenCount;
+    } else if ((params.monitoringTab === "SELESAI" || params.monitoringTab === "SUDAH") && (!params.filterStatus || params.filterStatus === "ALL")) {
+      totalFiltered = selesaiDimonitorCount;
+    } else if (conditions.length > 0) {
+      totalFiltered = await prisma.kelas.count({ where: targetWhere });
     }
 
-    // Filter berdasarkan Dropdown Presensi Sesi Terpilih
-    if (params.filterStatus && params.filterStatus !== "ALL") {
-      processed = processed.filter((c) => {
-        const k = c.targetSesiData?.kehadiran;
-        if (params.filterStatus === "HADIR") return k === "HADIR";
-        if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
-        if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
-        if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
-        return true;
+    let rawClasses: any[] = [];
+
+    // 3. Paginasi & Pengurutan Cepat
+    if (sort === "JADWAL_ASC" || sort === "JADWAL_DESC") {
+      const lightweightRows = await prisma.kelas.findMany({
+        where: targetWhere,
+        select: { id: true, jadwalHari: true, jadwalJam: true },
       });
-    }
 
-    // Pengurutan (Sorting)
-    if (sort === "TERBARU") {
-      processed.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    } else if (sort === "TERLAMA") {
-      processed.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-    } else if (sort === "KODE_ASC") {
-      processed.sort((a, b) => a.kodeKelas.localeCompare(b.kodeKelas));
-    } else if (sort === "KODE_DESC") {
-      processed.sort((a, b) => b.kodeKelas.localeCompare(a.kodeKelas));
-    } else if (sort === "MK_ASC") {
-      processed.sort((a, b) => a.mataKuliah.nama.localeCompare(b.mataKuliah.nama));
-    } else if (sort === "MK_DESC") {
-      processed.sort((a, b) => b.mataKuliah.nama.localeCompare(a.mataKuliah.nama));
-    } else if (sort === "DOSEN_ASC") {
-      processed.sort((a, b) => a.dosen.nama.localeCompare(b.dosen.nama));
-    } else if (sort === "DOSEN_DESC") {
-      processed.sort((a, b) => b.dosen.nama.localeCompare(a.dosen.nama));
-    } else if (sort === "RUANG_ASC") {
-      processed.sort((a, b) => (a.ruangan || "").localeCompare(b.ruangan || ""));
-    } else if (sort === "RUANG_DESC") {
-      processed.sort((a, b) => (b.ruangan || "").localeCompare(a.ruangan || ""));
-    } else if (sort === "KEHADIRAN_DESC") {
-      processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
-    } else if (sort === "KEHADIRAN_ASC") {
-      processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
-    } else if (sort === "PILAR_DESC") {
-      processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
-    } else if (sort === "PILAR_ASC") {
-      processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
-    } else if (sort === "JADWAL_ASC") {
-      processed.sort((a, b) => {
+      lightweightRows.sort((a, b) => {
         const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
-        if (dayDiff !== 0) return dayDiff;
-        return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
+        if (dayDiff !== 0) return sort === "JADWAL_ASC" ? dayDiff : -dayDiff;
+        const ja = getJamStart(a.jadwalJam);
+        const jb = getJamStart(b.jadwalJam);
+        return sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
       });
-    } else if (sort === "JADWAL_DESC") {
-      processed.sort((a, b) => {
-        const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
-        if (dayDiff !== 0) return dayDiff;
-        return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
+
+      const pageIds = lightweightRows.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
+      if (pageIds.length > 0) {
+        const fetched = await prisma.kelas.findMany({
+          where: { id: { in: pageIds } },
+          select: LEAN_KELAS_SELECT,
+        });
+        const map = new Map(fetched.map((f) => [f.id, f]));
+        rawClasses = pageIds.map((id) => map.get(id)).filter(Boolean) as any[];
+      }
+    } else if (sort === "KEHADIRAN_DESC" || sort === "KEHADIRAN_ASC" || sort === "PILAR_DESC" || sort === "PILAR_ASC") {
+      const allMatching = await prisma.kelas.findMany({
+        where: targetWhere,
+        select: LEAN_KELAS_SELECT,
+      });
+      const processed = allMatching.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+      if (sort === "KEHADIRAN_DESC") {
+        processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
+      } else if (sort === "KEHADIRAN_ASC") {
+        processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
+      } else if (sort === "PILAR_DESC") {
+        processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
+      } else if (sort === "PILAR_ASC") {
+        processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
+      }
+      const paginatedItems = processed.slice((page - 1) * pageSize, page * pageSize);
+      return {
+        success: true,
+        data: {
+          items: paginatedItems,
+          totalCount: totalFiltered,
+          tabCounts: {
+            total: totalInBase,
+            belum: belumDimonitorCount,
+            konten: perluCekKontenCount,
+            selesai: selesaiDimonitorCount,
+            sudah: selesaiDimonitorCount,
+          },
+          page,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(totalFiltered / pageSize)),
+          defaultActiveSesi,
+        },
+      };
+    } else {
+      let orderBy: any = [{ updatedAt: "desc" }];
+      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }];
+      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }];
+      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }];
+      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }];
+      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }];
+      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }];
+      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }];
+      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }];
+      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }];
+      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }];
+
+      // NATIVE DATABASE PAGINATION: Hanya ambil baris yang dibutuhkan halaman ini
+      rawClasses = await prisma.kelas.findMany({
+        where: targetWhere,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy,
+        select: LEAN_KELAS_SELECT,
       });
     }
 
-    const totalFiltered = processed.length;
-    const paginated = processed.slice((page - 1) * pageSize, page * pageSize);
+    const paginated = rawClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
 
     return {
       success: true,
@@ -952,162 +1186,102 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
       jadwalJam?: string | null;
     }> = [];
 
-    if (isCustomSortOrFilter) {
-      const allMatchingClasses = await prisma.kelas.findMany({
-        where: baseWhere,
+    // Bangun kondisi tab & status di database
+    const tabWhere = buildMonitoringTabWhere(params.monitoringTab, currentSesi);
+    const statusWhere = buildStatusWhere(params.filterStatus, currentSesi);
+
+    const conditions: any[] = [];
+    if (tabWhere) conditions.push(tabWhere);
+    if (statusWhere) conditions.push(statusWhere);
+
+    let seqTargetWhere = baseWhere;
+    if (conditions.length > 0) {
+      seqTargetWhere = params.currentKelasId
+        ? { AND: [baseWhere, { OR: [{ id: params.currentKelasId }, { AND: conditions }] }] }
+        : { AND: [baseWhere, ...conditions] };
+    }
+
+    const SIMPLE_KELAS_SELECT = {
+      id: true,
+      kodeKelas: true,
+      jadwalHari: true,
+      jadwalJam: true,
+      mataKuliah: {
+        select: {
+          nama: true,
+          kode: true,
+          prodi: { select: { id: true, nama: true } },
+        },
+      },
+      dosen: { select: { nama: true } },
+      dosen2: { select: { nama: true } },
+    };
+
+    if (sort === "KEHADIRAN_DESC" || sort === "KEHADIRAN_ASC" || sort === "PILAR_DESC" || sort === "PILAR_ASC") {
+      const allMatching = await prisma.kelas.findMany({
+        where: seqTargetWhere,
         select: LEAN_KELAS_SELECT,
       });
-
-      let processed = allMatchingClasses.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
-
-      // Filter berdasarkan Tab Antrean Kerja (Workflow Pipeline)
-      if (params.monitoringTab === "BELUM") {
-        processed = processed.filter((c) => {
-          if (params.currentKelasId && c.id === params.currentKelasId) return true;
-          return !c.isMonitored;
-        });
-      } else if (params.monitoringTab === "KONTEN") {
-        processed = processed.filter((c) => {
-          if (params.currentKelasId && c.id === params.currentKelasId) return true;
-          return c.targetSesiNeedsContentCheck;
-        });
-      } else if (params.monitoringTab === "SELESAI" || params.monitoringTab === "SUDAH") {
-        processed = processed.filter((c) => {
-          if (params.currentKelasId && c.id === params.currentKelasId) return true;
-          return c.isMonitored && !c.targetSesiNeedsContentCheck;
-        });
-      }
-
-      // Filter berdasarkan Dropdown Presensi Sesi Terpilih
-      if (params.filterStatus && params.filterStatus !== "ALL") {
-        processed = processed.filter((c) => {
-          if (params.currentKelasId && c.id === params.currentKelasId) return true;
-          const k = c.targetSesiData?.kehadiran;
-          if (params.filterStatus === "HADIR") return k === "HADIR";
-          if (params.filterStatus === "HTL") return k === "HADIR_TIDAK_LENGKAP" || k === "HTL" || (k as string) === "HADIR_TDK_LENGKAP";
-          if (params.filterStatus === "ALPHA") return k === "TIDAK_HADIR" || k === "ALPHA";
-          if (params.filterStatus === "BELUM_DIISI") return !c.targetSesiData || k === "BELUM_DIISI";
-          return true;
-        });
-      }
-
-      if (sort === "TERBARU") {
-        processed.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      } else if (sort === "TERLAMA") {
-        processed.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-      } else if (sort === "KODE_ASC") {
-        processed.sort((a, b) => a.kodeKelas.localeCompare(b.kodeKelas));
-      } else if (sort === "KODE_DESC") {
-        processed.sort((a, b) => b.kodeKelas.localeCompare(a.kodeKelas));
-      } else if (sort === "MK_ASC") {
-        processed.sort((a, b) => a.mataKuliah.nama.localeCompare(b.mataKuliah.nama));
-      } else if (sort === "MK_DESC") {
-        processed.sort((a, b) => b.mataKuliah.nama.localeCompare(a.mataKuliah.nama));
-      } else if (sort === "DOSEN_ASC") {
-        processed.sort((a, b) => a.dosen.nama.localeCompare(b.dosen.nama));
-      } else if (sort === "DOSEN_DESC") {
-        processed.sort((a, b) => b.dosen.nama.localeCompare(a.dosen.nama));
-      } else if (sort === "RUANG_ASC") {
-        processed.sort((a, b) => (a.ruangan || "").localeCompare(b.ruangan || ""));
-      } else if (sort === "RUANG_DESC") {
-        processed.sort((a, b) => (b.ruangan || "").localeCompare(a.ruangan || ""));
-      } else if (sort === "KEHADIRAN_DESC") {
-        processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
-      } else if (sort === "KEHADIRAN_ASC") {
-        processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
-      } else if (sort === "PILAR_DESC") {
-        processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
-      } else if (sort === "PILAR_ASC") {
-        processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
-      } else if (sort === "JADWAL_ASC") {
-        processed.sort((a, b) => {
-          const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
-          if (dayDiff !== 0) return dayDiff;
-          return getJamStart(a.jadwalJam).localeCompare(getJamStart(b.jadwalJam));
-        });
-      } else if (sort === "JADWAL_DESC") {
-        processed.sort((a, b) => {
-          const dayDiff = getDayWeight(b.jadwalHari) - getDayWeight(a.jadwalHari);
-          if (dayDiff !== 0) return dayDiff;
-          return getJamStart(b.jadwalJam).localeCompare(getJamStart(a.jadwalJam));
-        });
-      }
-
+      let processed = allMatching.map((cls) => mapClassToProcessedItem(cls, currentSesi, defaultActiveSesi));
+      if (sort === "KEHADIRAN_DESC") processed.sort((a, b) => b.summary.persenKehadiran - a.summary.persenKehadiran);
+      else if (sort === "KEHADIRAN_ASC") processed.sort((a, b) => a.summary.persenKehadiran - b.summary.persenKehadiran);
+      else if (sort === "PILAR_DESC") processed.sort((a, b) => b.summary.totalSkor3Pilar - a.summary.totalSkor3Pilar);
+      else if (sort === "PILAR_ASC") processed.sort((a, b) => a.summary.totalSkor3Pilar - b.summary.totalSkor3Pilar);
       resultList = processed.map((c) => ({
         id: c.id,
         kodeKelas: c.kodeKelas,
         mataKuliah: {
           nama: c.mataKuliah.nama,
           kode: c.mataKuliah.kode,
-          prodi: c.mataKuliah.prodi ? {
-            id: c.mataKuliah.prodi.id,
-            nama: c.mataKuliah.prodi.nama,
-          } : undefined,
+          prodi: c.mataKuliah.prodi ? { id: c.mataKuliah.prodi.id, nama: c.mataKuliah.prodi.nama } : undefined,
         },
-        dosen: {
-          nama: c.dosen.nama,
+        dosen: { nama: c.dosen.nama },
+        dosen2: c.dosen2 ? { nama: c.dosen2.nama } : null,
+        jadwalHari: c.jadwalHari,
+        jadwalJam: c.jadwalJam,
+      }));
+    } else if (sort === "JADWAL_ASC" || sort === "JADWAL_DESC") {
+      const rawClasses = await prisma.kelas.findMany({
+        where: seqTargetWhere,
+        select: SIMPLE_KELAS_SELECT,
+      });
+      rawClasses.sort((a, b) => {
+        const dayDiff = getDayWeight(a.jadwalHari) - getDayWeight(b.jadwalHari);
+        if (dayDiff !== 0) return sort === "JADWAL_ASC" ? dayDiff : -dayDiff;
+        const ja = getJamStart(a.jadwalJam);
+        const jb = getJamStart(b.jadwalJam);
+        return sort === "JADWAL_ASC" ? ja.localeCompare(jb) : jb.localeCompare(ja);
+      });
+      resultList = rawClasses.map((c) => ({
+        id: c.id,
+        kodeKelas: c.kodeKelas,
+        mataKuliah: {
+          nama: c.mataKuliah.nama,
+          kode: c.mataKuliah.kode,
+          prodi: c.mataKuliah.prodi ? { id: c.mataKuliah.prodi.id, nama: c.mataKuliah.prodi.nama } : undefined,
         },
-        dosen2: c.dosen2 ? {
-          nama: c.dosen2.nama,
-        } : null,
+        dosen: { nama: c.dosen.nama },
+        dosen2: c.dosen2 ? { nama: c.dosen2.nama } : null,
         jadwalHari: c.jadwalHari,
         jadwalJam: c.jadwalJam,
       }));
     } else {
       let orderBy: any = [{ updatedAt: "desc" }];
-      if (sort === "TERBARU") {
-        orderBy = [{ updatedAt: "desc" }];
-      } else if (sort === "TERLAMA") {
-        orderBy = [{ updatedAt: "asc" }];
-      } else if (sort === "KODE_ASC") {
-        orderBy = [{ kodeKelas: "asc" }];
-      } else if (sort === "KODE_DESC") {
-        orderBy = [{ kodeKelas: "desc" }];
-      } else if (sort === "MK_ASC") {
-        orderBy = [{ mataKuliah: { nama: "asc" } }];
-      } else if (sort === "MK_DESC") {
-        orderBy = [{ mataKuliah: { nama: "desc" } }];
-      } else if (sort === "DOSEN_ASC") {
-        orderBy = [{ dosen: { nama: "asc" } }];
-      } else if (sort === "DOSEN_DESC") {
-        orderBy = [{ dosen: { nama: "desc" } }];
-      } else if (sort === "RUANG_ASC") {
-        orderBy = [{ ruangan: "asc" }];
-      } else if (sort === "RUANG_DESC") {
-        orderBy = [{ ruangan: "desc" }];
-      }
+      if (sort === "TERBARU") orderBy = [{ updatedAt: "desc" }];
+      else if (sort === "TERLAMA") orderBy = [{ updatedAt: "asc" }];
+      else if (sort === "KODE_ASC") orderBy = [{ kodeKelas: "asc" }];
+      else if (sort === "KODE_DESC") orderBy = [{ kodeKelas: "desc" }];
+      else if (sort === "MK_ASC") orderBy = [{ mataKuliah: { nama: "asc" } }];
+      else if (sort === "MK_DESC") orderBy = [{ mataKuliah: { nama: "desc" } }];
+      else if (sort === "DOSEN_ASC") orderBy = [{ dosen: { nama: "asc" } }];
+      else if (sort === "DOSEN_DESC") orderBy = [{ dosen: { nama: "desc" } }];
+      else if (sort === "RUANG_ASC") orderBy = [{ ruangan: "asc" }];
+      else if (sort === "RUANG_DESC") orderBy = [{ ruangan: "desc" }];
 
       const rawClasses = await prisma.kelas.findMany({
-        where: baseWhere,
+        where: seqTargetWhere,
         orderBy,
-        select: {
-          id: true,
-          kodeKelas: true,
-          jadwalHari: true,
-          jadwalJam: true,
-          mataKuliah: {
-            select: {
-              nama: true,
-              kode: true,
-              prodi: {
-                select: {
-                  id: true,
-                  nama: true,
-                },
-              },
-            },
-          },
-          dosen: {
-            select: {
-              nama: true,
-            },
-          },
-          dosen2: {
-            select: {
-              nama: true,
-            },
-          },
-        },
+        select: SIMPLE_KELAS_SELECT,
       });
 
       resultList = rawClasses.map((c) => ({
@@ -1116,17 +1290,10 @@ export async function getFilteredSequentialKelasList(params: SequentialKelasFilt
         mataKuliah: {
           nama: c.mataKuliah.nama,
           kode: c.mataKuliah.kode,
-          prodi: c.mataKuliah.prodi ? {
-            id: c.mataKuliah.prodi.id,
-            nama: c.mataKuliah.prodi.nama,
-          } : undefined,
+          prodi: c.mataKuliah.prodi ? { id: c.mataKuliah.prodi.id, nama: c.mataKuliah.prodi.nama } : undefined,
         },
-        dosen: {
-          nama: c.dosen.nama,
-        },
-        dosen2: c.dosen2 ? {
-          nama: c.dosen2.nama,
-        } : null,
+        dosen: { nama: c.dosen.nama },
+        dosen2: c.dosen2 ? { nama: c.dosen2.nama } : null,
         jadwalHari: c.jadwalHari,
         jadwalJam: c.jadwalJam,
       }));
@@ -1208,87 +1375,97 @@ async function getCachedDosenList() {
   return allDosen;
 }
 
+/**
+ * Server Action khusus untuk memuat daftar seluruh dosen secara on-demand / lazy.
+ * Hanya dipanggil saat admin membuka modal "Ganti Dosen", sehingga halaman kelas tidak perlu memuat ratusan dosen di awal.
+ */
+export async function getDosenOptionsAction(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  try {
+    const allDosen = await getCachedDosenList();
+    return { success: true, data: allDosen };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal memuat daftar dosen" };
+  }
+}
+
 export async function getMonitoringKelasDetail(kelasId: string) {
   try {
-    // Optimasi: Jalankan query detail kelas dan ambil daftar seluruh dosen dari in-memory cache
-    const [kelas, allDosen] = await Promise.all([
-      prisma.kelas.findUnique({
-        where: { id: kelasId },
-        select: {
-          id: true,
-          kodeKelas: true,
-          semesterId: true,
-          mataKuliahId: true,
-          dosenId: true,
-          dosen2Id: true,
-          jadwalHari: true,
-          jadwalJam: true,
-          ruangan: true,
-          modePembelajaran: true,
-          edlinkGroupId: true,
-          edlinkSyncedAt: true,
-          sumberLms: true,
-          externalUrl: true,
-          externalSyncedAt: true,
-          updatedAt: true,
-          semester: {
-            select: {
-              id: true,
-              tahunAkademik: true,
-              periode: true,
-              tanggalMulai: true,
-              hariLibur: {
-                select: {
-                  id: true,
-                  nama: true,
-                  tanggalMulai: true,
-                  tanggalSelesai: true,
-                  keterangan: true,
-                },
-                orderBy: { tanggalMulai: "asc" },
+    // Lean Payload: Hanya ambil data kelas, dosen pengampu, dan 16 sesi monitoring (tanpa mengirim seluruh dosen universitas)
+    const kelas = await prisma.kelas.findUnique({
+      where: { id: kelasId },
+      select: {
+        id: true,
+        kodeKelas: true,
+        semesterId: true,
+        mataKuliahId: true,
+        dosenId: true,
+        dosen2Id: true,
+        jadwalHari: true,
+        jadwalJam: true,
+        ruangan: true,
+        modePembelajaran: true,
+        edlinkGroupId: true,
+        edlinkSyncedAt: true,
+        sumberLms: true,
+        externalUrl: true,
+        externalSyncedAt: true,
+        updatedAt: true,
+        semester: {
+          select: {
+            id: true,
+            tahunAkademik: true,
+            periode: true,
+            tanggalMulai: true,
+            hariLibur: {
+              select: {
+                id: true,
+                nama: true,
+                tanggalMulai: true,
+                tanggalSelesai: true,
+                keterangan: true,
               },
+              orderBy: { tanggalMulai: "asc" },
             },
-          },
-          mataKuliah: {
-            select: {
-              id: true,
-              nama: true,
-              kode: true,
-              sks: true,
-              prodi: { select: { id: true, nama: true, kode: true } },
-            },
-          },
-          dosen: {
-            select: { id: true, nama: true, nidn: true },
-          },
-          dosen2: {
-            select: { id: true, nama: true, nidn: true },
-          },
-          monitoringSesi: {
-            select: {
-              id: true,
-              nomorSesi: true,
-              kehadiran: true,
-              conference: true,
-              slide: true,
-              tugas: true,
-              video: true,
-              lectureNote: true,
-              kuis: true,
-              catatanCdu: true,
-              catatanGantiDosen: true,
-              statusPengajar: true,
-              updatedAt: true,
-              dosenPengajar: {
-                select: { id: true, nama: true },
-              },
-            },
-            orderBy: { nomorSesi: "asc" },
           },
         },
-      }),
-      getCachedDosenList(),
-    ]);
+        mataKuliah: {
+          select: {
+            id: true,
+            nama: true,
+            kode: true,
+            sks: true,
+            prodi: { select: { id: true, nama: true, kode: true } },
+          },
+        },
+        dosen: {
+          select: { id: true, nama: true, nidn: true },
+        },
+        dosen2: {
+          select: { id: true, nama: true, nidn: true },
+        },
+        monitoringSesi: {
+          select: {
+            id: true,
+            nomorSesi: true,
+            kehadiran: true,
+            conference: true,
+            slide: true,
+            tugas: true,
+            video: true,
+            lectureNote: true,
+            kuis: true,
+            catatanCdu: true,
+            catatanGantiDosen: true,
+            statusPengajar: true,
+            updatedAt: true,
+            dosenPengajar: {
+              select: { id: true, nama: true },
+            },
+          },
+          orderBy: { nomorSesi: "asc" },
+        },
+      },
+    });
 
     if (!kelas) {
       return { success: false, error: "Kelas tidak ditemukan" };
@@ -1296,10 +1473,7 @@ export async function getMonitoringKelasDetail(kelasId: string) {
 
     return {
       success: true,
-      data: {
-        ...kelas,
-        dosenList: allDosen,
-      },
+      data: kelas,
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Gagal memuat detail monitoring kelas" };
