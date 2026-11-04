@@ -1,28 +1,14 @@
 // src/app/(dashboard)/page.tsx
 // CDU Portal - Real-Data Dashboard (Plus Jakarta Sans)
+// Optimized with High-Speed Aggregated Queries & Single-Flight In-Memory Cache
 
 import { Metadata } from "next";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import DashboardMetricSection from "@/components/dashboard/DashboardMetricSection";
-import MonitoringTrendChart, {
-  TrendItem,
-  TrendDataByMode,
-} from "@/components/dashboard/MonitoringTrendChart";
-import StatusDonutChart, {
-  DonutStatusItem,
-  DonutClassMode,
-  ModeDistributionData,
-} from "@/components/dashboard/StatusDonutChart";
+import MonitoringTrendChart from "@/components/dashboard/MonitoringTrendChart";
+import StatusDonutChart from "@/components/dashboard/StatusDonutChart";
 import RecentClassesTable from "@/components/dashboard/RecentClassesTable";
-import { calculateClassSummary, calculateSessionPillars } from "@/lib/score-calculator";
-import {
-  formatPct,
-  roundPct,
-  getCurrentActiveSessionNumber,
-  DEFAULT_SEMESTER_START_DATE,
-} from "@/lib/utils";
+import { getDashboardData } from "@/actions/dashboard";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -31,503 +17,47 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const session = await auth();
 
-  let totalKelas = 0;
-  let totalDosen = 0;
-  let totalProdi = 0;
-  let kelasOffline = 0;
-  let kelasOnline = 0;
-  let kelasBimbingan = 0;
-  let totalKelasNonBimbingan = 0;
-  let activeSemester: any = null;
-  let recentClassesList: any[] = [];
-  let avgKehadiranUniv = 0;
-  let avgKontenUniv = 0;
-  let kelasPerluPerhatianCount = 0;
-  let kelasCukupCount = 0;
-  let totalAlpha = 0;
-  let totalSesiTerlaksana = 0;
-  let totalHadir = 0;
-  let totalJadwalSesi = 0;
-
-  // Mode: Sesi Berjalan (Default)
-  let avgKehadiranBerjalan = 0;
-  let avgKontenBerjalan = 0;
-  let targetSesiBerjalan = 0;
-  let persenProgresMonitoringBerjalan = 0;
-  let belumDimonitorSesiBerjalan = 0;
-  let totalSesiBerjalan = 0;
-
-  // Mode: 16 Sesi (Semester Penuh)
-  let avgKehadiranSemester = 0;
-  let avgKontenSemester = 0;
-  let persenProgresMonitoringSemester = 0;
-  let belumDimonitorSemester = 0;
-  let trendData: TrendItem[] = [];
-  let trendDataByMode: TrendDataByMode | undefined = undefined;
-  let donutData: DonutStatusItem[] = [];
-  let distributionByMode: Record<DonutClassMode, ModeDistributionData> | undefined = undefined;
-
-  let sparklineClassData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
-  let sparklineKehadiranData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
-  let sparklineKontenData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
-  let sparklineAlphaData = [{ val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }, { val: 0 }];
-
-  let currentActiveSesi = 1;
-  let sudahDimonitorSesiAktif = 0;
-  let belumDimonitorSesiAktif = 0;
-  let persenSelesaiSesiAktif = 0;
-
-  try {
-    const userRole = (session?.user as any)?.role;
-    const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
-    const isDosen = userRole === "DOSEN";
-
-    // Optimasi Waterfall: Jalankan query semester, total dosen, dan total prodi secara paralel
-    const [allSemesters, dosenCount, prodiCount] = await Promise.all([
-      prisma.semester.findMany({
-        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-        include: { hariLibur: true },
-      }),
-      isDosen
-        ? prisma.dosen.count({ where: { prodiId: { in: userProdiIds } } })
-        : prisma.dosen.count(),
-      isDosen ? Promise.resolve(userProdiIds.length) : prisma.prodi.count({ where: { isActive: true } }),
-    ]);
-
-    activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0] || null;
-    totalDosen = dosenCount;
-    totalProdi = prodiCount;
-
-
-    const rawClasses = await prisma.kelas.findMany({
-      where: {
-        ...(activeSemester ? { semesterId: activeSemester.id } : {}),
-        mataKuliah: {
-          prodi: { isActive: true },
-          ...(isDosen ? { prodiId: { in: userProdiIds } } : {}),
-        },
-      },
-      select: {
-        id: true,
-        kodeKelas: true,
-        modePembelajaran: true,
-        updatedAt: true,
-        mataKuliah: {
-          select: {
-            nama: true,
-            sks: true,
-            prodi: {
-              select: {
-                nama: true,
-              },
-            },
-          },
-        },
-        dosen: {
-          select: {
-            nama: true,
-          },
-        },
-        dosen2: {
-          select: {
-            nama: true,
-          },
-        },
-        monitoringSesi: {
-          select: {
-            id: true,
-            nomorSesi: true,
-            kehadiran: true,
-            lectureNote: true,
-            slide: true,
-            video: true,
-            conference: true,
-            tugas: true,
-            kuis: true,
-            catatanCdu: true,
-            updatedAt: true,
-          },
-          orderBy: { nomorSesi: "asc" },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    totalKelas = rawClasses.length;
-
-    // Sesi aktif saat ini & progres monitoring sesi aktif
-    const semStartStr = activeSemester?.tanggalMulai
-      ? new Date(activeSemester.tanggalMulai).toISOString().split("T")[0]
-      : DEFAULT_SEMESTER_START_DATE;
-    currentActiveSesi = getCurrentActiveSessionNumber(semStartStr, activeSemester?.hariLibur);
-
-    sudahDimonitorSesiAktif = rawClasses.filter((cls) => {
-      const targetSesi = cls.monitoringSesi.find((s) => s.nomorSesi === currentActiveSesi);
-      return targetSesi ? targetSesi.kehadiran !== "BELUM_DIISI" : false;
-    }).length;
-    belumDimonitorSesiAktif = totalKelas - sudahDimonitorSesiAktif;
-    persenSelesaiSesiAktif =
-      totalKelas > 0 ? roundPct(sudahDimonitorSesiAktif, totalKelas) : 0;
-
-    // Count by mode
-    kelasOffline = rawClasses.filter(c => (c.modePembelajaran as string) === "LURING").length;
-    kelasOnline = rawClasses.filter(c => (c.modePembelajaran as string) === "DARING").length;
-    kelasBimbingan = rawClasses.filter(c => (c.modePembelajaran as string) === "BIMBINGAN").length;
-
-    let totalHadirLengkap = 0;
-    let totalHadirTdkLengkap = 0;
-    let totalRegularSesiTerlaksana = 0;
-    let totalSkor3PilarBerjalan = 0;
-    let maxSkor3PilarBerjalan = 0;
-    let totalSemesterKontenScore = 0;
-    let totalSemesterMaxKontenScore = 0;
-    totalKelasNonBimbingan = 0;
-    totalSesiBerjalan = 0;
-    // Total scheduled sessions = 16 per class (for true attendance %)  
-    totalJadwalSesi = rawClasses.length * 16;
-
-    // Array 16 sesi untuk akumulasi trend data S1 - S16
-    const sesiAggregates = Array.from({ length: 16 }, (_, i) => ({
-      nomorSesi: i + 1,
-      totalTerisi: 0,
-      totalHadir: 0,
-      totalSkorPilar: 0,
-      totalRegular: 0,
-    }));
-
-    for (const cls of rawClasses) {
-      const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
-      const summary = calculateClassSummary(
-        cls.monitoringSesi as any,
-        cls.modePembelajaran as any,
-        currentActiveSesi
-      );
-
-      if (summary.statusEvaluasi === "PERHATIAN") {
-        kelasPerluPerhatianCount++;
-      }
-
-      if (!isBimbingan) {
-        totalKelasNonBimbingan++;
-        totalSemesterKontenScore += summary.totalSkor3Pilar;
-        totalSemesterMaxKontenScore += ((cls.modePembelajaran as any) === "LURING" ? 28 : 42);
-      }
-
-      // Deteksi sesi berjalan tertinggi di kelas ini (Opsi B - Laporan per Prodi)
-      const filledOrNotedSessions = cls.monitoringSesi.filter(
-        (s) => s.kehadiran !== "BELUM_DIISI" || (s.catatanCdu !== null && s.catatanCdu.trim() !== "")
-      );
-      const maxSesiBerjalan =
-        filledOrNotedSessions.length > 0
-          ? Math.max(...filledOrNotedSessions.map((s) => s.nomorSesi))
-          : 1;
-
-      for (const s of cls.monitoringSesi) {
-        const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
-        const isFuture = s.kehadiran === "BELUM_DIISI" && !s.catatanCdu && s.nomorSesi > maxSesiBerjalan;
-        const isInRange = !isFuture;
-
-        if (s.kehadiran === "HADIR") {
-          totalHadir++;
-          totalHadirLengkap++;
-          totalSesiTerlaksana++;
-        } else if (s.kehadiran === "HADIR_TIDAK_LENGKAP") {
-          totalHadir++;
-          totalHadirTdkLengkap++;
-          totalSesiTerlaksana++;
-        } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
-          totalAlpha++;
-          totalSesiTerlaksana++;
-        }
-
-        // Sesi berjalan Opsi B (selaras 1:1 dengan Laporan per Prodi All Time)
-        if (isInRange) {
-          totalSesiBerjalan++;
-          if (!isBimbingan && !isExam) {
-            totalRegularSesiTerlaksana++;
-            const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
-            if (pilar.score !== null) {
-              totalSkor3PilarBerjalan += pilar.score;
-              maxSkor3PilarBerjalan += pilar.maxScore ?? ((cls.modePembelajaran as any) === "LURING" ? 2 : 3);
-            }
-          }
-        }
-      }
-    }
-
-    // Perhitungan Mode Sesi Berjalan (Opsi B - Selaras 1:1 dengan Laporan per Prodi All Time)
-    avgKehadiranBerjalan = totalSesiBerjalan > 0 ? roundPct(totalHadir, totalSesiBerjalan) : 0;
-    avgKontenBerjalan = maxSkor3PilarBerjalan > 0
-      ? Math.round((totalSkor3PilarBerjalan / maxSkor3PilarBerjalan) * 1000) / 10
-      : 0;
-    targetSesiBerjalan = rawClasses.length * currentActiveSesi;
-    persenProgresMonitoringBerjalan = targetSesiBerjalan > 0 ? roundPct(totalSesiBerjalan, targetSesiBerjalan) : 0;
-    belumDimonitorSesiBerjalan = Math.max(0, targetSesiBerjalan - totalSesiBerjalan);
-
-    // Perhitungan Mode 16 Sesi (Semester Penuh)
-    avgKehadiranSemester = roundPct(totalHadir, totalJadwalSesi);
-    avgKontenSemester = totalSemesterMaxKontenScore > 0
-      ? Math.round((totalSemesterKontenScore / totalSemesterMaxKontenScore) * 1000) / 10
-      : 0;
-    persenProgresMonitoringSemester = roundPct(totalSesiBerjalan, totalJadwalSesi);
-    belumDimonitorSemester = Math.max(0, totalJadwalSesi - totalSesiBerjalan);
-
-    // Kalkulasi tren monitoring per 16 sesi berdasarkan jenis kelas (ALL, OFFLINE, ONLINE, BIMBINGAN)
-    function calculateTrendForClasses(classList: typeof rawClasses): TrendItem[] {
-      const totalKelasInMode = classList.length;
-      const nonBimbinganClasses = classList.filter(
-        (c) => (c.modePembelajaran as any) !== "BIMBINGAN"
-      );
-      const totalNonBimbingan = nonBimbinganClasses.length;
-      const targetPilarSesi = nonBimbinganClasses.reduce((acc, c) => acc + ((c.modePembelajaran as any) === "LURING" ? 2 : 3), 0);
-
-      const sesiAgg = Array.from({ length: 16 }, (_, i) => ({
-        nomorSesi: i + 1,
-        totalHadir: 0,
-        totalAlpha: 0,
-        totalGantiHari: 0,
-        totalBelumDiisi: 0,
-        totalSkorPilar: 0,
-        totalTerisi: 0,
-        totalRegular: 0,
-      }));
-
-      for (const cls of classList) {
-        const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
-        for (const s of cls.monitoringSesi) {
-          const aggIndex = s.nomorSesi - 1;
-          if (aggIndex < 0 || aggIndex >= 16) continue;
-          const isExam = s.nomorSesi === 8 || s.nomorSesi === 16;
-
-          if (s.kehadiran === "HADIR" || s.kehadiran === "HADIR_TIDAK_LENGKAP") {
-            sesiAgg[aggIndex].totalHadir++;
-            sesiAgg[aggIndex].totalTerisi++;
-          } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
-            sesiAgg[aggIndex].totalAlpha++;
-            sesiAgg[aggIndex].totalTerisi++;
-          } else {
-            // BELUM_DIISI
-            const hasGantiNote = s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false;
-            if (hasGantiNote) {
-              sesiAgg[aggIndex].totalGantiHari++;
-            } else {
-              sesiAgg[aggIndex].totalBelumDiisi++;
-            }
-          }
-
-          // 3 Pilar untuk sesi reguler (kecuali kelas Bimbingan karena bebas konten)
-          if (!isExam && !isBimbingan) {
-            const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
-            if (pilar.score !== null) {
-              sesiAgg[aggIndex].totalRegular++;
-              sesiAgg[aggIndex].totalSkorPilar += pilar.score;
-            }
-          }
-        }
-      }
-
-      return sesiAgg.map((agg) => {
-        const isExam = agg.nomorSesi === 8 || agg.nomorSesi === 16;
-        const sesiLabel =
-          agg.nomorSesi === 8 ? "UTS" : agg.nomorSesi === 16 ? "UAS" : `S${agg.nomorSesi}`;
-        const fullLabel =
-          agg.nomorSesi === 8
-            ? "Sesi 8 (UTS)"
-            : agg.nomorSesi === 16
-            ? "Sesi 16 (UAS)"
-            : `Sesi ${agg.nomorSesi}`;
-
-        const kehadiran =
-          totalKelasInMode > 0 ? roundPct(agg.totalHadir, totalKelasInMode) : 0;
-
-        let konten = 0;
-        if (totalNonBimbingan === 0) {
-          // Kelas Bimbingan dibebaskan dari 3 pilar konten
-          konten = 0;
-        } else if (isExam) {
-          konten = kehadiran;
-        } else {
-          konten =
-            targetPilarSesi > 0
-              ? roundPct(agg.totalSkorPilar, targetPilarSesi)
-              : 0;
-        }
-
-        return {
-          sesi: sesiLabel,
-          full: fullLabel,
-          kehadiran,
-          konten,
-          totalKelas: totalKelasInMode,
-          totalHadir: agg.totalHadir,
-          totalAlpha: agg.totalAlpha,
-          totalGantiHari: agg.totalGantiHari,
-          totalBelumDiisi: agg.totalBelumDiisi,
-          totalNonBimbingan,
-          totalTerisi: agg.totalTerisi,
-          totalRegular: agg.totalRegular,
-          totalSkorPilar: agg.totalSkorPilar,
-        };
-      });
-    }
-
-    trendDataByMode = {
-      ALL: calculateTrendForClasses(rawClasses),
-      OFFLINE: calculateTrendForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "LURING")
-      ),
-      ONLINE: calculateTrendForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "DARING")
-      ),
-      BIMBINGAN: calculateTrendForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "BIMBINGAN")
-      ),
-    };
-
-    trendData = trendDataByMode.ALL;
-
-    // Donut Chart Data (Distribution per Mode Pembelajaran)
-    function calculateDistributionForClasses(classList: typeof rawClasses): ModeDistributionData {
-      let hLengkap = 0;
-      let hTdkLengkap = 0;
-      let alphaCount = 0;
-      let sesiTerlaksana = 0;
-
-      for (const cls of classList) {
-        for (const s of cls.monitoringSesi) {
-          if (s.kehadiran === "HADIR") {
-            hLengkap++;
-            sesiTerlaksana++;
-          } else if (s.kehadiran === "HADIR_TIDAK_LENGKAP") {
-            hTdkLengkap++;
-            sesiTerlaksana++;
-          } else if (s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA") {
-            alphaCount++;
-            sesiTerlaksana++;
-          }
-        }
-      }
-
-      const hLengkapPct = sesiTerlaksana > 0 ? roundPct(hLengkap, sesiTerlaksana) : 0;
-      const hTdkLengkapPct = sesiTerlaksana > 0 ? roundPct(hTdkLengkap, sesiTerlaksana) : 0;
-      const alphaPct = sesiTerlaksana > 0 ? roundPct(alphaCount, sesiTerlaksana) : 0;
-
-      return {
-        totalSesi: sesiTerlaksana,
-        totalKelas: classList.length,
-        data: [
-          {
-            name: "Hadir Lengkap",
-            value: hLengkapPct,
-            count: hLengkap,
-            color: "#10b981",
-          },
-          {
-            name: "Hadir Tidak Lengkap",
-            value: hTdkLengkapPct,
-            count: hTdkLengkap,
-            color: "#f59e0b",
-          },
-          {
-            name: "Alpha / Tidak Hadir",
-            value: alphaPct,
-            count: alphaCount,
-            color: "#ef4444",
-          },
-        ],
-      };
-    }
-
-    distributionByMode = {
-      ALL: calculateDistributionForClasses(rawClasses),
-      OFFLINE: calculateDistributionForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "LURING")
-      ),
-      ONLINE: calculateDistributionForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "DARING")
-      ),
-      BIMBINGAN: calculateDistributionForClasses(
-        rawClasses.filter((c) => (c.modePembelajaran as string) === "BIMBINGAN")
-      ),
-    };
-
-    donutData = distributionByMode.ALL.data;
-
-    // Recent Classes
-    recentClassesList = rawClasses.slice(0, 6).map((cls) => {
-      const filledSessions = cls.monitoringSesi.filter(
-        (s) => s.kehadiran !== "BELUM_DIISI"
-      ).length;
-
-      let status: "LENGKAP" | "SEBAGIAN" | "BELUM" = "BELUM";
-      if (filledSessions === 16) status = "LENGKAP";
-      else if (filledSessions > 0) status = "SEBAGIAN";
-
-      return {
-        id: cls.id,
-        kodeKelas: cls.kodeKelas,
-        mataKuliah: cls.mataKuliah.nama,
-        sks: cls.mataKuliah.sks,
-        dosen: cls.dosen.nama,
-        dosen2: cls.dosen2?.nama ?? null,
-        prodi: cls.mataKuliah.prodi?.nama || "Umum",
-        progress: filledSessions,
-        status,
-      };
-    });
-
-    // Sparklines data 100% riil dihitung per 5 blok sesi dari database
-    const kelasAktifBlok1 = new Set(rawClasses.filter(c => c.monitoringSesi.some(s => s.nomorSesi >= 1 && s.nomorSesi <= 3 && s.kehadiran !== "BELUM_DIISI")).map(c => c.id)).size;
-    const kelasAktifBlok2 = new Set(rawClasses.filter(c => c.monitoringSesi.some(s => s.nomorSesi >= 4 && s.nomorSesi <= 6 && s.kehadiran !== "BELUM_DIISI")).map(c => c.id)).size;
-    const kelasAktifBlok3 = new Set(rawClasses.filter(c => c.monitoringSesi.some(s => s.nomorSesi >= 7 && s.nomorSesi <= 9 && s.kehadiran !== "BELUM_DIISI")).map(c => c.id)).size;
-    const kelasAktifBlok4 = new Set(rawClasses.filter(c => c.monitoringSesi.some(s => s.nomorSesi >= 10 && s.nomorSesi <= 12 && s.kehadiran !== "BELUM_DIISI")).map(c => c.id)).size;
-    const kelasAktifBlok5 = new Set(rawClasses.filter(c => c.monitoringSesi.some(s => s.nomorSesi >= 13 && s.nomorSesi <= 16 && s.kehadiran !== "BELUM_DIISI")).map(c => c.id)).size;
-
-    sparklineClassData = [
-      { val: kelasAktifBlok1 },
-      { val: kelasAktifBlok2 },
-      { val: kelasAktifBlok3 },
-      { val: kelasAktifBlok4 },
-      { val: kelasAktifBlok5 },
-    ];
-
-    if (trendData.length === 16) {
-      sparklineKehadiranData = [
-        { val: Math.round((trendData[0].kehadiran + trendData[1].kehadiran + trendData[2].kehadiran) / 3) || avgKehadiranUniv },
-        { val: Math.round((trendData[3].kehadiran + trendData[4].kehadiran + trendData[5].kehadiran) / 3) || avgKehadiranUniv },
-        { val: Math.round((trendData[6].kehadiran + trendData[7].kehadiran) / 2) || avgKehadiranUniv },
-        { val: Math.round((trendData[8].kehadiran + trendData[9].kehadiran + trendData[10].kehadiran) / 3) || avgKehadiranUniv },
-        { val: Math.round((trendData[11].kehadiran + trendData[12].kehadiran + trendData[13].kehadiran + trendData[14].kehadiran + trendData[15].kehadiran) / 5) || avgKehadiranUniv },
-      ];
-
-      sparklineKontenData = [
-        { val: Math.round((trendData[0].konten + trendData[1].konten + trendData[2].konten) / 3) || avgKontenUniv },
-        { val: Math.round((trendData[3].konten + trendData[4].konten + trendData[5].konten) / 3) || avgKontenUniv },
-        { val: Math.round((trendData[6].konten + trendData[7].konten) / 2) || avgKontenUniv },
-        { val: Math.round((trendData[8].konten + trendData[9].konten + trendData[10].konten) / 3) || avgKontenUniv },
-        { val: Math.round((trendData[11].konten + trendData[12].konten + trendData[13].konten + trendData[14].konten + trendData[15].konten) / 5) || avgKontenUniv },
-      ];
-    }
-
-    const isSesiAlpha = (s: any) => s.kehadiran === "TIDAK_HADIR" || (s.kehadiran as string) === "ALPHA";
-    const alphaBlok1 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 1 && s.nomorSesi <= 3 && isSesiAlpha(s))).length;
-    const alphaBlok2 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 4 && s.nomorSesi <= 6 && isSesiAlpha(s))).length;
-    const alphaBlok3 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 7 && s.nomorSesi <= 9 && isSesiAlpha(s))).length;
-    const alphaBlok4 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 10 && s.nomorSesi <= 12 && isSesiAlpha(s))).length;
-    const alphaBlok5 = rawClasses.flatMap(c => c.monitoringSesi.filter(s => s.nomorSesi >= 13 && s.nomorSesi <= 16 && isSesiAlpha(s))).length;
-
-    sparklineAlphaData = [
-      { val: alphaBlok1 },
-      { val: alphaBlok2 },
-      { val: alphaBlok3 },
-      { val: alphaBlok4 },
-      { val: alphaBlok5 },
-    ];
-  } catch (err) {
-    console.error("Dashboard database fetch error:", err);
-  }
-
+  const userRole = (session?.user as any)?.role;
+  const userProdiIds = ((session?.user as any)?.prodiIds as string[]) || [];
+  const isDosen = userRole === "DOSEN";
   const userName = session?.user?.name || "Admin";
+
+  const data = await getDashboardData({
+    isDosen,
+    userProdiIds,
+  });
+
+  const {
+    activeSemester,
+    currentActiveSesi,
+    totalKelas,
+    totalProdi,
+    totalDosen,
+    kelasOffline,
+    kelasOnline,
+    kelasBimbingan,
+    kelasPerluPerhatianCount,
+    totalAlpha,
+    totalHadir,
+    totalSesiTerlaksana,
+    totalSesiBerjalan,
+    targetSesiBerjalan,
+    avgKehadiranBerjalan,
+    avgKontenBerjalan,
+    persenProgresMonitoringBerjalan,
+    belumDimonitorSesiBerjalan,
+    totalJadwalSesi,
+    totalKelasNonBimbingan,
+    avgKehadiranSemester,
+    avgKontenSemester,
+    persenProgresMonitoringSemester,
+    belumDimonitorSemester,
+    trendData,
+    trendDataByMode,
+    donutData,
+    distributionByMode,
+    recentClassesList,
+  } = data;
 
   return (
     <div className="space-y-4">
@@ -568,7 +98,7 @@ export default async function DashboardPage() {
         }}
       />
 
-      {/* ── 3. Middle Row: Unified Trend Spline Chart & Donut Distribution Chart ─ */}
+      {/* ── 2. Middle Row: Unified Trend Spline Chart & Donut Distribution Chart ─ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
         <div className="lg:col-span-2">
           <MonitoringTrendChart
@@ -586,7 +116,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 4. Bottom Row: Status Monitoring Kelas Terkini (Full Width) ────────── */}
+      {/* ── 3. Bottom Row: Status Monitoring Kelas Terkini (Full Width) ────────── */}
       <div>
         <RecentClassesTable classes={recentClassesList} />
       </div>

@@ -3,6 +3,7 @@
 // Server Actions untuk Rekapitulasi Monitoring, Laporan Dosen & Laporan Prodi (3-Pillar & Mode-Aware)
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { calculateSessionPillars, calculateClassSummary } from "@/lib/score-calculator";
 import {
@@ -13,15 +14,17 @@ import {
 } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SMART IN-MEMORY CACHE STORE UNTUK MODUL LAPORAN (REKAP, DOSEN, PRODI)
+// SMART IN-MEMORY CACHE STORE DENGAN SINGLE-FLIGHT PATTERN (PROMISE COALESCING)
 // ─────────────────────────────────────────────────────────────────────────────
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
-const LAPORAN_CACHE_TTL_MS = 30 * 1000; // 30 detik (sebelumnya 10 menit) agar sinkronisasi master data responsif
+// TTL 5 menit (300.000 ms) - hemat beban server CPU di jam sibuk & data rekap semester tetap konsisten
+const LAPORAN_CACHE_TTL_MS = 5 * 60 * 1000;
 const laporanCacheStore = new Map<string, CacheEntry<any>>();
+const inFlightLaporanRequests = new Map<string, Promise<any>>();
 
 export async function invalidateLaporanCache(): Promise<void> {
   laporanCacheStore.clear();
@@ -38,12 +41,46 @@ function getLaporanFromCache<T>(key: string): T | null {
 }
 
 function setLaporanToCache<T>(key: string, data: T): void {
-  // Jaga ukuran cache maksimal 30 entries agar memori RAM tetap sangat hemat
-  if (laporanCacheStore.size >= 30) {
+  // Jaga ukuran cache maksimal 50 entries agar memori RAM tetap hemat
+  if (laporanCacheStore.size >= 50) {
     const oldestKey = laporanCacheStore.keys().next().value;
     if (oldestKey) laporanCacheStore.delete(oldestKey);
   }
   laporanCacheStore.set(key, { data, timestamp: Date.now() });
+}
+
+/**
+ * Eksekusi dengan Single-Flight In-Memory Cache (Promise Coalescing):
+ * Mencegah Thundering Herd / Dog-Piling di jam sibuk ketika banyak user membuka laporan bersamaan.
+ */
+async function fetchWithSingleFlightCache<T>(
+  key: string,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  // 1. Cek memory cache yang masih berlaku
+  const cached = getLaporanFromCache<T>(key);
+  if (cached !== null) {
+    return cached;
+  }
+
+  // 2. Cek apakah ada query/kalkulasi untuk key yang sama sedang berjalan (Promise Coalescing)
+  if (inFlightLaporanRequests.has(key)) {
+    return inFlightLaporanRequests.get(key) as Promise<T>;
+  }
+
+  // 3. Daftarkan promise eksekusi baru
+  const promise = (async () => {
+    try {
+      const data = await fetcher();
+      setLaporanToCache(key, data);
+      return data;
+    } finally {
+      inFlightLaporanRequests.delete(key);
+    }
+  })();
+
+  inFlightLaporanRequests.set(key, promise);
+  return promise;
 }
 
 export interface DosenPengajarPeran {
@@ -159,28 +196,33 @@ export async function getRekapLaporan(
   allowedProdiIds?: string[]
 ): Promise<{ success: boolean; data?: RekapLaporanResultData; error?: string }> {
   try {
-    // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
-    const [allSemesters, rawAllProdi] = await Promise.all([
-      prisma.semester.findMany({
-        orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
-      }),
-      prisma.prodi.findMany({
-        where: { isActive: true },
-        orderBy: { nama: "asc" },
-      }),
-    ]);
-
-    const activeSemester = allSemesters.find((s) => s.aktif) || allSemesters[0];
-    const targetSemesterId = semesterId || activeSemester?.id || "NONE";
+    let targetSemId = semesterId;
+    if (!targetSemId) {
+      const activeSem = await prisma.semester.findFirst({ where: { aktif: true }, select: { id: true } });
+      targetSemId = activeSem?.id || "NONE";
+    }
 
     const isRestricted = Boolean(allowedProdiIds && allowedProdiIds.length > 0);
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
-    const cacheKey = `rekap_${targetSemesterId}_${prodiId || "ALL"}_${sortedAllowed}`;
+    const cacheKey = `rekap_${targetSemId}_${prodiId || "ALL"}_${sortedAllowed}`;
 
-    const cached = getLaporanFromCache<RekapLaporanResultData>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
+    const responseData = await fetchWithSingleFlightCache<RekapLaporanResultData>(cacheKey, async () => {
+      // Optimasi Waterfall: Ambil allSemesters dan allProdi secara paralel
+      const [allSemesters, rawAllProdi] = await Promise.all([
+        prisma.semester.findMany({
+          orderBy: [{ tahunAkademik: "desc" }, { periode: "asc" }],
+        }),
+        prisma.prodi.findMany({
+          where: { isActive: true },
+          orderBy: { nama: "asc" },
+        }),
+      ]);
+
+      const activeSemester =
+        allSemesters.find((s) => s.id === targetSemId) ||
+        allSemesters.find((s) => s.aktif) ||
+        allSemesters[0];
+      const targetSemesterId = targetSemId;
 
     const allProdi = isRestricted
       ? rawAllProdi.filter((p) => allowedProdiIds!.includes(p.id))
@@ -405,15 +447,14 @@ export async function getRekapLaporan(
       };
     });
 
-    const responseData = {
-      rekapList: summaries,
-      semesters: allSemesters,
-      prodiList: allProdi,
-      activeSemesterId: activeSemester?.id || allSemesters[0]?.id,
-      currentActiveSesi,
-    };
-
-    setLaporanToCache(cacheKey, responseData);
+      return {
+        rekapList: summaries,
+        semesters: allSemesters,
+        prodiList: allProdi,
+        activeSemesterId: activeSemester?.id || allSemesters[0]?.id,
+        currentActiveSesi,
+      };
+    });
 
     return {
       success: true,
@@ -493,15 +534,11 @@ export async function getLaporanDosen(
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
     const cacheKey = `dosen_${targetSemId}_${prodiId || "ALL"}_${sortedAllowed}`;
 
-    const cached = getLaporanFromCache<LaporanDosenResultData>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
-
-    const rekapRes = await getRekapLaporan(semesterId, prodiId, allowedProdiIds);
-    if (!rekapRes.success || !rekapRes.data) {
-      return { success: false, error: "Gagal memuat data laporan dosen" };
-    }
+    const responseData = await fetchWithSingleFlightCache<LaporanDosenResultData>(cacheKey, async () => {
+      const rekapRes = await getRekapLaporan(semesterId, prodiId, allowedProdiIds);
+      if (!rekapRes.success || !rekapRes.data) {
+        throw new Error(rekapRes.error || "Gagal memuat data laporan dosen");
+      }
 
     const { rekapList, semesters, prodiList, activeSemesterId, currentActiveSesi = 16 } = rekapRes.data;
 
@@ -756,14 +793,13 @@ export async function getLaporanDosen(
       };
     });
 
-    const responseData = {
-      dosenReportList,
-      semesters,
-      prodiList,
-      activeSemesterId,
-    };
-
-    setLaporanToCache(cacheKey, responseData);
+      return {
+        dosenReportList,
+        semesters,
+        prodiList,
+        activeSemesterId,
+      };
+    });
 
     return {
       success: true,
@@ -914,21 +950,367 @@ export async function getLaporanProdi(
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
     const cacheKey = `prodi_${targetSemesterId}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
 
-    const cached = getLaporanFromCache<any>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
+    const responseData = await fetchWithSingleFlightCache<any>(cacheKey, async () => {
+      // ── FAST PATH: SQL GROUP BY Aggregation untuk All Time & Sesi Mode (95%+ traffic) ──
+      if (isAllTime || isSesiMode) {
+        const modeCondition = normalizedJenisKelas
+          ? Prisma.sql`AND k."modePembelajaran" = ${normalizedJenisKelas}::"ModePembelajaran"`
+          : Prisma.empty;
+        const prodiCondition = isRestricted && allowedProdiIds!.length > 0
+          ? Prisma.sql`AND p.id IN (${Prisma.join(allowedProdiIds!)})`
+          : Prisma.empty;
+        const sesiCondition = isSesiMode
+          ? Prisma.sql`AND ms."nomorSesi" = ${targetSesi}`
+          : Prisma.sql`AND NOT (ms."kehadiran" = 'BELUM_DIISI' AND (ms."catatanCdu" IS NULL OR TRIM(ms."catatanCdu") = '') AND ms."nomorSesi" > cms.max_sesi)`;
 
-    let startDateTime: Date | null = null;
-    let endDateTime: Date | null = null;
+        const [prodiRows, maxScoreRows, semesterScoreRows, kendalaRows] = await Promise.all([
+          // 1. Core aggregates per prodi
+          prisma.$queryRaw<any[]>`
+            WITH ClassMaxSesi AS (
+              SELECT 
+                ms."kelasId",
+                k."modePembelajaran",
+                mk."prodiId",
+                COALESCE(
+                  MAX(CASE WHEN ms."kehadiran" != 'BELUM_DIISI' OR (ms."catatanCdu" IS NOT NULL AND TRIM(ms."catatanCdu") != '') THEN ms."nomorSesi" END),
+                  1
+                ) as max_sesi
+              FROM "MonitoringSesi" ms
+              JOIN "Kelas" k ON ms."kelasId" = k.id
+              JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
+              JOIN "Prodi" p ON mk."prodiId" = p.id
+              WHERE k."semesterId" = ${targetSemesterId} AND p."isActive" = true
+              ${modeCondition}
+              ${prodiCondition}
+              GROUP BY ms."kelasId", k."modePembelajaran", mk."prodiId"
+            )
+            SELECT 
+              cms."prodiId",
+              p."nama" as prodi_nama,
+              p."kode" as prodi_kode,
+              f."nama" as fakultas_nama,
+              COUNT(DISTINCT cms."kelasId")::int as total_kelas,
+              COUNT(DISTINCT CASE WHEN cms."modePembelajaran" != 'BIMBINGAN' THEN cms."kelasId" END)::int as total_kelas_non_bimbingan,
+              COUNT(DISTINCT CASE WHEN cms."modePembelajaran" = 'LURING' THEN cms."kelasId" END)::int as total_kelas_luring,
+              COUNT(DISTINCT CASE WHEN cms."modePembelajaran" = 'DARING' THEN cms."kelasId" END)::int as total_kelas_daring,
+              COUNT(*)::int as total_sesi_rentang,
+              COUNT(CASE WHEN ms."kehadiran" = 'HADIR' THEN 1 END)::int as total_hadir,
+              COUNT(CASE WHEN ms."kehadiran" = 'HADIR_TIDAK_LENGKAP' THEN 1 END)::int as total_htl,
+              COUNT(CASE WHEN ms."kehadiran" = 'TIDAK_HADIR'::"Kehadiran" THEN 1 END)::int as total_alpha,
+              COUNT(CASE WHEN ms."kehadiran" = 'BELUM_DIISI' THEN 1 END)::int as total_belum_diisi,
+              COUNT(CASE WHEN ms."catatanCdu" ~* 'ganti|reschedule|tunda' THEN 1 END)::int as total_ganti_hari,
+              COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND cms."modePembelajaran" != 'BIMBINGAN' THEN 1 END)::int as total_regular,
+              COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND cms."modePembelajaran" != 'BIMBINGAN' AND (ms.slide = true OR ms."lectureNote" = true) THEN 1 END)::int as pilar1,
+              COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND cms."modePembelajaran" != 'BIMBINGAN' AND (ms.tugas = true OR ms.kuis = true) THEN 1 END)::int as pilar2,
+              COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND cms."modePembelajaran" = 'DARING' AND (ms.video = true OR ms.conference = true) THEN 1 END)::int as pilar3,
+              COUNT(CASE WHEN ms.conference = true AND ms."nomorSesi" NOT IN (8, 16) THEN 1 END)::int as total_conf,
+              COUNT(DISTINCT CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND ms."kehadiran" != 'BELUM_DIISI' THEN k."dosenId" END)::int as total_dosen_aktif,
+              COUNT(DISTINCT CASE WHEN ms."kehadiran" != 'BELUM_DIISI' THEN k.id END)::int as total_kelas_aktif
+            FROM ClassMaxSesi cms
+            JOIN "MonitoringSesi" ms ON cms."kelasId" = ms."kelasId"
+            JOIN "Kelas" k ON ms."kelasId" = k.id
+            JOIN "Prodi" p ON cms."prodiId" = p.id
+            JOIN "Fakultas" f ON p."fakultasId" = f.id
+            WHERE 1=1
+            ${sesiCondition}
+            GROUP BY cms."prodiId", p."nama", p."kode", f."nama"
+            ORDER BY p."nama" ASC;
+          `,
+          // 2. Max 3-pillar score per prodi in range
+          prisma.$queryRaw<any[]>`
+            WITH ClassMaxSesi AS (
+              SELECT 
+                ms."kelasId",
+                k."modePembelajaran",
+                mk."prodiId",
+                COALESCE(
+                  MAX(CASE WHEN ms."kehadiran" != 'BELUM_DIISI' OR (ms."catatanCdu" IS NOT NULL AND TRIM(ms."catatanCdu") != '') THEN ms."nomorSesi" END),
+                  1
+                ) as max_sesi
+              FROM "MonitoringSesi" ms
+              JOIN "Kelas" k ON ms."kelasId" = k.id
+              JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
+              JOIN "Prodi" p ON mk."prodiId" = p.id
+              WHERE k."semesterId" = ${targetSemesterId} AND p."isActive" = true AND k."modePembelajaran" != 'BIMBINGAN'
+              ${modeCondition}
+              ${prodiCondition}
+              GROUP BY ms."kelasId", k."modePembelajaran", mk."prodiId"
+            )
+            SELECT 
+              cms."prodiId",
+              SUM(
+                CASE 
+                  WHEN cms."modePembelajaran" = 'LURING' THEN 2 
+                  WHEN cms."modePembelajaran" = 'DARING' THEN 3 
+                  ELSE 0 
+                END
+              )::int as max_skor_rentang
+            FROM ClassMaxSesi cms
+            JOIN "MonitoringSesi" ms ON cms."kelasId" = ms."kelasId"
+            WHERE ms."nomorSesi" NOT IN (8, 16)
+              ${sesiCondition}
+            GROUP BY cms."prodiId";
+          `,
+          // 3. Semester total stats (khusus Sesi Mode)
+          isSesiMode
+            ? prisma.$queryRaw<any[]>`
+              SELECT 
+                mk."prodiId",
+                COUNT(CASE WHEN ms."kehadiran" IN ('HADIR', 'HADIR_TIDAK_LENGKAP') THEN 1 END)::int as total_hadir_semester,
+                COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND k."modePembelajaran" != 'BIMBINGAN' AND (ms.slide = true OR ms."lectureNote" = true) THEN 1 END)::int as pilar1,
+                COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND k."modePembelajaran" != 'BIMBINGAN' AND (ms.tugas = true OR ms.kuis = true) THEN 1 END)::int as pilar2,
+                COUNT(CASE WHEN ms."nomorSesi" NOT IN (8, 16) AND k."modePembelajaran" = 'DARING' AND (ms.video = true OR ms.conference = true) THEN 1 END)::int as pilar3
+              FROM "MonitoringSesi" ms
+              JOIN "Kelas" k ON ms."kelasId" = k.id
+              JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
+              JOIN "Prodi" p ON mk."prodiId" = p.id
+              WHERE k."semesterId" = ${targetSemesterId} AND p."isActive" = true
+              ${modeCondition}
+              ${prodiCondition}
+              GROUP BY mk."prodiId";
+            `
+            : Promise.resolve([]),
+          // 4. Kendala rows
+          prisma.$queryRaw<any[]>`
+            WITH ClassMaxSesi AS (
+              SELECT 
+                ms."kelasId",
+                COALESCE(
+                  MAX(CASE WHEN ms."kehadiran" != 'BELUM_DIISI' OR (ms."catatanCdu" IS NOT NULL AND TRIM(ms."catatanCdu") != '') THEN ms."nomorSesi" END),
+                  1
+                ) as max_sesi
+              FROM "MonitoringSesi" ms
+              JOIN "Kelas" k ON ms."kelasId" = k.id
+              JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
+              JOIN "Prodi" p ON mk."prodiId" = p.id
+              WHERE k."semesterId" = ${targetSemesterId} AND p."isActive" = true
+              ${modeCondition}
+              ${prodiCondition}
+              GROUP BY ms."kelasId"
+            )
+            SELECT 
+              ms.id as "sesiId",
+              ms."nomorSesi",
+              CASE 
+                WHEN ms."kehadiran" = 'TIDAK_HADIR'::"Kehadiran" THEN 'ALPHA'
+                WHEN ms."kehadiran" = 'HADIR_TIDAK_LENGKAP'::"Kehadiran" THEN 'HTL'
+                ELSE 'BELUM_DIISI'
+              END as status,
+              ms."catatanCdu" as catatan,
+              ms."tanggal",
+              k.id as "kelasId",
+              k."kodeKelas" as "kelasKode",
+              k."jadwalHari",
+              k."jadwalJam",
+              mk."nama" as "mataKuliahNama",
+              mk."kode" as "mataKuliahKode",
+              mk."prodiId",
+              p."nama" as "prodiNama",
+              p."kode" as "prodiKode",
+              d.id as "dosenId",
+              COALESCE(dp.nama, d.nama) as "dosenNama",
+              COALESCE(dp.nidn, d.nidn) as "dosenNidn"
+            FROM ClassMaxSesi cms
+            JOIN "MonitoringSesi" ms ON cms."kelasId" = ms."kelasId"
+            JOIN "Kelas" k ON ms."kelasId" = k.id
+            JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
+            JOIN "Prodi" p ON mk."prodiId" = p.id
+            JOIN "Dosen" d ON k."dosenId" = d.id
+            LEFT JOIN "Dosen" dp ON ms."dosenPengajarId" = dp.id
+            WHERE ms."kehadiran" IN ('TIDAK_HADIR'::"Kehadiran", 'HADIR_TIDAK_LENGKAP'::"Kehadiran", 'BELUM_DIISI'::"Kehadiran")
+              ${sesiCondition}
+            ORDER BY mk."prodiId", ms."nomorSesi";
+          `,
+        ]);
 
-    if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
-      startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
-      endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
-    }
+        const maxScoreMap = new Map<string, number>();
+        for (const r of maxScoreRows) maxScoreMap.set(r.prodiId, r.max_skor_rentang);
 
-    // Pruned Lean Query: Memangkas relasi nested yang tidak dipakai
-    const rawClasses = await prisma.kelas.findMany({
+        const semScoreMap = new Map<string, any>();
+        for (const r of semesterScoreRows) {
+          semScoreMap.set(r.prodiId, {
+            totalHadir: r.total_hadir_semester,
+            totalSkor: r.pilar1 + r.pilar2 + (r.pilar3 || 0),
+          });
+        }
+
+        const kendalaByProdi = new Map<string, KendalaKehadiranItem[]>();
+        for (const r of kendalaRows) {
+          if (!kendalaByProdi.has(r.prodiId)) kendalaByProdi.set(r.prodiId, []);
+          kendalaByProdi.get(r.prodiId)!.push({
+            sesiId: r.sesiId,
+            nomorSesi: r.nomorSesi,
+            status: r.status,
+            catatan: r.catatan,
+            dosenId: r.dosenId,
+            dosenNama: r.dosenNama,
+            dosenNidn: r.dosenNidn,
+            mataKuliahNama: r.mataKuliahNama,
+            mataKuliahKode: r.mataKuliahKode,
+            kelasKode: r.kelasKode,
+            kelasId: r.kelasId,
+            jadwalHari: r.jadwalHari,
+            jadwalJam: r.jadwalJam,
+            tanggal: r.tanggal ? new Date(r.tanggal).toISOString().split("T")[0] : null,
+            prodiNama: r.prodiNama,
+            prodiKode: r.prodiKode,
+          });
+        }
+
+        const prodiRowMap = new Map<string, any>();
+        for (const r of prodiRows) prodiRowMap.set(r.prodiId, r);
+
+        let globalTotalSesiRentang = 0;
+        let globalTotalHadirRentang = 0;
+        let globalTotalRegularSesiRentang = 0;
+        let globalTotalSkor3PilarRentang = 0;
+        let globalMaxSkor3PilarRentang = 0;
+        let globalTotalConfRentang = 0;
+        let globalTotalKelas = 0;
+        let globalTotalDosen = 0;
+        let globalTotalGantiHariRentang = 0;
+
+        const prodiReportList: ProdiReportItem[] = allProdi.map((p) => {
+          const r = prodiRowMap.get(p.id);
+          const totalKelas = r ? r.total_kelas : 0;
+          const totalKelasNonBimbingan = r ? r.total_kelas_non_bimbingan : 0;
+          const totalDosen = p.dosen.length;
+
+          const totalSesiRentang = r ? r.total_sesi_rentang : 0;
+          const totalHadirRentang = r ? r.total_hadir : 0;
+          const totalHadirTdkLengkapRentang = r ? r.total_htl : 0;
+          const totalAlphaRentang = r ? r.total_alpha : 0;
+          const totalBelumDiisiRentang = r ? r.total_belum_diisi : 0;
+          const totalGantiHariRentang = r ? r.total_ganti_hari : 0;
+
+          const avgKehadiranRentang = totalSesiRentang > 0
+            ? Math.round(((totalHadirRentang + totalHadirTdkLengkapRentang) / totalSesiRentang) * 1000) / 10
+            : totalKelas > 0 ? 0 : null;
+
+          const totalRegularSesiRentang = r ? r.total_regular : 0;
+          const totalSkor3PilarRentang = r ? (r.pilar1 + r.pilar2 + r.pilar3) : 0;
+          const maxSkor3PilarRentang = maxScoreMap.get(p.id) || 0;
+
+          const isAllBimbingan = totalKelas > 0 && totalKelasNonBimbingan === 0;
+          const avgKontenRentang = maxSkor3PilarRentang > 0
+            ? Math.round((totalSkor3PilarRentang / maxSkor3PilarRentang) * 1000) / 10
+            : totalKelas > 0 ? (isAllBimbingan ? 100 : 0) : null;
+
+          const totalPilar1Rentang = r ? r.pilar1 : 0;
+          const totalPilar2Rentang = r ? r.pilar2 : 0;
+          const totalPilar3Rentang = r ? r.pilar3 : 0;
+          const totalConfRentang = r ? r.total_conf : 0;
+
+          const totalDosenAktifRentang = r ? r.total_dosen_aktif : 0;
+          const totalKelasAktifRentang = r ? r.total_kelas_aktif : 0;
+
+          let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS" = "BAIK";
+          if (totalKelas === 0) {
+            statusKinerjaRentang = "BELUM_ADA_KELAS";
+          } else if (
+            (avgKehadiranRentang !== null && avgKehadiranRentang < 75) ||
+            (avgKontenRentang !== null && avgKontenRentang < 65) ||
+            totalAlphaRentang >= 2
+          ) {
+            statusKinerjaRentang = "PERLU_PEMBINAAN";
+          } else if (
+            (avgKehadiranRentang !== null && avgKehadiranRentang >= 85) &&
+            (avgKontenRentang !== null && avgKontenRentang >= 80) &&
+            totalAlphaRentang === 0 &&
+            totalHadirTdkLengkapRentang <= 1
+          ) {
+            statusKinerjaRentang = "SANGAT_BAIK";
+          }
+
+          const kendalaList = kendalaByProdi.get(p.id) || [];
+
+          // Semester stats
+          let totalHadirSemester = isSesiMode ? (semScoreMap.get(p.id)?.totalHadir || 0) : (totalHadirRentang + totalHadirTdkLengkapRentang);
+          let totalSkorSemester = isSesiMode ? (semScoreMap.get(p.id)?.totalSkor || 0) : totalSkor3PilarRentang;
+          let maxSkorSemester = r ? ((r.total_kelas_luring * 28) + (r.total_kelas_daring * 42)) : 0;
+
+          const avgKehadiranSemester = totalKelas > 0 ? Math.round((totalHadirSemester / (totalKelas * 16)) * 1000) / 10 : null;
+          const avgKontenSemester = totalKelas > 0 ? (maxSkorSemester > 0 ? Math.round((totalSkorSemester / maxSkorSemester) * 1000) / 10 : (isAllBimbingan ? 100 : 0)) : null;
+
+          globalTotalSesiRentang += totalSesiRentang;
+          globalTotalHadirRentang += (totalHadirRentang + totalHadirTdkLengkapRentang);
+          globalTotalRegularSesiRentang += totalRegularSesiRentang;
+          globalTotalSkor3PilarRentang += totalSkor3PilarRentang;
+          globalMaxSkor3PilarRentang += maxSkor3PilarRentang;
+          globalTotalConfRentang += totalConfRentang;
+          globalTotalKelas += totalKelas;
+          globalTotalDosen += totalDosen;
+          globalTotalGantiHariRentang += totalGantiHariRentang;
+
+          return {
+            id: p.id,
+            nama: p.nama,
+            kode: p.kode,
+            fakultasNama: p.fakultas?.nama,
+            totalSesiRentang,
+            totalHadirRentang,
+            totalHadirTdkLengkapRentang,
+            totalAlphaRentang,
+            totalBelumDiisiRentang,
+            totalGantiHariRentang,
+            avgKehadiranRentang,
+            totalRegularSesiRentang,
+            totalSkor3PilarRentang,
+            maxSkor3PilarRentang,
+            avgKontenRentang,
+            totalPilar1Rentang,
+            totalPilar2Rentang,
+            totalPilar3Rentang,
+            totalConfRentang,
+            totalDosenAktifRentang,
+            totalKelasAktifRentang,
+            statusKinerjaRentang,
+            kendalaList,
+            totalKelas,
+            totalKelasNonBimbingan,
+            totalDosen,
+            avgKehadiranSemester,
+            avgKontenSemester,
+          };
+        });
+
+        const avgKehadiranRentangSemua = globalTotalSesiRentang > 0 ? Math.round((globalTotalHadirRentang / globalTotalSesiRentang) * 1000) / 10 : 0;
+        const activeProdiList = prodiReportList.filter(p => p.totalKelas > 0);
+        const isAllBimb = normalizedJenisKelas === "BIMBINGAN" || (activeProdiList.length > 0 && activeProdiList.every(p => p.totalKelasNonBimbingan === 0));
+        const avgKontenRentangSemua = globalMaxSkor3PilarRentang > 0 ? Math.round((globalTotalSkor3PilarRentang / globalMaxSkor3PilarRentang) * 1000) / 10 : (isAllBimb ? 100 : 0);
+
+        return {
+          prodiReportList,
+          semesters: allSemesters,
+          activeSemesterId: targetSemesterId,
+          startDate: targetStartDate,
+          endDate: targetEndDate,
+          targetSesi,
+          targetJenisKelas: normalizedJenisKelas || "ALL",
+          globalSummary: {
+            totalProdi: allProdi.length,
+            totalKelasSemua: globalTotalKelas,
+            totalDosenSemua: globalTotalDosen,
+            totalSesiRentangSemua: globalTotalSesiRentang,
+            avgKehadiranRentangSemua,
+            avgKontenRentangSemua,
+            totalConfRentangSemua: globalTotalConfRentang,
+            totalGantiHariRentangSemua: globalTotalGantiHariRentang,
+          },
+        };
+      }
+
+      // ── SLOW/FALLBACK PATH: Custom Date Range (Mingguan) ──
+      let startDateTime: Date | null = null;
+      let endDateTime: Date | null = null;
+
+      if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
+        startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
+        endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
+      }
+
+      // Pruned Lean Query: Memangkas relasi nested yang tidak dipakai
+      const rawClasses = await prisma.kelas.findMany({
       where: {
         ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
         ...(isRestricted ? { mataKuliah: { prodiId: { in: allowedProdiIds! } } } : {}),
@@ -1351,7 +1733,8 @@ export async function getLaporanProdi(
       },
     };
 
-    setLaporanToCache(cacheKey, responseData);
+      return responseData;
+    });
 
     return {
       success: true,
@@ -1551,649 +1934,170 @@ export async function getLaporanFakultas(
     const sortedAllowed = allowedProdiIds ? [...allowedProdiIds].sort().join(",") : "";
     const cacheKey = `fakultas_${targetSemesterId}_${targetStartDate || "ALL"}_${targetEndDate || "ALL"}_sesi${targetSesi || "NONE"}_${sortedAllowed}_mode${normalizedJenisKelas || "ALL"}`;
 
-    const cached = getLaporanFromCache<any>(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
-    }
-
-    let startDateTime: Date | null = null;
-    let endDateTime: Date | null = null;
-
-    if (!isSesiMode && !isAllTime && targetStartDate && targetEndDate) {
-      startDateTime = new Date(`${targetStartDate}T00:00:00.000Z`);
-      endDateTime = new Date(`${targetEndDate}T23:59:59.999Z`);
-    }
-
-    // Ambil data perkuliahan pada semester target
-    const rawClasses = await prisma.kelas.findMany({
-      where: {
-        ...(targetSemesterId ? { semesterId: targetSemesterId } : {}),
-        ...(isRestricted ? { mataKuliah: { prodiId: { in: allowedProdiIds! } } } : {}),
-        ...(normalizedJenisKelas ? { modePembelajaran: normalizedJenisKelas as any } : {}),
-      },
-      select: {
-        id: true,
-        kodeKelas: true,
-        jadwalHari: true,
-        jadwalJam: true,
-        modePembelajaran: true,
-        semester: {
-          select: {
-            tanggalMulai: true,
-            hariLibur: true,
-          },
-        },
-        mataKuliah: {
-          select: {
-            prodiId: true,
-            nama: true,
-            kode: true,
-            prodi: {
-              select: {
-                id: true,
-                nama: true,
-                kode: true,
-                fakultasId: true,
-              },
-            },
-          },
-        },
-        dosen: {
-          select: {
-            id: true,
-            nama: true,
-            nidn: true,
-          },
-        },
-        dosen2: {
-          select: {
-            id: true,
-            nama: true,
-            nidn: true,
-          },
-        },
-        monitoringSesi: {
-          select: {
-            id: true,
-            nomorSesi: true,
-            kehadiran: true,
-            slide: true,
-            lectureNote: true,
-            video: true,
-            conference: true,
-            tugas: true,
-            kuis: true,
-            catatanCdu: true,
-            tanggal: true,
-            statusPengajar: true,
-            dosenPengajarId: true,
-            dosenPengajar: {
-              select: {
-                id: true,
-                nama: true,
-                nidn: true,
-              },
-            },
-          },
-          orderBy: { nomorSesi: "asc" },
-        },
-      },
-    });
-
-    // Inisialisasi Map Fakultas dan Sub-map Prodi
-    const fakultasMap = new Map<string, any>();
-    const prodiToFakultasIdMap = new Map<string, string>();
-
-    for (const f of allFakultas) {
-      const prodiMap = new Map<string, any>();
-      const facultyDosenSet = new Set<string>();
-
-      for (const p of f.prodi) {
-        prodiToFakultasIdMap.set(p.id, f.id);
-        p.dosen.forEach((d) => facultyDosenSet.add(d.id));
-
-        prodiMap.set(p.id, {
-          id: p.id,
-          kode: p.kode,
-          nama: p.nama,
-          totalKelas: 0,
-          totalKelasNonBimbingan: 0,
-          totalDosen: p.dosen.length,
-          dosenSemesterIds: new Set<string>(),
-
-          totalSesiRentang: 0,
-          totalHadirRentang: 0,
-          totalHadirTdkLengkapRentang: 0,
-          totalAlphaRentang: 0,
-          totalBelumDiisiRentang: 0,
-          totalGantiHariRentang: 0,
-          totalRegularSesiRentang: 0,
-          totalSkor3PilarRentang: 0,
-          maxSkor3PilarRentang: 0,
-          totalPilar1Rentang: 0,
-          totalPilar2Rentang: 0,
-          totalPilar3Rentang: 0,
-          totalConfRentang: 0,
-          dosenIdsRentang: new Set<string>(),
-          kelasIdsRentang: new Set<string>(),
-          kendalaCount: 0,
-        });
-      }
-
-      fakultasMap.set(f.id, {
-        id: f.id,
-        nama: f.nama,
-        singkatan: getFakultasAbbr(f.nama),
-        totalProdi: f.prodi.length,
-        prodiMap,
-        facultyDosenSet,
-        dosenSemesterIds: new Set<string>(),
-
-        totalKelas: 0,
-        totalKelasNonBimbingan: 0,
-
-        totalSesiRentang: 0,
-        totalHadirRentang: 0,
-        totalHadirTdkLengkapRentang: 0,
-        totalAlphaRentang: 0,
-        totalBelumDiisiRentang: 0,
-        totalGantiHariRentang: 0,
-        totalRegularSesiRentang: 0,
-        totalSkor3PilarRentang: 0,
-        maxSkor3PilarRentang: 0,
-        totalPilar1Rentang: 0,
-        totalPilar2Rentang: 0,
-        totalPilar3Rentang: 0,
-        totalConfRentang: 0,
-        dosenIdsRentang: new Set<string>(),
-        kelasIdsRentang: new Set<string>(),
-        kendalaList: [] as KendalaKehadiranItem[],
-
-        totalHadirSemester: 0,
-        totalAlphaSemester: 0,
-        totalSkor3PilarSemester: 0,
-        maxSkor3PilarSemester: 0,
-      });
-    }
-
-    // Iterasi setiap kelas
-    for (const cls of rawClasses) {
-      const prodiId = cls.mataKuliah.prodiId;
-      const fakultasId = cls.mataKuliah.prodi?.fakultasId || prodiToFakultasIdMap.get(prodiId);
-      if (!fakultasId || !fakultasMap.has(fakultasId)) continue;
-
-      const fEntry = fakultasMap.get(fakultasId);
-      const pEntry = fEntry.prodiMap.get(prodiId);
-
-      const isBimbingan = (cls.modePembelajaran as any) === "BIMBINGAN";
-
-      // Akumulasi kelas & dosen di tingkat Fakultas
-      fEntry.totalKelas++;
-      fEntry.dosenSemesterIds.add(cls.dosen.id);
-      if (cls.dosen2?.id) fEntry.dosenSemesterIds.add(cls.dosen2.id);
-
-      if (!isBimbingan) {
-        fEntry.totalKelasNonBimbingan++;
-      }
-
-      // Akumulasi kelas & dosen di tingkat Prodi dalam Fakultas
-      if (pEntry) {
-        pEntry.totalKelas++;
-        pEntry.dosenSemesterIds.add(cls.dosen.id);
-        if (cls.dosen2?.id) pEntry.dosenSemesterIds.add(cls.dosen2.id);
-        if (!isBimbingan) {
-          pEntry.totalKelasNonBimbingan++;
-        }
-      }
-
-      // Hitung ringkasan kelas semester
-      const classSummary = calculateClassSummary(cls.monitoringSesi as any, cls.modePembelajaran as any);
-      fEntry.totalHadirSemester += classSummary.totalHadir;
-      fEntry.totalAlphaSemester += classSummary.totalAlpha;
-      if (!isBimbingan) {
-        fEntry.totalSkor3PilarSemester += classSummary.totalSkor3Pilar;
-        fEntry.maxSkor3PilarSemester += cls.modePembelajaran === "LURING" ? 28 : 42;
-      }
-
-      // Sesi berjalan tertinggi
-      const filledOrNotedSessions = cls.monitoringSesi.filter(
-        (s) => s.kehadiran !== "BELUM_DIISI" || (s.catatanCdu !== null && s.catatanCdu.trim() !== "")
+    const responseData = await fetchWithSingleFlightCache<any>(cacheKey, async () => {
+      // Reuse getLaporanProdi result (memanfaatkan shared cache & SQL aggregation)
+      const prodiRes = await getLaporanProdi(
+        semesterId,
+        startDate,
+        endDate,
+        allowedProdiIds,
+        sesiNumber,
+        jenisKelas
       );
-      const maxSesiBerjalan =
-        filledOrNotedSessions.length > 0
-          ? Math.max(...filledOrNotedSessions.map((s) => s.nomorSesi))
-          : 1;
 
-      // Iterasi sesi perkuliahan
-      for (const s of cls.monitoringSesi) {
-        let isInRange = true;
-        let effectiveDate: Date | null = s.tanggal ? new Date(s.tanggal) : null;
-
-        if (isSesiMode) {
-          isInRange = s.nomorSesi === targetSesi;
-        } else {
-          const semStartStr = cls.semester?.tanggalMulai
-            ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
-            : DEFAULT_SEMESTER_START_DATE;
-
-          const estimatedDate = getEstimatedSessionDate(
-            s.nomorSesi,
-            cls.jadwalHari,
-            semStartStr,
-            (cls.semester as any)?.hariLibur
-          );
-
-          if (!effectiveDate) {
-            effectiveDate = estimatedDate;
-          }
-
-          if (startDateTime && endDateTime) {
-            isInRange = effectiveDate >= startDateTime && effectiveDate <= endDateTime;
-          } else {
-            const isFuture = s.kehadiran === "BELUM_DIISI" && !s.catatanCdu && s.nomorSesi > maxSesiBerjalan;
-            isInRange = !isFuture;
-          }
-        }
-
-        // Cek Ganti Hari
-        const semStartStr = cls.semester?.tanggalMulai
-          ? new Date(cls.semester.tanggalMulai).toISOString().split("T")[0]
-          : DEFAULT_SEMESTER_START_DATE;
-        const estimatedDate = getEstimatedSessionDate(
-          s.nomorSesi,
-          cls.jadwalHari,
-          semStartStr,
-          (cls.semester as any)?.hariLibur
-        );
-        const defDateStr = estimatedDate ? estimatedDate.toISOString().split("T")[0] : null;
-        const sessionDateStr = s.tanggal ? new Date(s.tanggal).toISOString().split("T")[0] : null;
-        const isDateDifferent = Boolean(sessionDateStr && defDateStr && sessionDateStr !== defDateStr);
-        const isGantiHari = isDateDifferent || (s.catatanCdu ? /ganti|reschedule|tunda/i.test(s.catatanCdu) : false);
-
-        if (isSesiMode) {
-          if (isInRange && isGantiHari) {
-            fEntry.totalGantiHariRentang++;
-            if (pEntry) pEntry.totalGantiHariRentang++;
-          }
-        } else {
-          const isOrigScheduleInRange = estimatedDate
-            ? startDateTime && endDateTime
-              ? estimatedDate >= startDateTime && estimatedDate <= endDateTime
-              : true
-            : false;
-
-          if (isGantiHari && (isInRange || isOrigScheduleInRange)) {
-            fEntry.totalGantiHariRentang++;
-            if (pEntry) pEntry.totalGantiHariRentang++;
-          }
-        }
-
-        if (isInRange) {
-          fEntry.totalSesiRentang++;
-          fEntry.kelasIdsRentang.add(cls.id);
-          if (pEntry) {
-            pEntry.totalSesiRentang++;
-            pEntry.kelasIdsRentang.add(cls.id);
-          }
-
-          const isSub = s.dosenPengajar && s.statusPengajar && s.statusPengajar !== "UTAMA";
-          const pengajarId = isSub ? s.dosenPengajar!.id : cls.dosen.id;
-          const pengajarNama = isSub ? s.dosenPengajar!.nama : cls.dosen.nama;
-          const pengajarNidn = isSub ? s.dosenPengajar!.nidn ?? null : cls.dosen.nidn ?? null;
-
-          fEntry.dosenIdsRentang.add(pengajarId);
-          if (pEntry) pEntry.dosenIdsRentang.add(pengajarId);
-
-          const isHadir = s.kehadiran === "HADIR";
-          const isHadirTdkLengkap = s.kehadiran === "HADIR_TIDAK_LENGKAP";
-          const isAlpha = s.kehadiran === "TIDAK_HADIR";
-          const hasCatatan = Boolean(s.catatanCdu && s.catatanCdu.trim() !== "");
-
-          if (isHadir) {
-            fEntry.totalHadirRentang++;
-            if (pEntry) pEntry.totalHadirRentang++;
-          } else if (isHadirTdkLengkap) {
-            fEntry.totalHadirTdkLengkapRentang++;
-            if (pEntry) {
-              pEntry.totalHadirTdkLengkapRentang++;
-              pEntry.kendalaCount++;
-            }
-
-            fEntry.kendalaList.push({
-              sesiId: s.id,
-              nomorSesi: s.nomorSesi,
-              status: "HTL",
-              catatan: s.catatanCdu ?? null,
-              dosenId: pengajarId,
-              dosenNama: pengajarNama,
-              dosenNidn: pengajarNidn,
-              mataKuliahNama: cls.mataKuliah.nama,
-              mataKuliahKode: cls.mataKuliah.kode,
-              kelasKode: cls.kodeKelas,
-              kelasId: cls.id,
-              jadwalHari: cls.jadwalHari,
-              jadwalJam: cls.jadwalJam,
-              tanggal: s.tanggal ? new Date(s.tanggal).toISOString() : effectiveDate ? effectiveDate.toISOString() : null,
-              prodiNama: cls.mataKuliah.prodi?.nama || (pEntry ? pEntry.nama : undefined),
-              prodiKode: cls.mataKuliah.prodi?.kode || (pEntry ? pEntry.kode : undefined),
-            });
-          } else if (isAlpha) {
-            fEntry.totalAlphaRentang++;
-            if (pEntry) {
-              pEntry.totalAlphaRentang++;
-              pEntry.kendalaCount++;
-            }
-
-            fEntry.kendalaList.push({
-              sesiId: s.id,
-              nomorSesi: s.nomorSesi,
-              status: "ALPHA",
-              catatan: s.catatanCdu ?? null,
-              dosenId: pengajarId,
-              dosenNama: pengajarNama,
-              dosenNidn: pengajarNidn,
-              mataKuliahNama: cls.mataKuliah.nama,
-              mataKuliahKode: cls.mataKuliah.kode,
-              kelasKode: cls.kodeKelas,
-              kelasId: cls.id,
-              jadwalHari: cls.jadwalHari,
-              jadwalJam: cls.jadwalJam,
-              tanggal: s.tanggal ? new Date(s.tanggal).toISOString() : null,
-              prodiNama: cls.mataKuliah.prodi?.nama || (pEntry ? pEntry.nama : undefined),
-              prodiKode: cls.mataKuliah.prodi?.kode || (pEntry ? pEntry.kode : undefined),
-            });
-          } else {
-            fEntry.totalBelumDiisiRentang++;
-            if (pEntry) pEntry.totalBelumDiisiRentang++;
-
-            const isKendalaBelumDiisi = isSesiMode
-              ? true
-              : startDateTime && endDateTime
-              ? true
-              : hasCatatan || s.nomorSesi <= maxSesiBerjalan;
-
-            if (isKendalaBelumDiisi) {
-              if (pEntry) pEntry.kendalaCount++;
-              fEntry.kendalaList.push({
-                sesiId: s.id,
-                nomorSesi: s.nomorSesi,
-                status: "BELUM_DIISI",
-                catatan: s.catatanCdu ?? null,
-                dosenId: pengajarId,
-                dosenNama: pengajarNama,
-                dosenNidn: pengajarNidn,
-                mataKuliahNama: cls.mataKuliah.nama,
-                mataKuliahKode: cls.mataKuliah.kode,
-                kelasKode: cls.kodeKelas,
-                kelasId: cls.id,
-                jadwalHari: cls.jadwalHari,
-                jadwalJam: cls.jadwalJam,
-                tanggal: s.tanggal ? new Date(s.tanggal).toISOString() : effectiveDate ? effectiveDate.toISOString() : null,
-                prodiNama: cls.mataKuliah.prodi?.nama || (pEntry ? pEntry.nama : undefined),
-                prodiKode: cls.mataKuliah.prodi?.kode || (pEntry ? pEntry.kode : undefined),
-              });
-            }
-          }
-
-          // 3 Pilar Kepatuhan
-          const pilar = calculateSessionPillars(s, cls.modePembelajaran as any);
-          if (!isBimbingan && !pilar.isExam) {
-            fEntry.totalRegularSesiRentang++;
-            if (pEntry) pEntry.totalRegularSesiRentang++;
-
-            if (pilar.score !== null) {
-              fEntry.totalSkor3PilarRentang += pilar.score;
-              fEntry.maxSkor3PilarRentang += pilar.maxScore;
-              if (pEntry) {
-                pEntry.totalSkor3PilarRentang += pilar.score;
-                pEntry.maxSkor3PilarRentang += pilar.maxScore;
-              }
-            }
-
-            if (pilar.hasSL) {
-              fEntry.totalPilar1Rentang++;
-              if (pEntry) pEntry.totalPilar1Rentang++;
-            }
-            if (pilar.hasQT) {
-              fEntry.totalPilar2Rentang++;
-              if (pEntry) pEntry.totalPilar2Rentang++;
-            }
-            if (pilar.hasTV) {
-              fEntry.totalPilar3Rentang++;
-              if (pEntry) pEntry.totalPilar3Rentang++;
-            }
-          }
-
-          if (s.conference) {
-            fEntry.totalConfRentang++;
-            if (pEntry) pEntry.totalConfRentang++;
-          }
-        }
+      if (!prodiRes.success || !prodiRes.data) {
+        throw new Error(prodiRes.error || "Gagal memuat data laporan prodi untuk agregasi fakultas");
       }
-    }
 
-    let globalTotalSesiRentang = 0;
-    let globalTotalHadirRentang = 0;
-    let globalTotalRegularSesiRentang = 0;
-    let globalTotalSkor3PilarRentang = 0;
-    let globalMaxSkor3PilarRentang = 0;
-    let globalTotalConfRentang = 0;
-    let globalTotalKelas = 0;
-    let globalTotalDosen = 0;
-    let globalTotalGantiHariRentang = 0;
-    let globalTotalProdi = 0;
+      const prodiList = prodiRes.data.prodiReportList;
 
-    const fakultasReportList: FakultasReportItem[] = Array.from(fakultasMap.values()).map((f) => {
-      const hasKelas = f.totalKelas > 0;
-      const hasSesi = f.totalSesiRentang > 0;
+      let globalTotalSesiRentang = 0;
+      let globalTotalHadirRentang = 0;
+      let globalTotalRegularSesiRentang = 0;
+      let globalTotalSkor3PilarRentang = 0;
+      let globalMaxSkor3PilarRentang = 0;
+      let globalTotalConfRentang = 0;
+      let globalTotalKelas = 0;
+      let globalTotalDosen = 0;
+      let globalTotalGantiHariRentang = 0;
+      let globalTotalProdi = 0;
 
-      let prodiSehatCount = 0;
-      let prodiPerhatianCount = 0;
-      let prodiBelumAdaKelasCount = 0;
+      const fakultasReportList = allFakultas.map((f) => {
+        const prodisInF = prodiList.filter((p) => f.prodi.some((fp) => fp.id === p.id));
+        const totalKelas = prodisInF.reduce((acc, p) => acc + p.totalKelas, 0);
+        const totalKelasNonBimbingan = prodisInF.reduce((acc, p) => acc + (p.totalKelasNonBimbingan || 0), 0);
+        const totalSesiRentang = prodisInF.reduce((acc, p) => acc + p.totalSesiRentang, 0);
+        const totalHadirRentang = prodisInF.reduce((acc, p) => acc + p.totalHadirRentang, 0);
+        const totalHadirTdkLengkapRentang = prodisInF.reduce((acc, p) => acc + p.totalHadirTdkLengkapRentang, 0);
+        const totalAlphaRentang = prodisInF.reduce((acc, p) => acc + p.totalAlphaRentang, 0);
+        const totalBelumDiisiRentang = prodisInF.reduce((acc, p) => acc + p.totalBelumDiisiRentang, 0);
+        const totalGantiHariRentang = prodisInF.reduce((acc, p) => acc + p.totalGantiHariRentang, 0);
+        const totalRegularSesiRentang = prodisInF.reduce((acc, p) => acc + p.totalRegularSesiRentang, 0);
+        const totalSkor3PilarRentang = prodisInF.reduce((acc, p) => acc + p.totalSkor3PilarRentang, 0);
+        const maxSkor3PilarRentang = prodisInF.reduce((acc, p) => acc + p.maxSkor3PilarRentang, 0);
+        const totalPilar1Rentang = prodisInF.reduce((acc, p) => acc + p.totalPilar1Rentang, 0);
+        const totalPilar2Rentang = prodisInF.reduce((acc, p) => acc + p.totalPilar2Rentang, 0);
+        const totalPilar3Rentang = prodisInF.reduce((acc, p) => acc + p.totalPilar3Rentang, 0);
+        const totalConfRentang = prodisInF.reduce((acc, p) => acc + p.totalConfRentang, 0);
+        const totalDosen = prodisInF.reduce((acc, p) => acc + p.totalDosen, 0);
 
-      // Hitung breakdown untuk tiap prodi di dalam fakultas ini
-      const prodiBreakdownList: FakultasProdiBreakdownItem[] = Array.from(f.prodiMap.values()).map((p: any) => {
-        const pHasKelas = p.totalKelas > 0;
-        const pHasSesi = p.totalSesiRentang > 0;
+        const prodiPerhatianCount = prodisInF.filter((p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN").length;
+        const prodiSehatCount = prodisInF.filter((p) => p.statusKinerjaRentang === "SANGAT_BAIK" || p.statusKinerjaRentang === "BAIK").length;
+        const prodiBelumAdaKelasCount = prodisInF.filter((p) => p.totalKelas === 0).length;
 
-        const avgKehadiranRentang = pHasSesi
-          ? Math.round(((p.totalHadirRentang + p.totalHadirTdkLengkapRentang) / p.totalSesiRentang) * 1000) / 10
-          : pHasKelas
-          ? 0
-          : null;
+        const hasSesi = totalSesiRentang > 0;
+        const hasKelas = totalKelas > 0;
 
-        const avgKontenRentang =
-          p.maxSkor3PilarRentang > 0
-            ? Math.round((p.totalSkor3PilarRentang / p.maxSkor3PilarRentang) * 1000) / 10
-            : pHasKelas
-            ? p.totalKelasNonBimbingan === 0
-              ? 100
-              : 0
-            : null;
+        const avgKehadiranRentang = hasSesi
+          ? Math.round(((totalHadirRentang + totalHadirTdkLengkapRentang) / totalSesiRentang) * 1000) / 10
+          : hasKelas ? 0 : null;
+
+        const avgKontenRentang = maxSkor3PilarRentang > 0
+          ? Math.round((totalSkor3PilarRentang / maxSkor3PilarRentang) * 1000) / 10
+          : hasKelas ? (totalKelasNonBimbingan === 0 ? 100 : 0) : null;
 
         let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS" = "SANGAT_BAIK";
-        if (!pHasKelas) {
+        if (!hasKelas) {
           statusKinerjaRentang = "BELUM_ADA_KELAS";
-          prodiBelumAdaKelasCount++;
-        } else if (p.totalSesiRentang === 0) {
+        } else if (totalSesiRentang === 0) {
           statusKinerjaRentang = "BAIK";
-          prodiSehatCount++;
         } else if (
           (avgKehadiranRentang ?? 0) < 75 ||
-          (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 60) ||
-          p.totalAlphaRentang >= 2 ||
-          p.totalHadirTdkLengkapRentang >= 5
+          (totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 60) ||
+          (prodiPerhatianCount > 0 && prodiPerhatianCount >= f.prodi.length / 2)
         ) {
           statusKinerjaRentang = "PERLU_PEMBINAAN";
-          prodiPerhatianCount++;
         } else if (
           (avgKehadiranRentang ?? 0) < 90 ||
-          (p.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80) ||
-          p.totalHadirTdkLengkapRentang >= 2
+          (totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80) ||
+          prodiPerhatianCount > 0
         ) {
           statusKinerjaRentang = "BAIK";
-          prodiSehatCount++;
-        } else {
-          prodiSehatCount++;
         }
 
-        const finalTotalDosen = normalizedJenisKelas ? p.dosenSemesterIds.size : p.totalDosen;
+        globalTotalSesiRentang += totalSesiRentang;
+        globalTotalHadirRentang += (totalHadirRentang + totalHadirTdkLengkapRentang);
+        globalTotalRegularSesiRentang += totalRegularSesiRentang;
+        globalTotalSkor3PilarRentang += totalSkor3PilarRentang;
+        globalMaxSkor3PilarRentang += maxSkor3PilarRentang;
+        globalTotalConfRentang += totalConfRentang;
+        globalTotalKelas += totalKelas;
+        globalTotalDosen += totalDosen;
+        globalTotalGantiHariRentang += totalGantiHariRentang;
+        globalTotalProdi += f.prodi.length;
 
-        return {
+        const prodiListDetailed = prodisInF.map((p) => ({
           id: p.id,
-          kode: p.kode,
           nama: p.nama,
+          kode: p.kode,
           totalKelas: p.totalKelas,
-          totalKelasAktifRentang: p.kelasIdsRentang.size,
-          totalDosen: finalTotalDosen,
-          totalDosenAktifRentang: p.dosenIdsRentang.size,
           totalSesiRentang: p.totalSesiRentang,
           totalHadirRentang: p.totalHadirRentang,
           totalAlphaRentang: p.totalAlphaRentang,
           totalHadirTdkLengkapRentang: p.totalHadirTdkLengkapRentang,
           totalGantiHariRentang: p.totalGantiHariRentang,
+          avgKehadiranRentang: p.avgKehadiranRentang,
+          avgKontenRentang: p.avgKontenRentang,
+          statusKinerjaRentang: p.statusKinerjaRentang,
+          kendalaCount: p.kendalaList?.length || 0,
+        }));
+
+        return {
+          id: f.id,
+          nama: f.nama,
+          singkatan: FAKULTAS_ABBREVIATIONS[f.nama] || f.nama.split(" ").filter((w) => w.length > 2 && w !== "dan").map((w) => w[0].toUpperCase()).join(""),
+          totalProdi: f.prodi.length,
+          prodiSehatCount,
+          prodiPerhatianCount,
+          prodiBelumAdaKelasCount,
+          totalSesiRentang,
+          totalHadirRentang,
+          totalHadirTdkLengkapRentang,
+          totalAlphaRentang,
+          totalBelumDiisiRentang,
+          totalGantiHariRentang,
           avgKehadiranRentang,
+          totalRegularSesiRentang,
+          totalSkor3PilarRentang,
+          maxSkor3PilarRentang,
           avgKontenRentang,
+          totalPilar1Rentang,
+          totalPilar2Rentang,
+          totalPilar3Rentang,
+          totalConfRentang,
+          totalDosen,
+          totalKelas,
+          totalKelasNonBimbingan,
           statusKinerjaRentang,
-          kendalaCount: p.kendalaCount,
+          prodiList: prodiListDetailed,
         };
       });
 
-      const avgKehadiranRentang = hasSesi
-        ? Math.round(((f.totalHadirRentang + f.totalHadirTdkLengkapRentang) / f.totalSesiRentang) * 1000) / 10
-        : hasKelas
-        ? 0
-        : null;
-
-      const avgKontenRentang =
-        f.maxSkor3PilarRentang > 0
-          ? Math.round((f.totalSkor3PilarRentang / f.maxSkor3PilarRentang) * 1000) / 10
-          : hasKelas
-          ? f.totalKelasNonBimbingan === 0
-            ? 100
-            : 0
-          : null;
-
-      const avgKehadiranSemester =
-        hasKelas ? Math.round((f.totalHadirSemester / (f.totalKelas * 16)) * 1000) / 10 : null;
-      const avgKontenSemester =
-        hasKelas
-          ? f.maxSkor3PilarSemester > 0
-            ? Math.round((f.totalSkor3PilarSemester / f.maxSkor3PilarSemester) * 1000) / 10
-            : 100
-          : null;
-
-      // Status Kinerja Fakultas (Best Practice Eksekutif):
-      // Berbasis persentase dan rasio kesehatan prodi di dalamnya
-      let statusKinerjaRentang: "SANGAT_BAIK" | "BAIK" | "PERLU_PEMBINAAN" | "BELUM_ADA_KELAS" = "SANGAT_BAIK";
-      if (!hasKelas) {
-        statusKinerjaRentang = "BELUM_ADA_KELAS";
-      } else if (f.totalSesiRentang === 0) {
-        statusKinerjaRentang = "BAIK";
-      } else if (
-        (avgKehadiranRentang ?? 0) < 75 ||
-        (f.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 60) ||
-        (prodiPerhatianCount > 0 && prodiPerhatianCount >= f.totalProdi / 2)
-      ) {
-        statusKinerjaRentang = "PERLU_PEMBINAAN";
-      } else if (
-        (avgKehadiranRentang ?? 0) < 90 ||
-        (f.totalKelasNonBimbingan > 0 && (avgKontenRentang ?? 0) < 80) ||
-        prodiPerhatianCount > 0
-      ) {
-        statusKinerjaRentang = "BAIK";
-      }
-
-      const finalTotalDosen = normalizedJenisKelas ? f.dosenSemesterIds.size : f.facultyDosenSet.size;
-
-      globalTotalSesiRentang += f.totalSesiRentang;
-      globalTotalHadirRentang += f.totalHadirRentang + f.totalHadirTdkLengkapRentang;
-      globalTotalRegularSesiRentang += f.totalRegularSesiRentang;
-      globalTotalSkor3PilarRentang += f.totalSkor3PilarRentang;
-      globalMaxSkor3PilarRentang += f.maxSkor3PilarRentang;
-      globalTotalConfRentang += f.totalConfRentang;
-      globalTotalKelas += f.totalKelas;
-      globalTotalDosen += finalTotalDosen;
-      globalTotalGantiHariRentang += f.totalGantiHariRentang;
-      globalTotalProdi += f.totalProdi;
+      const avgKehadiranRentangSemua = globalTotalSesiRentang > 0 ? Math.round((globalTotalHadirRentang / globalTotalSesiRentang) * 1000) / 10 : 0;
+      const isAllBimbingan = normalizedJenisKelas === "BIMBINGAN";
+      const avgKontenRentangSemua = globalMaxSkor3PilarRentang > 0 ? Math.round((globalTotalSkor3PilarRentang / globalMaxSkor3PilarRentang) * 1000) / 10 : (isAllBimbingan ? 100 : 0);
 
       return {
-        id: f.id,
-        nama: f.nama,
-        singkatan: f.singkatan,
-        totalProdi: f.totalProdi,
-        prodiSehatCount,
-        prodiPerhatianCount,
-        prodiBelumAdaKelasCount,
-
-        totalSesiRentang: f.totalSesiRentang,
-        totalHadirRentang: f.totalHadirRentang,
-        totalHadirTdkLengkapRentang: f.totalHadirTdkLengkapRentang,
-        totalAlphaRentang: f.totalAlphaRentang,
-        totalBelumDiisiRentang: f.totalBelumDiisiRentang,
-        totalGantiHariRentang: f.totalGantiHariRentang,
-        avgKehadiranRentang,
-        totalRegularSesiRentang: f.totalRegularSesiRentang,
-        totalSkor3PilarRentang: f.totalSkor3PilarRentang,
-        maxSkor3PilarRentang: f.maxSkor3PilarRentang,
-        avgKontenRentang,
-        totalPilar1Rentang: f.totalPilar1Rentang,
-        totalPilar2Rentang: f.totalPilar2Rentang,
-        totalPilar3Rentang: f.totalPilar3Rentang,
-        totalConfRentang: f.totalConfRentang,
-        totalDosenAktifRentang: f.dosenIdsRentang.size,
-        totalKelasAktifRentang: f.kelasIdsRentang.size,
-        statusKinerjaRentang,
-        prodiBreakdownList,
-        kendalaList: f.kendalaList,
-
-        totalKelas: f.totalKelas,
-        totalKelasNonBimbingan: f.totalKelasNonBimbingan,
-        totalDosen: finalTotalDosen,
-        avgKehadiranSemester,
-        avgKontenSemester,
+        fakultasReportList,
+        semesters: allSemesters,
+        activeSemesterId: targetSemesterId || allSemesters[0]?.id || "",
+        startDate: targetStartDate,
+        endDate: targetEndDate,
+        targetSesi,
+        targetJenisKelas: normalizedJenisKelas || "ALL",
+        globalSummary: {
+          totalFakultas: fakultasReportList.length,
+          totalProdiSemua: globalTotalProdi,
+          totalKelasSemua: globalTotalKelas,
+          totalDosenSemua: globalTotalDosen,
+          totalSesiRentangSemua: globalTotalSesiRentang,
+          avgKehadiranRentangSemua,
+          avgKontenRentangSemua,
+          totalConfRentangSemua: globalTotalConfRentang,
+          totalGantiHariRentangSemua: globalTotalGantiHariRentang,
+        },
       };
     });
-
-    const avgKehadiranRentangSemua =
-      globalTotalSesiRentang > 0
-        ? Math.round((globalTotalHadirRentang / globalTotalSesiRentang) * 1000) / 10
-        : 0;
-
-    const activeFakultasList = fakultasReportList.filter((f) => f.totalKelas > 0);
-    const isAllBimbingan =
-      normalizedJenisKelas === "BIMBINGAN" ||
-      (activeFakultasList.length > 0 && activeFakultasList.every((f) => f.totalKelasNonBimbingan === 0));
-
-    const avgKontenRentangSemua =
-      globalMaxSkor3PilarRentang > 0
-        ? Math.round((globalTotalSkor3PilarRentang / globalMaxSkor3PilarRentang) * 1000) / 10
-        : isAllBimbingan
-        ? 100
-        : 0;
-
-    const responseData = {
-      fakultasReportList,
-      semesters: allSemesters,
-      activeSemesterId: targetSemesterId || allSemesters[0]?.id || "",
-      startDate: targetStartDate,
-      endDate: targetEndDate,
-      targetSesi,
-      targetJenisKelas: normalizedJenisKelas || "ALL",
-      globalSummary: {
-        totalFakultas: fakultasReportList.length,
-        totalProdiSemua: globalTotalProdi,
-        totalKelasSemua: globalTotalKelas,
-        totalDosenSemua: globalTotalDosen,
-        totalSesiRentangSemua: globalTotalSesiRentang,
-        avgKehadiranRentangSemua,
-        avgKontenRentangSemua,
-        totalConfRentangSemua: globalTotalConfRentang,
-        totalGantiHariRentangSemua: globalTotalGantiHariRentang,
-      },
-    };
-
-    setLaporanToCache(cacheKey, responseData);
 
     return {
       success: true,
