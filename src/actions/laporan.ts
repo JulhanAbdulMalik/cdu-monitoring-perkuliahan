@@ -1654,7 +1654,9 @@ export async function getLaporanFakultas(
 
         const totalDosenAktifRentang = prodisInF.reduce((acc, p) => acc + (p.totalDosenAktifRentang || 0), 0);
         const totalKelasAktifRentang = prodisInF.reduce((acc, p) => acc + (p.totalKelasAktifRentang || 0), 0);
-        const fakultasKendalaList = prodisInF.flatMap((p) => p.kendalaList || []);
+        const fakultasKendalaList = prodisInF.flatMap((p) =>
+          (p.kendalaList || []).map((k) => ({ ...k, prodiNama: k.prodiNama ?? p.nama, prodiKode: k.prodiKode ?? p.kode }))
+        );
 
         const prodiPerhatianCount = prodisInF.filter((p) => p.statusKinerjaRentang === "PERLU_PEMBINAAN").length;
         const prodiSehatCount = prodisInF.filter((p) => p.statusKinerjaRentang === "SANGAT_BAIK" || p.statusKinerjaRentang === "BAIK").length;
