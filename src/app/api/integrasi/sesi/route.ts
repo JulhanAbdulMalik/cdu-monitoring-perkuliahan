@@ -6,10 +6,10 @@
 //   mode "merge" (default):
 //     - Komponen konten hanya dinaikkan false/null → true (tidak pernah menghapus
 //       centang yang sudah diisi staf CDU).
-//     - Tanggal sesi hanya diisi bila masih kosong (tanggal CDU sudah memperhitungkan
-//       hari libur); selisih dengan jadwal Edlink dilaporkan di `selisihJadwal`.
-//     - Kehadiran TIDAK disentuh, kecuali isiKehadiran=true dan nilai sekarang
-//       BELUM_DIISI dan sesi sudah dimulai dosen di Edlink → HADIR.
+//     - HANYA KONTEN: tanggal, dosen pengajar, dan kehadiran TIDAK PERNAH diubah
+//       (keputusan CDU Nov 2026). Parameter isiKehadiran diabaikan; `selisihJadwal`
+//       selalu kosong. Bila nanti sinkron tanggal/dosen dibutuhkan, buat fitur
+//       terpisah dengan konfirmasi Admin.
 //   mode "overwrite": komponen konten ditimpa persis sesuai Edlink
 //     (hanya untuk sesi yang sumberData-nya bukan MANUAL berisi).
 //   dryRun=true: hitung perubahan tanpa menulis.
@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
 
   const sections: EdlinkSection[] = Array.isArray(body?.sections) ? (body.sections as EdlinkSection[]) : [];
   const mode: "merge" | "overwrite" = body?.mode === "overwrite" ? "overwrite" : "merge";
-  const isiKehadiran = body?.isiKehadiran === true;
   const dryRun = body?.dryRun === true;
 
   if (sections.length === 0 || sections.length > 40) return jsonError("sections wajib diisi (1–40)");
@@ -127,25 +126,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // CDU menyimpan tanggal sesi sebagai tanggal saja (00:00 UTC) dan sudah memperhitungkan
-    // hari libur (LiburSemester), sedangkan jadwal Edlink tidak. Karena itu tanggal CDU
-    // TIDAK ditimpa: hanya diisi bila kosong; selisih dilaporkan di `selisihJadwal`.
-    if (m.tanggal) {
-      const tglWIB = new Date(m.tanggal.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);
-      const tglCdu = sesi.tanggal ? sesi.tanggal.toISOString().slice(0, 10) : null;
-      if (!tglCdu) data.tanggal = new Date(`${tglWIB}T00:00:00.000Z`);
-      else if (tglCdu !== tglWIB) selisihJadwal.push({ nomorSesi: m.nomorSesi, cdu: tglCdu, edlink: tglWIB });
-    }
-
-    if (isiKehadiran && m.dimulai && sesi.kehadiran === "BELUM_DIISI") {
-      data.kehadiran = "HADIR";
-    }
+    // Cek Sinkron HANYA KONTEN: tanggal, dosen pengajar, dan kehadiran tidak disentuh.
 
     if (Object.keys(data).length > 0) {
       for (const [field, ke] of Object.entries(data)) {
         perubahan.push({ nomorSesi: m.nomorSesi, field, dari: (sesi as Record<string, unknown>)[field] ?? null, ke });
       }
-      const kontenBerubah = KOMPONEN_KONTEN.some((k) => k in data) || "kehadiran" in data;
+      const kontenBerubah = KOMPONEN_KONTEN.some((k) => k in data);
       if (kontenBerubah) data.sumberData = "EDLINK_API";
       updates.push({ id: sesi.id, data });
     }

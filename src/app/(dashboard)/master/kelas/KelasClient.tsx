@@ -32,11 +32,13 @@ import {
   ArrowDown,
   RotateCcw,
   Users,
+  RefreshCw,
 } from "lucide-react";
 import { createKelas, updateKelas, deleteKelas, getKelasList } from "@/actions/kelas";
 import MasterImportModal from "@/components/master/MasterImportModal";
 import ResetKelasModal from "@/components/master/ResetKelasModal";
 import { parseKelasExcel, commitKelasImport } from "@/actions/master-import";
+import { previewKelasNusaputraApp, commitKelasNusaputraApp } from "@/actions/nusaputra-app-kelas";
 import { generateTemplate } from "@/lib/template-generator";
 import TablePagination from "@/components/common/TablePagination";
 import SearchableSelect from "@/components/common/SearchableSelect";
@@ -165,6 +167,7 @@ export default function KelasClient({
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isSinkronNpOpen, setIsSinkronNpOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [editingKelas, setEditingKelas] = useState<KelasItem | null>(null);
 
@@ -537,6 +540,15 @@ export default function KelasClient({
           >
             <Trash2 size={14} />
             <span>Bersihkan Data</span>
+          </button>
+
+          <button
+            onClick={() => setIsSinkronNpOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 text-xs font-semibold transition-all cursor-pointer"
+            title="Ambil daftar kelas dari nusaputra.app, tinjau dulu di pratinjau, lalu simpan"
+          >
+            <RefreshCw size={14} />
+            <span>Sinkron Kelas nusaputra.app</span>
           </button>
 
           <button
@@ -1358,6 +1370,23 @@ export default function KelasClient({
         defaultSemesterId={selectedSemester !== "ALL" ? selectedSemester : defaultSemesterId}
         parseAction={parseKelasExcel}
         commitAction={commitKelasImport}
+        onSuccess={async () => {
+          await handleReloadData();
+        }}
+      />
+
+      {/* ── Sinkron Kelas nusaputra.app (pratinjau → Simpan) ─────────────────── */}
+      <MasterImportModal
+        isOpen={isSinkronNpOpen}
+        onClose={() => setIsSinkronNpOpen(false)}
+        title="Sinkron Kelas nusaputra.app"
+        type="kelas"
+        prodiList={prodiList}
+        semesterList={semesters}
+        defaultSemesterId={selectedSemester !== "ALL" ? selectedSemester : defaultSemesterId}
+        fetchAction={previewKelasNusaputraApp}
+        fetchLabel="nusaputra.app"
+        commitAction={commitKelasNusaputraApp}
         onSuccess={async () => {
           await handleReloadData();
         }}

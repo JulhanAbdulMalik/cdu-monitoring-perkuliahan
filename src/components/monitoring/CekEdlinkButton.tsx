@@ -37,15 +37,13 @@ interface CekEdlinkButtonProps {
 const INTERVAL_MS = 2500;
 const BATAS_TUNGGU_MS = 3 * 60 * 1000;
 
-const LABEL_FIELD: Record<string, string> = {
+const LABEL_KONTEN: Record<string, string> = {
   lectureNote: "LN",
   slide: "Slide",
   video: "Video",
   conference: "Conference",
   tugas: "Tugas",
   kuis: "Kuis",
-  kehadiran: "Kehadiran",
-  tanggal: "Tanggal",
 };
 
 function formatWaktu(v?: Date | string | null) {
@@ -66,9 +64,10 @@ function ringkasHasil(hasil: HasilCekEdlink | null, namaSumber: string): string 
   if (n === 0) return `Data sudah sesuai ${namaSumber}, tidak ada perubahan.`;
   const perSesi = new Map<number, string[]>();
   for (const p of hasil?.perubahan ?? []) {
-    if (p.ke !== true && p.field !== "kehadiran" && p.field !== "tanggal") continue;
+    // Hanya konten yang dilaporkan (tanggal/kehadiran/dosen tidak disinkronkan)
+    if (p.ke !== true || !(p.field in LABEL_KONTEN)) continue;
     const arr = perSesi.get(p.nomorSesi) ?? [];
-    arr.push(LABEL_FIELD[p.field] ?? p.field);
+    arr.push(LABEL_KONTEN[p.field]);
     perSesi.set(p.nomorSesi, arr);
   }
   const detail = [...perSesi.entries()]
@@ -123,10 +122,8 @@ export default function CekEdlinkButton({
         if (st.data.status === "SELESAI") {
           if (st.data.sesi) onSelesai(st.data.sesi, st.data.edlinkSyncedAt);
           setSyncLokal({ kelasId, at: st.data.edlinkSyncedAt });
-          const selisih = st.data.hasil?.selisihJadwal?.length ?? 0;
           toast.success(ringkasHasil(st.data.hasil, namaSumber), {
             id: toastId,
-            description: selisih > 0 ? `${selisih} sesi: tanggal di ${namaSumber} berbeda dengan jadwal CDU.` : undefined,
             duration: 8000,
           });
           return;

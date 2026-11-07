@@ -47,7 +47,14 @@ interface MasterImportModalProps {
   prodiList?: ProdiOption[];
   semesterList?: SemesterOption[];
   defaultSemesterId?: string;
-  parseAction: (formData: FormData) => Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }>;
+  parseAction?: (formData: FormData) => Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }>;
+  /**
+   * Mode sumber eksternal (mis. "Sinkron Kelas nusaputra.app"): tanpa unggah berkas,
+   * data pratinjau diambil dari fungsi ini saat modal dibuka / semester diganti.
+   * Tidak ada yang tersimpan sebelum Admin menekan "Simpan ke Database".
+   */
+  fetchAction?: (semesterId: string) => Promise<{ success: boolean; data?: ImportPreviewResult; error?: string }>;
+  fetchLabel?: string;
   commitAction: (rows: any[]) => Promise<{ success: boolean; count?: number; error?: string }>;
   onSuccess: () => void;
 }
@@ -63,6 +70,8 @@ export default function MasterImportModal({
   semesterList = [],
   defaultSemesterId = "",
   parseAction,
+  fetchAction,
+  fetchLabel = "sumber data",
   commitAction,
   onSuccess,
 }: MasterImportModalProps) {
@@ -88,6 +97,11 @@ export default function MasterImportModal({
 
   function handleSemesterChange(newSemesterId: string) {
     setSelectedSemesterId(newSemesterId);
+    if (fetchAction) {
+      // Status "sudah ada" bergantung pada semester → ambil ulang pratinjau
+      void handleFetch(newSemesterId);
+      return;
+    }
     const chosenSem = semesterList?.find((s) => s.id === newSemesterId);
     if (!chosenSem || !previewResult) return;
 
@@ -119,6 +133,35 @@ export default function MasterImportModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Mode sumber eksternal: ambil pratinjau saat modal dibuka
+  useEffect(() => {
+    if (isOpen && fetchAction && !previewResult && !parsing) {
+      void handleFetch(selectedSemesterId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  async function handleFetch(semesterId: string) {
+    if (!fetchAction) return;
+    setParsing(true);
+    setPreviewResult(null);
+    setSearchQuery("");
+    setStatusFilter("all");
+    try {
+      const res = await fetchAction(semesterId);
+      if (!res.success || !res.data) {
+        toast.error(res.error || `Gagal mengambil data dari ${fetchLabel}`);
+      } else {
+        toast.success(`Data ${fetchLabel} berhasil dibaca (${res.data.totalRows} kelas, ${res.data.validRows} siap)`);
+        setPreviewResult(res.data);
+      }
+    } catch {
+      toast.error(`Terjadi kesalahan saat mengambil data dari ${fetchLabel}`);
+    } finally {
+      setParsing(false);
+    }
+  }
 
   // Filter daftar baris (useMemo sebelum if (!isOpen || !mounted))
   const filteredPreviewList = useMemo(() => {
@@ -160,6 +203,7 @@ export default function MasterImportModal({
         formData.append("semesterId", selectedSemesterId);
       }
 
+      if (!parseAction) return;
       const res = await parseAction(formData);
       if (!res.success || !res.data) {
         toast.error(res.error || "Gagal memproses file Excel");
@@ -238,6 +282,8 @@ export default function MasterImportModal({
       newData.dosenQuery = cleanDosen && cleanDosen !== "-" ? cleanDosen : "";
 
       const errors: string[] = [];
+      // Alasan blokir dari sumber (mis. "Kelas sudah ada di CDU") tidak bisa dihapus lewat edit
+      if (newData.importBlokir) errors.push(String(newData.importBlokir));
 
       // Validasi ulang sesuai type
       if (type === "kelas") {
@@ -378,13 +424,38 @@ export default function MasterImportModal({
           <p className="text-xs text-slate-500 font-normal">
             {previewResult
               ? "Pratinjau Data Master • Silakan tinjau dan koreksi data sebelum disimpan ke database"
+              : fetchAction
+              ? `Data diambil langsung dari ${fetchLabel} • Belum ada yang disimpan sebelum Anda menekan Simpan`
               : "Format berkas .xlsx, .xls, atau .csv • Mendukung ekspor tabel SIAKAD maupun template bawaan"}
           </p>
         </div>
 
         {/* Modal Body */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {!previewResult ? (
+          {!previewResult && fetchAction ? (
+            /* ── VIEW 1b: MENGAMBIL DATA DARI SUMBER EKSTERNAL ─────────────── */
+            <div className="py-10 flex flex-col items-center justify-center space-y-3 text-center">
+              {parsing ? (
+                <>
+                  <Loader2 size={32} className="animate-spin text-[#a80063]" />
+                  <p className="text-xs font-bold text-slate-800">Mengambil daftar kelas dari {fetchLabel}...</p>
+                  <p className="text-[11px] text-slate-500">Hanya membaca data. Tidak ada yang disimpan ke database.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-600">Data belum berhasil diambil dari {fetchLabel}.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleFetch(selectedSemesterId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Coba Lagi</span>
+                  </button>
+                </>
+              )}
+            </div>
+          ) : !previewResult ? (
             /* ── VIEW 1: UPLOAD & DOWNLOAD TEMPLATE ────────────────────────── */
             <div className="space-y-3.5 overflow-y-auto pr-1 py-1">
               
@@ -751,12 +822,12 @@ export default function MasterImportModal({
             <>
               <button
                 type="button"
-                onClick={handleResetFile}
+                onClick={fetchAction ? handleClose : handleResetFile}
                 disabled={committing}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
               >
                 <RotateCcw size={12} />
-                <span>Batal / Ganti Berkas</span>
+                <span>{fetchAction ? "Batal" : "Batal / Ganti Berkas"}</span>
               </button>
               <button
                 type="button"

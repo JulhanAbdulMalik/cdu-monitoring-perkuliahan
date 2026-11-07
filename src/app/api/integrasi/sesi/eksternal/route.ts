@@ -6,8 +6,8 @@
 // Aturan aman (sama dengan mode "merge" Edlink):
 //   - Komponen konten hanya dinaikkan false/null → true; centang staf CDU tidak pernah dihapus.
 //   - Sesi 8 (UTS) dan 16 (UAS) CDU tidak diberi konten; sesi ujian di sumber juga dilewati.
-//   - Tanggal sesi hanya diisi bila masih kosong; selisih dilaporkan di `selisihJadwal`.
-//   - Kehadiran TIDAK pernah disentuh.
+//   - HANYA KONTEN: tanggal, dosen pengajar, dan kehadiran TIDAK PERNAH diubah
+//     (keputusan CDU Nov 2026); `selisihJadwal` selalu kosong.
 //   - Hanya untuk kelas sumberLms = NUSAPUTRA_APP (dicari lewat externalId).
 //   - dryRun=true: hitung perubahan tanpa menulis.
 //
@@ -94,12 +94,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const tgl = typeof s?.tanggal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.tanggal) ? s.tanggal : null;
-    if (tgl) {
-      const tglCdu = sesi.tanggal ? sesi.tanggal.toISOString().slice(0, 10) : null;
-      if (!tglCdu) data.tanggal = new Date(`${tgl}T00:00:00.000Z`);
-      else if (tglCdu !== tgl) selisihJadwal.push({ nomorSesi: nomor, cdu: tglCdu, sumber: tgl });
-    }
+    // Cek Sinkron HANYA KONTEN: tanggal, dosen pengajar, dan kehadiran tidak disentuh.
 
     if (Object.keys(data).length > 0) {
       for (const [field, ke] of Object.entries(data)) {

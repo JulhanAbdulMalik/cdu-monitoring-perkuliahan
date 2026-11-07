@@ -327,8 +327,8 @@ export default function MonitoringGridClient({
     setHasUnsavedChanges(true);
   }
 
-  // Handler setelah tombol "Cek Edlink" selesai: data sudah tersimpan di server oleh
-  // worker, jadi grid cukup diselaraskan (tanpa menandai ada perubahan belum disimpan).
+  // Handler setelah tombol "Cek Edlink" selesai: konten sudah tersimpan di server oleh
+  // worker, jadi grid cukup menyelaraskan 6 kolom konten (tanpa menandai ada perubahan).
   function handleCekEdlinkSelesai(sesiTerbaru: SesiEdlinkTerbaru[]) {
     setSesiList((prev) =>
       prev.map((s) => {
@@ -336,8 +336,7 @@ export default function MonitoringGridClient({
         if (!t) return s;
         const updated = {
           ...s,
-          tanggal: t.tanggal ?? s.tanggal,
-          kehadiran: t.kehadiran as MonitoringSesiData["kehadiran"],
+          // Cek Sinkron HANYA KONTEN: tanggal, kehadiran & pengajar sesi di layar tidak diubah
           lectureNote: t.lectureNote,
           slide: t.slide,
           video: t.video,
