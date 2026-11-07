@@ -533,14 +533,14 @@ export default function KelasClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <button
+          {/* <button
             onClick={() => setIsResetModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-semibold transition-all cursor-pointer"
             title="Reset / Bersihkan Data Perkuliahan"
           >
             <Trash2 size={14} />
             <span>Bersihkan Data</span>
-          </button>
+          </button> */}
 
           <button
             onClick={() => setIsSinkronNpOpen(true)}

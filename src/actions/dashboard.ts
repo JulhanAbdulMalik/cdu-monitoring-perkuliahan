@@ -4,7 +4,6 @@
 // Replaces heavy 24,000-session memory loads with native PostgreSQL GROUP BY queries (< 50ms)
 
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import {
   roundPct,
   getCurrentActiveSessionNumber,
@@ -89,7 +88,18 @@ export async function getDashboardData(params?: {
   userProdiIds?: string[];
 }): Promise<DashboardDataResult> {
   const isDosen = Boolean(params?.isDosen);
-  const userProdiIds = params?.userProdiIds || [];
+  const rawProdiIds = params?.userProdiIds;
+  const userProdiIds = (
+    Array.isArray(rawProdiIds)
+      ? rawProdiIds
+      : typeof rawProdiIds === "string"
+        ? (rawProdiIds as string).split(",")
+        : []
+  )
+    .map((id) => (typeof id === "string" ? id.trim() : ""))
+    .filter((id) => id.length > 0 && id !== "ALL");
+
+  const hasProdiFilter = isDosen && userProdiIds.length > 0;
 
   const [allSemesters, dosenCount, prodiCount] = await Promise.all([
     prisma.semester.findMany({
@@ -173,11 +183,6 @@ export async function getDashboardData(params?: {
       activeSemester.hariLibur
     );
 
-    const prodiCondition =
-      isDosen && userProdiIds.length > 0
-        ? Prisma.sql`AND p.id IN (${Prisma.join(userProdiIds)})`
-        : Prisma.empty;
-
     const [
       classCounts,
       sessionStats,
@@ -194,7 +199,7 @@ export async function getDashboardData(params?: {
         JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
         JOIN "Prodi" p ON mk."prodiId" = p.id
         WHERE k."semesterId" = ${semId} AND p."isActive" = true
-        ${prodiCondition}
+        AND (${hasProdiFilter} = false OR p.id = ANY(${userProdiIds}))
         GROUP BY k."modePembelajaran";
       `,
 
@@ -225,7 +230,7 @@ export async function getDashboardData(params?: {
         JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
         JOIN "Prodi" p ON mk."prodiId" = p.id
         WHERE k."semesterId" = ${semId} AND p."isActive" = true
-        ${prodiCondition}
+        AND (${hasProdiFilter} = false OR p.id = ANY(${userProdiIds}))
         GROUP BY ms."nomorSesi", ms."kehadiran", k."modePembelajaran"
         ORDER BY ms."nomorSesi" ASC;
       `,
@@ -254,7 +259,7 @@ export async function getDashboardData(params?: {
           JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
           JOIN "Prodi" p ON mk."prodiId" = p.id
           WHERE k."semesterId" = ${semId} AND p."isActive" = true
-          ${prodiCondition}
+          AND (${hasProdiFilter} = false OR p.id = ANY(${userProdiIds}))
           GROUP BY ms."kelasId", k."modePembelajaran"
         )
         SELECT 
@@ -279,7 +284,7 @@ export async function getDashboardData(params?: {
           JOIN "MataKuliah" mk ON k."mataKuliahId" = mk.id
           JOIN "Prodi" p ON mk."prodiId" = p.id
           WHERE k."semesterId" = ${semId} AND p."isActive" = true
-          ${prodiCondition}
+          AND (${hasProdiFilter} = false OR p.id = ANY(${userProdiIds}))
           AND ms."kehadiran" = 'TIDAK_HADIR'::"Kehadiran"
           GROUP BY ms."kelasId"
           HAVING COUNT(*) >= 2
