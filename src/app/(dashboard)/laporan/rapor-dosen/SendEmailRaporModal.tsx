@@ -17,11 +17,21 @@ import {
 } from "@/actions/rapor";
 import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
 
+export interface SendEmailRaporItem {
+  dosenId: string;
+  dosenNama: string;
+  email?: string | null;
+  nip?: string | null;
+  nidn?: string | null;
+  prodiNama: string;
+}
+
 interface SendEmailRaporModalProps {
   isOpen: boolean;
   onClose: () => void;
-  item: RaporDosenListItem | null;
+  item: SendEmailRaporItem | RaporDosenListItem | null;
   semesterId: string;
+  initialDetailData?: RaporDosenDetailData | null;
 }
 
 export default function SendEmailRaporModal({
@@ -29,6 +39,7 @@ export default function SendEmailRaporModal({
   onClose,
   item,
   semesterId,
+  initialDetailData,
 }: SendEmailRaporModalProps) {
   const [detailData, setDetailData] = useState<RaporDosenDetailData | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -39,6 +50,11 @@ export default function SendEmailRaporModal({
 
   useEffect(() => {
     if (isOpen && item) {
+      if (initialDetailData) {
+        setDetailData(initialDetailData);
+        setIsLoadingDetail(false);
+        return;
+      }
       setIsLoadingDetail(true);
       getRaporDosenDetail(item.dosenId, semesterId)
         .then((res) => {
@@ -60,7 +76,7 @@ export default function SendEmailRaporModal({
       setIsSending(false);
       setStatusStep("");
     }
-  }, [isOpen, item, semesterId]);
+  }, [isOpen, item, semesterId, initialDetailData]);
 
   if (!isOpen || !item) return null;
 

@@ -2,7 +2,7 @@
 // src/app/(dashboard)/laporan/rapor-dosen/[dosenId]/RaporDosenDetailClient.tsx
 // Tampilan Preview Lembar Rapor format A4 dengan Panel Aksi di Sebelah Kanan Surat
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,23 +11,28 @@ import {
   Printer,
   CheckCircle2,
   Clock,
+  Mail,
 } from "lucide-react";
 import RaporSheetA4 from "@/components/rapor/RaporSheetA4";
 import RaporConfigModal from "../RaporConfigModal";
+import SendEmailRaporModal, { SendEmailRaporItem } from "../SendEmailRaporModal";
 import { RaporDosenDetailData } from "@/actions/rapor";
 import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
 
 interface RaporDosenDetailClientProps {
   data: RaporDosenDetailData;
   semesterId: string;
+  isDosen?: boolean;
 }
 
 export default function RaporDosenDetailClient({
   data,
   semesterId,
+  isDosen = false,
 }: RaporDosenDetailClientProps) {
   const router = useRouter();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   // Format nama file resmi: Rapor Dosen - [NamaDosen] ([TahunAkademik] [Periode]).pdf
   const officialFilename = formatRaporPdfFilename(
@@ -55,6 +60,18 @@ export default function RaporDosenDetailClient({
 
   const isFinal = data.rapor?.statusRapor === "FINAL";
 
+  const itemForModal: SendEmailRaporItem = useMemo(
+    () => ({
+      dosenId: data.dosen.id,
+      dosenNama: data.dosen.nama,
+      nip: data.dosen.nip,
+      nidn: data.dosen.nidn,
+      email: data.dosen.email,
+      prodiNama: data.dosen.prodi?.nama || "",
+    }),
+    [data]
+  );
+
   return (
     <div className="min-h-screen bg-slate-100/70 p-4 sm:p-5 print:p-0 print:bg-white">
       {/* ── CONTAINER FLEX: SURAT A4 DI KIRI & PANEL AKSI DI KANAN ──────────── */}
@@ -79,6 +96,29 @@ export default function RaporDosenDetailClient({
               <span>Cetak / Simpan PDF (A4)</span>
             </button>
 
+            {/* Tombol Kirim Email Rapor (Admin) */}
+            {!isDosen && (
+              <button
+                type="button"
+                id="btn-send-email-rapor"
+                onClick={() => setIsEmailModalOpen(true)}
+                disabled={!data.dosen.email}
+                className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.99] ${
+                  data.dosen.email
+                    ? "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                }`}
+                title={
+                  data.dosen.email
+                    ? `Kirim Email Rapor ke ${data.dosen.email}`
+                    : "Email dosen belum terdaftar"
+                }
+              >
+                <Mail className="w-4 h-4" />
+                <span>Kirim Email Rapor</span>
+              </button>
+            )}
+
             {/* Tombol Kembali ke Daftar Rapor */}
             <Link
               href={`/laporan/rapor-dosen?semesterId=${semesterId}`}
@@ -99,6 +139,15 @@ export default function RaporDosenDetailClient({
                 </p>
                 <p className="text-[10.5px] text-slate-500 font-mono mt-0.5">
                   {data.dosen.nip ? `NIP: ${data.dosen.nip}` : data.dosen.nidn ? `NIDN: ${data.dosen.nidn}` : "NIP: -"}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
+                  Email Dosen
+                </span>
+                <p className="text-xs font-mono text-slate-700 truncate">
+                  {data.dosen.email || <span className="text-rose-500 italic">Belum diisi</span>}
                 </p>
               </div>
 
@@ -223,6 +272,17 @@ export default function RaporDosenDetailClient({
           router.refresh();
         }}
       />
+
+      {/* Modal Kirim Rapor Dosen via Email */}
+      {!isDosen && (
+        <SendEmailRaporModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          item={itemForModal}
+          semesterId={semesterId}
+          initialDetailData={data}
+        />
+      )}
     </div>
   );
 }

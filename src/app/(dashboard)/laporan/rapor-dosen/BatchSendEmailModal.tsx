@@ -18,12 +18,22 @@ import {
 } from "@/actions/rapor";
 import { formatRaporPdfFilename } from "@/lib/rapor-calculator";
 
+export interface BatchSendEmailItem {
+  dosenId: string;
+  dosenNama: string;
+  email?: string | null;
+  prodiNama: string;
+  nip?: string | null;
+  nidn?: string | null;
+}
+
 interface BatchSendEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedItems: RaporDosenListItem[];
+  selectedItems: (BatchSendEmailItem | RaporDosenListItem)[];
   semesterId: string;
   semesterLabel?: string;
+  preloadedItems?: RaporDosenDetailData[];
   onSuccess?: () => void;
 }
 
@@ -44,6 +54,7 @@ export default function BatchSendEmailModal({
   selectedItems,
   semesterId,
   semesterLabel,
+  preloadedItems,
   onSuccess,
 }: BatchSendEmailModalProps) {
   const [isSending, setIsSending] = useState(false);
@@ -156,13 +167,16 @@ export default function BatchSendEmailModal({
       setStatusStep(`Menyiapkan lembar evaluasi: ${current.dosenNama}...`);
 
       try {
-        // 1. Fetch detail data rapor dosen
-        const detailRes = await getRaporDosenDetail(current.dosenId, semesterId);
-        if (!detailRes.success || !detailRes.data) {
-          throw new Error(detailRes.error || "Gagal memuat detail data rapor.");
+        // 1. Dapatkan detail data rapor dosen (dari preloadedItems jika tersedia, atau fetch)
+        let detailData = preloadedItems?.find((p) => p.dosen.id === current.dosenId);
+        if (!detailData) {
+          const detailRes = await getRaporDosenDetail(current.dosenId, semesterId);
+          if (!detailRes.success || !detailRes.data) {
+            throw new Error(detailRes.error || "Gagal memuat detail data rapor.");
+          }
+          detailData = detailRes.data;
         }
 
-        const detailData = detailRes.data;
         setActiveRenderItem(detailData);
 
         // Tunggu reflow browser agar layout stabil

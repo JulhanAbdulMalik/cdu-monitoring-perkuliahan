@@ -25,7 +25,7 @@ import {
   AlertCircle,
   Edit2,
   FileDown,
-  Mail,
+  Eye,
   Upload,
   ChevronDown,
   FlaskConical,
@@ -37,8 +37,6 @@ import ImportSiakadModal from "./ImportSiakadModal";
 import ImportTridharmaModal from "./ImportTridharmaModal";
 import ImportRekapLampauModal from "./ImportRekapLampauModal";
 import EditRaporModal from "./EditRaporModal";
-import SendEmailRaporModal from "./SendEmailRaporModal";
-import BatchSendEmailModal from "./BatchSendEmailModal";
 import {
   RaporDosenListItem,
   RaporDosenSummary,
@@ -162,8 +160,6 @@ export default function RaporDosenClient({
   const [isImportTridharmaModalOpen, setIsImportTridharmaModalOpen] = useState(false);
   const [isImportRekapLampauModalOpen, setIsImportRekapLampauModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RaporDosenListItem | null>(null);
-  const [emailTargetItem, setEmailTargetItem] = useState<RaporDosenListItem | null>(null);
-  const [isBatchEmailModalOpen, setIsBatchEmailModalOpen] = useState(false);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [bulkStatusConfirm, setBulkStatusConfirm] = useState<{
@@ -253,11 +249,6 @@ export default function RaporDosenClient({
   const countFinal = useMemo(() => countBase.filter((i) => i.statusRapor === "FINAL").length, [countBase]);
   const countDraft = useMemo(() => countBase.filter((i) => i.statusRapor === "DRAFT").length, [countBase]);
   const countBelumDibuat = useMemo(() => countBase.filter((i) => i.statusRapor === "BELUM_DIBUAT").length, [countBase]);
-
-  // Daftar Dosen Terpilih untuk Batch Action (Email, Print, dll)
-  const selectedItemsList = useMemo(() => {
-    return items.filter((it) => selectedDosenIds.has(it.dosenId));
-  }, [items, selectedDosenIds]);
 
   // Filter Data
   const filteredItems = useMemo(() => {
@@ -1225,30 +1216,10 @@ export default function RaporDosenClient({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-7 h-7 rounded-md bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border border-slate-200/80 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                            title="Preview & Cetak Lembar Rapor A4"
+                            title="Preview Lembar Rapor A4"
                           >
-                            <Printer size={13} />
+                            <Eye size={13} />
                           </Link>
-
-                          {!isDosen && (
-                            <button
-                              type="button"
-                              disabled={!item.email}
-                              onClick={() => {
-                                if (item.email) {
-                                  setEmailTargetItem(item);
-                                }
-                              }}
-                              className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all ${
-                                item.email
-                                  ? "bg-slate-50 hover:bg-[#fdf2f8] hover:text-[#a80063] hover:border-[#fbcfe8] border-slate-200/80 text-slate-400 hover:text-[#a80063] cursor-pointer active:scale-95 shadow-2xs"
-                                  : "bg-slate-100/70 border-slate-200/60 text-slate-300 cursor-not-allowed opacity-50"
-                              }`}
-                              title={item.email ? `Kirim Email Rapor ke ${item.email}` : "Email belum diisi."}
-                            >
-                              <Mail size={13} />
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -1292,36 +1263,15 @@ export default function RaporDosenClient({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-              title={`Buka Preview & Cetak Lembar Rapor untuk ${selectedDosenIds.size} Dosen Terpilih di Tab Baru`}
+              title={`Buka Preview Lembar Rapor untuk ${selectedDosenIds.size} Dosen Terpilih di Tab Baru`}
             >
-              <Printer size={13} />
-              <span>Preview &amp; Cetak ({selectedDosenIds.size})</span>
+              <Eye size={13} />
+              <span>Preview ({selectedDosenIds.size})</span>
             </Link>
 
             {/* Aksi Administratif Khusus Super Admin & Admin QAU */}
             {!isDosen && (
               <>
-                {/* Tombol Batch Kirim Email (Aktif jika <= 10 Dosen) */}
-                <button
-                  type="button"
-                  id="btn-trigger-batch-email"
-                  disabled={selectedDosenIds.size > 10 || isBatchUpdating}
-                  onClick={() => setIsBatchEmailModalOpen(true)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    selectedDosenIds.size <= 10
-                      ? "bg-[#a80063] hover:bg-[#8b0052] text-white cursor-pointer active:scale-95"
-                      : "bg-slate-800 text-slate-500 cursor-not-allowed opacity-50"
-                  }`}
-                  title={
-                    selectedDosenIds.size <= 10
-                      ? `Kirim Email Rapor ke ${selectedDosenIds.size} Dosen Terpilih`
-                      : "Maksimal 10 dosen per pengiriman email"
-                  }
-                >
-                  <Mail size={13} />
-                  <span>Kirim Email ({selectedDosenIds.size})</span>
-                </button>
-
                 <button
                   type="button"
                   id="btn-trigger-set-final"
@@ -1513,28 +1463,6 @@ export default function RaporDosenClient({
           </div>
         </div>
       )}
-
-      {/* ── Modal Kirim Rapor Dosen via Email (Individual) ──────────────────── */}
-      <SendEmailRaporModal
-        isOpen={Boolean(emailTargetItem)}
-        onClose={() => setEmailTargetItem(null)}
-        item={emailTargetItem}
-        semesterId={selectedSemester}
-      />
-
-      {/* ── Modal Kirim Rapor Dosen via Email (Masal / Checkbox Maks. 10) ──────── */}
-      <BatchSendEmailModal
-        isOpen={isBatchEmailModalOpen}
-        onClose={() => setIsBatchEmailModalOpen(false)}
-        selectedItems={selectedItemsList}
-        semesterId={selectedSemester}
-        semesterLabel={`${currentSemester?.tahunAkademik || "2026/2027"} (${currentSemester?.periode || "Ganjil"})`}
-        onSuccess={() => {
-          setIsBatchEmailModalOpen(false);
-          clearSelection();
-          router.refresh();
-        }}
-      />
 
     </div>
   );

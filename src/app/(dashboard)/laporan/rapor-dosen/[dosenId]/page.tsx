@@ -105,6 +105,7 @@ export default async function RaporDosenDetailPage({
     <RaporDosenDetailClient
       data={res.data}
       semesterId={res.data.semester.id}
+      isDosen={isDosen}
     />
   );
 }

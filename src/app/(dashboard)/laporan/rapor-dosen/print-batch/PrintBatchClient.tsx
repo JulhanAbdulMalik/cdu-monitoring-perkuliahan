@@ -4,7 +4,7 @@
 // Menyelaraskan 100% Standar UI dengan halaman /laporan/rapor-dosen/[id]
 // Dilengkapi Fitur "Download Semua (.ZIP)" - Kualitas Ultra HD 300 DPI Lossless PNG
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -17,8 +17,11 @@ import {
   Clock,
   Archive,
   Loader2,
+  Mail,
 } from "lucide-react";
 import RaporSheetA4 from "@/components/rapor/RaporSheetA4";
+import BatchSendEmailModal from "../BatchSendEmailModal";
+import SendEmailRaporModal, { SendEmailRaporItem } from "../SendEmailRaporModal";
 import { RaporDosenDetailData } from "@/actions/rapor";
 import {
   formatRaporPdfFilename,
@@ -28,14 +31,20 @@ import {
 interface PrintBatchClientProps {
   items: RaporDosenDetailData[];
   semesterId: string;
+  isDosen?: boolean;
 }
 
 export default function PrintBatchClient({
   items,
   semesterId,
+  isDosen = false,
 }: PrintBatchClientProps) {
   // State untuk melacak apakah sedang mencetak satu lembar spesifik atau semua lembar
   const [printingSingleId, setPrintingSingleId] = useState<string | null>(null);
+
+  // State untuk modal kirim email (masal & single)
+  const [isBatchEmailModalOpen, setIsBatchEmailModalOpen] = useState(false);
+  const [singleEmailItem, setSingleEmailItem] = useState<RaporDosenDetailData | null>(null);
 
   // State untuk proses Download Semua (.ZIP) Ultra HD
   const [isZipping, setIsZipping] = useState(false);
@@ -53,6 +62,29 @@ export default function PrintBatchClient({
   const countDraft = items.length - countFinal;
 
   const defaultPageTitle = `Rapor Dosen - Gabungan (${items.length} Dosen - ${cleanTahun} ${cleanPeriode})`.trim();
+
+  const selectedItemsForBatch = useMemo(() => {
+    return items.map((i) => ({
+      dosenId: i.dosen.id,
+      dosenNama: i.dosen.nama,
+      email: i.dosen.email,
+      prodiNama: i.dosen.prodi?.nama || "",
+      nip: i.dosen.nip,
+      nidn: i.dosen.nidn,
+    }));
+  }, [items]);
+
+  const singleItemForModal: SendEmailRaporItem | null = useMemo(() => {
+    if (!singleEmailItem) return null;
+    return {
+      dosenId: singleEmailItem.dosen.id,
+      dosenNama: singleEmailItem.dosen.nama,
+      email: singleEmailItem.dosen.email,
+      nip: singleEmailItem.dosen.nip,
+      nidn: singleEmailItem.dosen.nidn,
+      prodiNama: singleEmailItem.dosen.prodi?.nama || "",
+    };
+  }, [singleEmailItem]);
 
   // Bersihkan state & restore document.title setelah event cetak browser selesai
   useEffect(() => {
@@ -254,6 +286,29 @@ export default function PrintBatchClient({
               <span>Download PDF Terpisah (.ZIP)</span>
             </button>
 
+            {/* Tombol Kirim Email Masal (Admin) */}
+            {!isDosen && (
+              <button
+                id="btn-batch-email"
+                type="button"
+                onClick={() => setIsBatchEmailModalOpen(true)}
+                disabled={isZipping || items.length > 50}
+                className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.99] ${
+                  items.length <= 50 && !isZipping
+                    ? "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                }`}
+                title={
+                  items.length <= 50
+                    ? `Kirim Email Rapor ke ${items.length} Dosen Terpilih`
+                    : "Maksimal 50 dosen per pengiriman email masal"
+                }
+              >
+                <Mail className="w-4 h-4" />
+                <span>Kirim Email Masal ({items.length})</span>
+              </button>
+            )}
+
             {/* Tombol Kembali ke Daftar Rapor */}
             <Link
               href={`/laporan/rapor-dosen?semesterId=${semesterId}`}
@@ -359,6 +414,27 @@ export default function PrintBatchClient({
                       >
                         <Printer size={13} />
                       </button>
+
+                      {!isDosen && (
+                        <button
+                          type="button"
+                          id={`btn-email-single-${item.dosen.id}`}
+                          disabled={!item.dosen.email}
+                          onClick={() => setSingleEmailItem(item)}
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
+                            item.dosen.email
+                              ? "bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 border-slate-200/80 text-slate-500 cursor-pointer"
+                              : "bg-slate-100/70 border-slate-200/60 text-slate-300 cursor-not-allowed opacity-50"
+                          }`}
+                          title={
+                            item.dosen.email
+                              ? `Kirim Email Lembar ${item.dosen.nama}`
+                              : "Email belum diisi"
+                          }
+                        >
+                          <Mail size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -525,6 +601,31 @@ export default function PrintBatchClient({
           }
         }
       `}</style>
+      {/* Modal Kirim Rapor Dosen Masal */}
+      {!isDosen && (
+        <BatchSendEmailModal
+          isOpen={isBatchEmailModalOpen}
+          onClose={() => setIsBatchEmailModalOpen(false)}
+          selectedItems={selectedItemsForBatch}
+          semesterId={semesterId}
+          semesterLabel={`${semesterInfo?.tahunAkademik || "2026/2027"} (${semesterInfo?.periode || "Ganjil"})`}
+          preloadedItems={items}
+          onSuccess={() => {
+            setIsBatchEmailModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Modal Kirim Rapor Dosen Individual */}
+      {!isDosen && (
+        <SendEmailRaporModal
+          isOpen={Boolean(singleEmailItem)}
+          onClose={() => setSingleEmailItem(null)}
+          item={singleItemForModal}
+          semesterId={semesterId}
+          initialDetailData={singleEmailItem}
+        />
+      )}
     </div>
   );
 }

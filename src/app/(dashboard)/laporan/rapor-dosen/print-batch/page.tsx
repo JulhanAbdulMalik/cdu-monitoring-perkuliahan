@@ -88,5 +88,5 @@ export default async function PrintBatchPage({ searchParams }: PrintBatchPagePro
 
   const activeSemesterId = semesterId || validItems[0].semester.id;
 
-  return <PrintBatchClient items={validItems} semesterId={activeSemesterId} />;
+  return <PrintBatchClient items={validItems} semesterId={activeSemesterId} isDosen={isDosen} />;
 }
