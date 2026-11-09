@@ -592,38 +592,51 @@ function buildMonitoringTabWhere(
             },
           },
         },
-        {
-          modePembelajaran: "LURING" as any,
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "HADIR" as any,
-              OR: [
-                { slide: true },
-                { lectureNote: true },
-                { tugas: true },
-                { kuis: true },
-              ],
-            },
-          },
-        },
-        {
-          modePembelajaran: "DARING" as any,
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "HADIR" as any,
-              OR: [
-                { slide: true },
-                { lectureNote: true },
-                { tugas: true },
-                { kuis: true },
-                { video: true },
-                { conference: true },
-              ],
-            },
-          },
-        },
+        ...(isExam
+          ? [
+              {
+                monitoringSesi: {
+                  some: {
+                    nomorSesi: currentSesi,
+                    kehadiran: "HADIR" as any,
+                  },
+                },
+              },
+            ]
+          : [
+              {
+                modePembelajaran: "LURING" as any,
+                monitoringSesi: {
+                  some: {
+                    nomorSesi: currentSesi,
+                    kehadiran: "HADIR" as any,
+                    OR: [
+                      { slide: true },
+                      { lectureNote: true },
+                      { tugas: true },
+                      { kuis: true },
+                    ],
+                  },
+                },
+              },
+              {
+                modePembelajaran: "DARING" as any,
+                monitoringSesi: {
+                  some: {
+                    nomorSesi: currentSesi,
+                    kehadiran: "HADIR" as any,
+                    OR: [
+                      { slide: true },
+                      { lectureNote: true },
+                      { tugas: true },
+                      { kuis: true },
+                      { video: true },
+                      { conference: true },
+                    ],
+                  },
+                },
+              },
+            ]),
       ],
     };
   }
@@ -836,64 +849,33 @@ export async function getMonitoringKelasPaginated(params: MonitoringPaginatedPar
     const isBimbinganOnly = params.filterMode === "BIMBINGAN";
 
     const sort = params.sortBy || "TERBARU";
-    // 1. Hitung seluruh tab counts langsung di database (Single Source of Truth, paralel cepat)
-    const [totalInBase, belumDimonitorCount, perluCekKontenCount] = await Promise.all([
+
+    // 1. Bangun kondisi filter tab untuk query hitungan tab & data
+    const tabWhereBelum = buildMonitoringTabWhere("BELUM", currentSesi);
+    const tabWhereKonten = buildMonitoringTabWhere("KONTEN", currentSesi);
+    const tabWhereSelesai = buildMonitoringTabWhere("SELESAI", currentSesi);
+
+    // Hitung seluruh tab counts langsung di database (Single Source of Truth, paralel cepat)
+    const [totalInBase, belumDimonitorCount, perluCekKontenCount, selesaiDimonitorCount] = await Promise.all([
       prisma.kelas.count({ where: baseWhere }),
       prisma.kelas.count({
         where: {
-          ...baseWhere,
-          monitoringSesi: {
-            some: {
-              nomorSesi: currentSesi,
-              kehadiran: "BELUM_DIISI",
-              AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
-            },
-          },
+          AND: [baseWhere, tabWhereBelum],
         },
       }),
       (isExam || isBimbinganOnly)
         ? Promise.resolve(0)
         : prisma.kelas.count({
             where: {
-              ...baseWhere,
-              modePembelajaran: { not: "BIMBINGAN" },
-              OR: [
-                {
-                  modePembelajaran: "LURING",
-                  monitoringSesi: {
-                    some: {
-                      nomorSesi: currentSesi,
-                      kehadiran: "HADIR",
-                      AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
-                      slide: { not: true },
-                      lectureNote: { not: true },
-                      tugas: { not: true },
-                      kuis: { not: true },
-                    },
-                  },
-                },
-                {
-                  modePembelajaran: "DARING",
-                  monitoringSesi: {
-                    some: {
-                      nomorSesi: currentSesi,
-                      kehadiran: "HADIR",
-                      AND: [{ OR: [{ catatanCdu: null }, { catatanCdu: "" }] }],
-                      slide: { not: true },
-                      lectureNote: { not: true },
-                      tugas: { not: true },
-                      kuis: { not: true },
-                      video: { not: true },
-                      conference: { not: true },
-                    },
-                  },
-                },
-              ],
+              AND: [baseWhere, tabWhereKonten],
             },
           }),
+      prisma.kelas.count({
+        where: {
+          AND: [baseWhere, tabWhereSelesai],
+        },
+      }),
     ]);
-
-    const selesaiDimonitorCount = Math.max(0, totalInBase - belumDimonitorCount - perluCekKontenCount);
 
     // 2. Bangun targetWhere di database untuk tab dan status
     const tabWhere = buildMonitoringTabWhere(params.monitoringTab, currentSesi);
