@@ -479,8 +479,10 @@ export default function RaporDosenClient({
 
   return (
     <div className="space-y-4">
-      {/* ── Top Header Bar (Format Standar /monitoring) ────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      {/* ── Sticky Top Header & Filter Toolbar Section ─────────────────────── */}
+      <div className="sticky top-14 z-20 bg-[#f8fafc] -mt-3 sm:-mt-4 md:-mt-5 pt-3 sm:pt-4 md:pt-5 pb-2.5 space-y-3 print:static print:p-0 print:m-0">
+        {/* ── Top Header Bar (Format Standar /monitoring) ────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
           <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-none flex flex-wrap items-center gap-2">
             <Award size={18} className="text-[#a80063]" />
@@ -857,6 +859,7 @@ export default function RaporDosenClient({
           </div>
         </div>
       </div>
+    </div>
 
       {/* ── Table Card (Duralux-Card Format Standar /monitoring) ─────────────── */}
       <div className="duralux-card p-0 bg-white overflow-hidden shadow-xs print:shadow-none print:border-none relative">
