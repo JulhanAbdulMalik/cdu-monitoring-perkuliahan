@@ -6,7 +6,8 @@
 // Aturan aman (sama dengan mode "merge" Edlink):
 //   - Komponen konten hanya dinaikkan false/null → true; centang staf CDU tidak pernah dihapus.
 //   - Sesi 8 (UTS) dan 16 (UAS) CDU tidak diberi konten; sesi ujian di sumber juga dilewati.
-//   - Tanggal & jam sesi mengikuti nusaputra.app (sumber jadwal resmi). Perubahan tanggal
+//   - Tanggal sesi mengikuti nusaputra.app (sumber jadwal resmi). Jam per sesi TIDAK disimpan
+//     (field jamMulai/jamSelesai dari sumber diabaikan; jam kelas tetap dari jadwalJam). Perubahan tanggal
 //     dilaporkan di `perubahan` (field "tanggal") dan juga di `selisihJadwal` (nilai lama → baru).
 //   - Dosen per sesi mengikuti nusaputra.app: dosen utama kelas → UTAMA, dosen kedua → TANDEM,
 //     dosen lain → PENGGANTI_INSIDENTAL. Status PERGANTIAN_TETAP yang diisi staf dipertahankan
@@ -19,8 +20,7 @@
 // Body:
 // {
 //   "externalId": "uuid",
-//   "sesi": [{ "nomor": 1, "tanggal": "2026-09-21", "jamMulai": "08:00", "jamSelesai": "09:40",
-//              "ujian": false,
+//   "sesi": [{ "nomor": 1, "tanggal": "2026-09-21", "ujian": false,
 //              "dosen": { "nama": "Ns. Siti", "nidn": "0412345678" },   // null bila belum ada
 //              "konten": { "lectureNote": true, "slide": false, "video": false,
 //                          "conference": false, "tugas": true, "kuis": false },
@@ -41,8 +41,6 @@ export const dynamic = "force-dynamic";
 type SesiInput = {
   nomor?: unknown;
   tanggal?: unknown;
-  jamMulai?: unknown;
-  jamSelesai?: unknown;
   dosen?: { nama?: unknown; nidn?: unknown } | null;
   ujian?: unknown;
   konten?: Record<string, unknown>;
@@ -50,18 +48,11 @@ type SesiInput = {
 };
 
 const TANGGAL_RE = /^\d{4}-\d{2}-\d{2}$/;
-const JAM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function tanggalValid(v: unknown): string | null {
   if (typeof v !== "string" || !TANGGAL_RE.test(v)) return null;
   const d = new Date(`${v}T00:00:00.000Z`);
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? null : v;
-}
-
-function jamValid(v: unknown): string | null {
-  if (typeof v !== "string") return null;
-  const t = v.trim().slice(0, 5);
-  return JAM_RE.test(t) ? t : null;
 }
 
 function teks(v: unknown, maks: number): string | null {
@@ -168,7 +159,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Tanggal & jam perkuliahan ────────────────────────────────────────
+    // ── Tanggal perkuliahan ────────────────────────────────────────
     const tgl = tanggalValid(s?.tanggal);
     if (tgl) {
       const tglCdu = sesi.tanggal ? sesi.tanggal.toISOString().slice(0, 10) : null;
@@ -176,12 +167,6 @@ export async function POST(req: NextRequest) {
         data.tanggal = new Date(`${tgl}T00:00:00.000Z`);
         if (tglCdu) selisihJadwal.push({ nomorSesi: nomor, cdu: tglCdu, sumber: tgl });
       }
-    }
-    const jamMulai = jamValid(s?.jamMulai);
-    const jamSelesai = jamValid(s?.jamSelesai);
-    if (jamMulai && jamSelesai) {
-      if (sesi.jamMulai !== jamMulai) data.jamMulai = jamMulai;
-      if (sesi.jamSelesai !== jamSelesai) data.jamSelesai = jamSelesai;
     }
 
     // ── Dosen pengajar sesi ──────────────────────────────────────────────

@@ -109,8 +109,6 @@ export async function getStatusCekEdlink(requestId: string) {
                 id: true,
                 nomorSesi: true,
                 tanggal: true,
-                jamMulai: true,
-                jamSelesai: true,
                 kehadiran: true,
                 lectureNote: true,
                 slide: true,

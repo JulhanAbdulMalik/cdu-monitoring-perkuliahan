@@ -1473,8 +1473,6 @@ export async function getMonitoringKelasDetail(kelasId: string) {
             nomorSesi: true,
             jenisSesi: true,
             tanggal: true,
-            jamMulai: true,
-            jamSelesai: true,
             sumberData: true,
             dosenPengajarId: true,
             kehadiran: true,

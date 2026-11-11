@@ -3,7 +3,7 @@
 // Tombol "Cek dari Edlink" / "Cek nusaputra.app": minta worker menarik data sesi kelas ini dari
 // sumber LMS-nya (Edlink atau LMS nusaputra.app),
 // tunggu hasilnya, lalu kirim data sesi terbaru ke parent untuk memperbarui grid.
-// nusaputra.app: konten + tanggal/jam + dosen per sesi; Edlink: konten saja.
+// nusaputra.app: konten + tanggal + dosen per sesi; Edlink: konten saja.
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,8 +14,6 @@ export interface SesiEdlinkTerbaru {
   id: string;
   nomorSesi: number;
   tanggal: Date | string | null;
-  jamMulai?: string | null;
-  jamSelesai?: string | null;
   kehadiran: string;
   lectureNote: boolean | null;
   slide: boolean | null;
@@ -51,8 +49,6 @@ const LABEL_KONTEN: Record<string, string> = {
   tugas: "Tugas",
   kuis: "Kuis",
   tanggal: "Tanggal",
-  jamMulai: "Jam",
-  jamSelesai: "Jam",
   statusPengajar: "Dosen",
   dosenPengajarId: "Dosen",
   dosenPengajar: "Dosen",
@@ -79,7 +75,7 @@ function ringkasHasil(hasil: HasilCekEdlink | null, namaSumber: string): string 
     // Konten hanya dilaporkan bila naik ke true; tanggal/jam/dosen setiap kali berubah.
     // Kehadiran tidak pernah disinkronkan.
     if (!(p.field in LABEL_KONTEN)) continue;
-    const isKonten = !["tanggal", "jamMulai", "jamSelesai", "statusPengajar", "dosenPengajarId", "dosenPengajar"].includes(p.field);
+    const isKonten = !["tanggal", "statusPengajar", "dosenPengajarId", "dosenPengajar"].includes(p.field);
     if (isKonten && p.ke !== true) continue;
     const arr = perSesi.get(p.nomorSesi) ?? [];
     if (!arr.includes(LABEL_KONTEN[p.field])) arr.push(LABEL_KONTEN[p.field]);

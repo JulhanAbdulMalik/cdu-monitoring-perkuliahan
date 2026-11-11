@@ -77,8 +77,6 @@ interface MonitoringSesiData {
   nomorSesi: number;
   jenisSesi: "REGULER" | "UTS" | "UAS";
   tanggal?: string | Date | null;
-  jamMulai?: string | null;
-  jamSelesai?: string | null;
   sumberData?: string;
   kehadiran: "HADIR" | "TIDAK_HADIR" | "HADIR_TIDAK_LENGKAP" | "BELUM_DIISI" | "ALPHA" | "HADIR_TDK_LENGKAP";
   lectureNote: boolean | null;
@@ -332,7 +330,7 @@ export default function MonitoringGridClient({
 
   // Handler setelah tombol "Cek Edlink" / "Cek nusaputra.app" selesai: data sudah tersimpan
   // di server oleh worker, jadi grid cukup menyelaraskan nilai terbaru (tanpa menandai ada
-  // perubahan). Konten selalu; tanggal, jam & dosen pengajar sesi (diisi oleh Cek
+  // perubahan). Konten selalu; tanggal & dosen pengajar sesi (diisi oleh Cek
   // nusaputra.app) juga ikut diselaraskan. Kehadiran tetap milik operator.
   function handleCekEdlinkSelesai(sesiTerbaru: SesiEdlinkTerbaru[]) {
     setSesiList((prev) =>
@@ -342,7 +340,6 @@ export default function MonitoringGridClient({
         const updated: MonitoringSesiData = {
           ...s,
           tanggal: t.tanggal,
-          ...(t.jamMulai !== undefined ? { jamMulai: t.jamMulai, jamSelesai: t.jamSelesai ?? null } : {}),
           ...(t.statusPengajar !== undefined
             ? {
                 dosenPengajarId: t.dosenPengajarId ?? null,
