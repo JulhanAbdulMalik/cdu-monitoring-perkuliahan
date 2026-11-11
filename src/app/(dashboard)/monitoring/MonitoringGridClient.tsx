@@ -1863,14 +1863,6 @@ export default function MonitoringGridClient({
                                     : `Sesuai jadwal: ${currentKelas?.jadwalHari || "Senin"}, ${formatDateShort(defaultEstimatedDate)}`
                                 }
                               />
-                              {sesi.jamMulai && sesi.jamSelesai && (
-                                <span
-                                  className="text-[10px] font-medium text-sky-700 px-0.5"
-                                  title="Jam perkuliahan sesi ini dari nusaputra.app"
-                                >
-                                  {sesi.jamMulai} - {sesi.jamSelesai}
-                                </span>
-                              )}
                               {isRescheduled && (
                                 <div className="flex items-center justify-between text-[9px] font-bold text-amber-700 px-0.5">
                                   <span className="flex items-center gap-1">
