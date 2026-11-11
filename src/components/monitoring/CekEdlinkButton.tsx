@@ -3,6 +3,7 @@
 // Tombol "Cek dari Edlink" / "Cek nusaputra.app": minta worker menarik data sesi kelas ini dari
 // sumber LMS-nya (Edlink atau LMS nusaputra.app),
 // tunggu hasilnya, lalu kirim data sesi terbaru ke parent untuk memperbarui grid.
+// nusaputra.app: konten + tanggal/jam + dosen per sesi; Edlink: konten saja.
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -13,6 +14,8 @@ export interface SesiEdlinkTerbaru {
   id: string;
   nomorSesi: number;
   tanggal: Date | string | null;
+  jamMulai?: string | null;
+  jamSelesai?: string | null;
   kehadiran: string;
   lectureNote: boolean | null;
   slide: boolean | null;
@@ -20,6 +23,9 @@ export interface SesiEdlinkTerbaru {
   conference: boolean | null;
   tugas: boolean | null;
   kuis: boolean | null;
+  dosenPengajarId?: string | null;
+  statusPengajar?: "UTAMA" | "TANDEM" | "PENGGANTI_INSIDENTAL" | "PERGANTIAN_TETAP";
+  dosenPengajar?: { id: string; nama: string; nidn: string | null } | null;
 }
 
 interface CekEdlinkButtonProps {
@@ -44,6 +50,12 @@ const LABEL_KONTEN: Record<string, string> = {
   conference: "Conference",
   tugas: "Tugas",
   kuis: "Kuis",
+  tanggal: "Tanggal",
+  jamMulai: "Jam",
+  jamSelesai: "Jam",
+  statusPengajar: "Dosen",
+  dosenPengajarId: "Dosen",
+  dosenPengajar: "Dosen",
 };
 
 function formatWaktu(v?: Date | string | null) {
@@ -64,10 +76,13 @@ function ringkasHasil(hasil: HasilCekEdlink | null, namaSumber: string): string 
   if (n === 0) return `Data sudah sesuai ${namaSumber}, tidak ada perubahan.`;
   const perSesi = new Map<number, string[]>();
   for (const p of hasil?.perubahan ?? []) {
-    // Hanya konten yang dilaporkan (tanggal/kehadiran/dosen tidak disinkronkan)
-    if (p.ke !== true || !(p.field in LABEL_KONTEN)) continue;
+    // Konten hanya dilaporkan bila naik ke true; tanggal/jam/dosen setiap kali berubah.
+    // Kehadiran tidak pernah disinkronkan.
+    if (!(p.field in LABEL_KONTEN)) continue;
+    const isKonten = !["tanggal", "jamMulai", "jamSelesai", "statusPengajar", "dosenPengajarId", "dosenPengajar"].includes(p.field);
+    if (isKonten && p.ke !== true) continue;
     const arr = perSesi.get(p.nomorSesi) ?? [];
-    arr.push(LABEL_KONTEN[p.field]);
+    if (!arr.includes(LABEL_KONTEN[p.field])) arr.push(LABEL_KONTEN[p.field]);
     perSesi.set(p.nomorSesi, arr);
   }
   const detail = [...perSesi.entries()]
@@ -75,7 +90,8 @@ function ringkasHasil(hasil: HasilCekEdlink | null, namaSumber: string): string 
     .slice(0, 6)
     .map(([no, f]) => `S${no}: ${f.join(", ")}`)
     .join(" • ");
-  return `${n} sesi diperbarui${detail ? ` - ${detail}` : ""}`;
+  const baru = hasil?.dosenBaru?.length ?? 0;
+  return `${n} sesi diperbarui${detail ? ` - ${detail}` : ""}${baru ? ` • ${baru} dosen baru ditambahkan` : ""}`;
 }
 
 export default function CekEdlinkButton({

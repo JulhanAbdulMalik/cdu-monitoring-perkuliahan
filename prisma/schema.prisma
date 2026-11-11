@@ -191,6 +191,9 @@ model MonitoringSesi {
   nomorSesi Int // 1–16
   jenisSesi JenisSesi // REGULER, UTS (sesi 8), UAS (sesi 16)
   tanggal   DateTime?
+  // Jam perkuliahan sesi "HH:mm" (diisi dari nusaputra.app; null = ikuti jadwalJam kelas)
+  jamMulai   String?
+  jamSelesai String?
 
   // ── Kehadiran Dosen ──────────────────────────────────────────────────────
   // Berlaku untuk SEMUA sesi (Reguler, UTS, UAS)

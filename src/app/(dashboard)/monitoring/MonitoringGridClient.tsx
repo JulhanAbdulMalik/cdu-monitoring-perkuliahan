@@ -77,6 +77,9 @@ interface MonitoringSesiData {
   nomorSesi: number;
   jenisSesi: "REGULER" | "UTS" | "UAS";
   tanggal?: string | Date | null;
+  jamMulai?: string | null;
+  jamSelesai?: string | null;
+  sumberData?: string;
   kehadiran: "HADIR" | "TIDAK_HADIR" | "HADIR_TIDAK_LENGKAP" | "BELUM_DIISI" | "ALPHA" | "HADIR_TDK_LENGKAP";
   lectureNote: boolean | null;
   slide: boolean | null;
@@ -327,16 +330,26 @@ export default function MonitoringGridClient({
     setHasUnsavedChanges(true);
   }
 
-  // Handler setelah tombol "Cek Edlink" selesai: konten sudah tersimpan di server oleh
-  // worker, jadi grid cukup menyelaraskan 6 kolom konten (tanpa menandai ada perubahan).
+  // Handler setelah tombol "Cek Edlink" / "Cek nusaputra.app" selesai: data sudah tersimpan
+  // di server oleh worker, jadi grid cukup menyelaraskan nilai terbaru (tanpa menandai ada
+  // perubahan). Konten selalu; tanggal, jam & dosen pengajar sesi (diisi oleh Cek
+  // nusaputra.app) juga ikut diselaraskan. Kehadiran tetap milik operator.
   function handleCekEdlinkSelesai(sesiTerbaru: SesiEdlinkTerbaru[]) {
     setSesiList((prev) =>
       prev.map((s) => {
         const t = sesiTerbaru.find((x) => x.id === s.id);
         if (!t) return s;
-        const updated = {
+        const updated: MonitoringSesiData = {
           ...s,
-          // Cek Sinkron HANYA KONTEN: tanggal, kehadiran & pengajar sesi di layar tidak diubah
+          tanggal: t.tanggal,
+          ...(t.jamMulai !== undefined ? { jamMulai: t.jamMulai, jamSelesai: t.jamSelesai ?? null } : {}),
+          ...(t.statusPengajar !== undefined
+            ? {
+                dosenPengajarId: t.dosenPengajarId ?? null,
+                dosenPengajar: t.dosenPengajar ?? null,
+                statusPengajar: t.statusPengajar,
+              }
+            : {}),
           lectureNote: t.lectureNote,
           slide: t.slide,
           video: t.video,
@@ -1850,6 +1863,14 @@ export default function MonitoringGridClient({
                                     : `Sesuai jadwal: ${currentKelas?.jadwalHari || "Senin"}, ${formatDateShort(defaultEstimatedDate)}`
                                 }
                               />
+                              {sesi.jamMulai && sesi.jamSelesai && (
+                                <span
+                                  className="text-[10px] font-medium text-sky-700 px-0.5"
+                                  title="Jam perkuliahan sesi ini dari nusaputra.app"
+                                >
+                                  {sesi.jamMulai} - {sesi.jamSelesai}
+                                </span>
+                              )}
                               {isRescheduled && (
                                 <div className="flex items-center justify-between text-[9px] font-bold text-amber-700 px-0.5">
                                   <span className="flex items-center gap-1">

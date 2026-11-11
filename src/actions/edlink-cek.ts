@@ -23,6 +23,7 @@ export interface HasilCekEdlink {
   sesiDiperbarui?: number;
   perubahan?: Array<{ nomorSesi: number; field: string; dari: unknown; ke: unknown }>;
   selisihJadwal?: Array<{ nomorSesi: number; cdu: string; edlink: string }>;
+  dosenBaru?: Array<{ nama: string; nidn: string | null }>;
 }
 
 async function cekAkses() {
@@ -108,6 +109,8 @@ export async function getStatusCekEdlink(requestId: string) {
                 id: true,
                 nomorSesi: true,
                 tanggal: true,
+                jamMulai: true,
+                jamSelesai: true,
                 kehadiran: true,
                 lectureNote: true,
                 slide: true,
@@ -115,6 +118,9 @@ export async function getStatusCekEdlink(requestId: string) {
                 conference: true,
                 tugas: true,
                 kuis: true,
+                dosenPengajarId: true,
+                statusPengajar: true,
+                dosenPengajar: { select: { id: true, nama: true, nidn: true } },
               },
               orderBy: { nomorSesi: "asc" },
             },

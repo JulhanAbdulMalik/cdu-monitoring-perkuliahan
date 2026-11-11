@@ -1471,6 +1471,12 @@ export async function getMonitoringKelasDetail(kelasId: string) {
           select: {
             id: true,
             nomorSesi: true,
+            jenisSesi: true,
+            tanggal: true,
+            jamMulai: true,
+            jamSelesai: true,
+            sumberData: true,
+            dosenPengajarId: true,
             kehadiran: true,
             conference: true,
             slide: true,
@@ -1483,7 +1489,7 @@ export async function getMonitoringKelasDetail(kelasId: string) {
             statusPengajar: true,
             updatedAt: true,
             dosenPengajar: {
-              select: { id: true, nama: true },
+              select: { id: true, nama: true, nidn: true },
             },
           },
           orderBy: { nomorSesi: "asc" },
