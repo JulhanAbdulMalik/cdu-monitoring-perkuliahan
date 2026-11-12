@@ -196,7 +196,7 @@ Jika dosen utama berhalangan mengajar, sistem mencatat status pengajar per sesi:
 ## 📁 Struktur Direktori
 
 ```text
-monitoring-perkuliahan/
+cdu-portal/
 ├── prisma/
 │   ├── schema.prisma           # Skema database relasional (User, Sesi, Kelas, Dosen, dsb)
 │   └── seed.ts                 # Script seeding data awal (Akun Admin, Prodi, Semester, Kelas)
@@ -270,8 +270,8 @@ Pastikan perangkat Anda telah terpasang:
 1. **Clone repositori proyek:**
 
    ```bash
-   git clone https://github.com/username/cdu-monitoring-perkuliahan.git
-   cd cdu-monitoring-perkuliahan
+   git clone https://github.com/JulhanAbdulMalik/cdu-portal.git
+   cd cdu-portal
    ```
 
 2. **Install dependensi:**

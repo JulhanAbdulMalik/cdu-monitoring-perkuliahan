@@ -164,7 +164,7 @@ function LoginForm() {
                 Selamat Datang
               </h1>
               <p className="text-[11.5px] text-slate-500 font-normal mt-1 leading-relaxed">
-                Masuk untuk mengakses sistem monitoring perkuliahan.
+                Masuk untuk mengakses CDU Portal - Nusa Putra University.
               </p>
             </div>
 
